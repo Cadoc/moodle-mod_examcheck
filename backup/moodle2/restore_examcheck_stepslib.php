@@ -103,7 +103,7 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
         global $DB;
 
         // Re-map the configured completion step id to its restored counterpart.
-        $examcheckid = $this->get_new_parentid('examcheck');
+        $examcheckid = $this->get_task()->get_activityid();
         if ($examcheckid) {
             $examcheck = $DB->get_record('examcheck', ['id' => $examcheckid], 'id, completionstep');
             if ($examcheck && !empty($examcheck->completionstep)) {
