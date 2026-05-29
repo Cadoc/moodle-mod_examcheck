@@ -50,7 +50,6 @@ $PAGE->set_url('/mod/examcheck/scan.php', ['id' => $cm->id, 'group' => $groupid]
 $PAGE->set_title(get_string('scannerfor', 'mod_examcheck', format_string($examcheck->name)));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
-$PAGE->set_secondary_active_tab('modulepage');
 
 // Build the step options.
 $stepoptions = [];
