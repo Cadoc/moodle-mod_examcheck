@@ -46,6 +46,8 @@ function examcheck_supports($feature) {
             return MOD_PURPOSE_ADMINISTRATION;
         case FEATURE_COMPLETION_TRACKS_VIEWS:
             return true;
+        case FEATURE_COMPLETION_HAS_RULES:
+            return true;
         case FEATURE_GRADE_HAS_GRADE:
             return false;
         case FEATURE_NO_VIEW_LINK:
@@ -67,6 +69,7 @@ function examcheck_add_instance($data, $mform = null) {
 
     $data->timecreated = time();
     $data->timemodified = $data->timecreated;
+    examcheck_prepare_completion_fields($data);
     $data->id = $DB->insert_record('examcheck', $data);
 
     // Every new instance starts with a single "Attendance" step. Teachers add more later.
@@ -87,8 +90,34 @@ function examcheck_update_instance($data, $mform = null) {
 
     $data->id = $data->instance;
     $data->timemodified = time();
+    examcheck_prepare_completion_fields($data);
 
     return $DB->update_record('examcheck', $data);
+}
+
+/**
+ * Normalise the completion form fields into the values stored on the instance.
+ *
+ * The "completionsteps" multi-select arrives as an array of step ids; an empty
+ * selection means "all steps count towards completion".
+ *
+ * @param stdClass $data Form data, modified in place.
+ */
+function examcheck_prepare_completion_fields($data) {
+    $enabled = !empty($data->completionchecked);
+    $data->completionchecked = $enabled ? 1 : 0;
+
+    if (!$enabled) {
+        $data->completionsteps = '';
+        return;
+    }
+
+    $steps = $data->completionsteps ?? [];
+    if (!is_array($steps)) {
+        $steps = array_filter(array_map('trim', explode(',', (string) $steps)), 'strlen');
+    }
+    $steps = array_values(array_unique(array_map('intval', $steps)));
+    $data->completionsteps = implode(',', $steps);
 }
 
 /**
@@ -120,7 +149,7 @@ function examcheck_delete_instance($id) {
 function examcheck_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $fields = 'id, name, intro, introformat';
+    $fields = 'id, name, intro, introformat, completionchecked, completionsteps';
     if (!$examcheck = $DB->get_record('examcheck', ['id' => $coursemodule->instance], $fields)) {
         return null;
     }
@@ -132,5 +161,32 @@ function examcheck_get_coursemodule_info($coursemodule) {
         $info->content = format_module_intro('examcheck', $examcheck, $coursemodule->id, false);
     }
 
+    // Populate the custom completion rules, but only for automatic completion.
+    if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
+        $info->customdata['customcompletionrules']['completionchecked'] = $examcheck->completionchecked;
+        $info->customdata['completionsteps'] = $examcheck->completionsteps;
+    }
+
     return $info;
+}
+
+/**
+ * Human-readable descriptions of the active custom completion rules.
+ *
+ * @param cm_info|stdClass $cm Course module with completion customdata.
+ * @return string[] Rule descriptions.
+ */
+function mod_examcheck_get_completion_active_rule_descriptions($cm) {
+    if (empty($cm->customdata['customcompletionrules'])
+            || $cm->completion != COMPLETION_TRACKING_AUTOMATIC) {
+        return [];
+    }
+
+    $descriptions = [];
+    foreach ($cm->customdata['customcompletionrules'] as $key => $val) {
+        if ($key === 'completionchecked' && !empty($val)) {
+            $descriptions[] = get_string('completionchecked_desc', 'mod_examcheck');
+        }
+    }
+    return $descriptions;
 }
