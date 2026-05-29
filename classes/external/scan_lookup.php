@@ -93,6 +93,7 @@ class scan_lookup extends external_api {
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
         require_capability('mod/examcheck:check', $checker->get_context());
+        $checker->require_group_access($params['groupid']);
 
         // Fall back to the instance default field if an unknown key is supplied.
         $fieldkey = scanfield::is_valid($params['scanfield'])

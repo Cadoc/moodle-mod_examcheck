@@ -59,6 +59,7 @@ class get_marks extends external_api {
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
         require_capability('mod/examcheck:view', $checker->get_context());
+        $checker->require_group_access($params['groupid']);
 
         $rostermap = array_fill_keys($checker->get_roster_ids($params['groupid']), true);
 

@@ -82,6 +82,82 @@ class checker {
     }
 
     /**
+     * Ensure the current user is allowed to act on the requested group.
+     *
+     * Under separate groups, a user without moodle/site:accessallgroups may
+     * only work with the groups they belong to. This guards the group id that
+     * arrives from the request on the scanner, export and web services, so it
+     * cannot be used to reach students in other groups.
+     *
+     * @param int $groupid The requested group id (0 = all participants).
+     * @throws \required_capability_exception When the group is not permitted.
+     */
+    public function require_group_access(int $groupid): void {
+        $cm = get_coursemodule_from_instance(
+            'examcheck',
+            $this->examcheck->id,
+            $this->examcheck->course,
+            false,
+            MUST_EXIST
+        );
+
+        if (
+            groups_get_activity_groupmode($cm) != SEPARATEGROUPS
+                || has_capability('moodle/site:accessallgroups', $this->context)
+        ) {
+            // No groups, visible groups, or privileged: any selection is allowed.
+            return;
+        }
+
+        $allowed = groups_get_activity_allowed_groups($cm);
+        if ($groupid == 0 || !isset($allowed[$groupid])) {
+            throw new \required_capability_exception(
+                $this->context,
+                'moodle/site:accessallgroups',
+                'nopermissions',
+                ''
+            );
+        }
+    }
+
+    /**
+     * Ensure the current user may act on a specific student.
+     *
+     * Used where no group id is supplied (e.g. removing a mark): under separate
+     * groups, the student must share at least one group with the current user.
+     *
+     * @param int $userid The student user id.
+     * @throws \required_capability_exception When the student is out of reach.
+     */
+    public function require_user_access(int $userid): void {
+        $cm = get_coursemodule_from_instance(
+            'examcheck',
+            $this->examcheck->id,
+            $this->examcheck->course,
+            false,
+            MUST_EXIST
+        );
+
+        if (
+            groups_get_activity_groupmode($cm) != SEPARATEGROUPS
+                || has_capability('moodle/site:accessallgroups', $this->context)
+        ) {
+            return;
+        }
+
+        $allowed = array_keys(groups_get_activity_allowed_groups($cm));
+        $usergroups = array_keys(groups_get_all_groups($this->examcheck->course, $userid, $cm->groupingid));
+        if (!array_intersect($allowed, $usergroups)) {
+            throw new \required_capability_exception(
+                $this->context,
+                'moodle/site:accessallgroups',
+                'nopermissions',
+                ''
+            );
+        }
+    }
+
+    /**
      * Return the students to be checked, optionally restricted to a group.
      *
      * The roster is every actively enrolled user who cannot themselves check
