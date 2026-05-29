@@ -69,6 +69,10 @@ $string['checkedbyon'] = 'Checked by {$a->user}, {$a->time} ({$a->ago})';
 $string['markaction'] = 'Mark "{$a}"';
 $string['unmarkaction'] = 'Undo "{$a}"';
 $string['progresscount'] = '{$a->done} of {$a->total} checked';
+$string['searchstudents'] = 'Search by name or ID number';
+$string['showonlyunchecked'] = 'Show only not-yet-checked';
+$string['nomatchingstudents'] = 'No students match your search.';
+$string['visiblecount'] = '{$a->visible} of {$a->total} shown';
 $string['opascanner'] = 'Open scanner';
 $string['managestepslink'] = 'Manage steps';
 $string['backtodashboard'] = 'Back to dashboard';
@@ -88,6 +92,15 @@ $string['stepadded'] = 'Step added.';
 $string['stepupdated'] = 'Step updated.';
 $string['stepdeleted'] = 'Step deleted.';
 $string['defaultstepname'] = 'Attendance';
+$string['marksrecorded'] = 'Checks recorded';
+$string['clearchecks'] = 'Clear checks';
+$string['resetallchecks'] = 'Clear all checks';
+$string['checkscleared'] = 'Checks cleared.';
+$string['confirmclearstep'] = 'Remove all recorded checks for the step "{$a}"? The step itself is kept.';
+$string['confirmresetall'] = 'Remove every recorded check for all steps in this activity? The steps themselves are kept.';
+$string['nostepsyet'] = 'No steps yet.';
+$string['addeditstep'] = 'Add or edit a step';
+$string['resetmarks'] = 'Delete all recorded checks';
 
 // Scanner page.
 $string['scanner'] = 'Scanner';

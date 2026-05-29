@@ -1,0 +1,80 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/manage
+
+    Step management table.
+
+    Context variables required for this template:
+    * steps - array of {name, marks, isfirst, islast, editurl, upurl, downurl, clearurl, deleteurl, candelete}
+    * dashboardurl - link back to the dashboard
+    * resetallurl - URL to clear every check
+    * hasmarks - whether any checks exist
+
+    Example context (json):
+    {
+        "steps": [{"name": "Attendance", "marks": 3, "isfirst": true, "islast": false,
+                   "editurl": "#", "upurl": "#", "downurl": "#", "clearurl": "#", "deleteurl": "#", "candelete": true}],
+        "dashboardurl": "#", "resetallurl": "#", "hasmarks": true
+    }
+}}
+<div class="mod_examcheck-manage">
+    <div class="mb-3">
+        <a href="{{dashboardurl}}"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
+    </div>
+
+    {{^steps}}
+        <div class="alert alert-info">{{#str}}nostepsyet, mod_examcheck{{/str}}</div>
+    {{/steps}}
+
+    {{#steps.0}}
+    <div class="table-responsive">
+        <table class="table examcheck-steps align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">{{#str}}stepname, mod_examcheck{{/str}}</th>
+                    <th scope="col" class="text-center">{{#str}}marksrecorded, mod_examcheck{{/str}}</th>
+                    <th scope="col" class="text-end">{{#str}}actions{{/str}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#steps}}
+                <tr>
+                    <th scope="row" class="fw-normal">{{name}}</th>
+                    <td class="text-center"><span class="badge bg-secondary">{{marks}}</span></td>
+                    <td class="text-end text-nowrap">
+                        {{^isfirst}}<a class="btn btn-sm btn-outline-secondary" href="{{upurl}}" title="{{#str}}moveup, mod_examcheck{{/str}}"><i class="fa fa-arrow-up" aria-hidden="true"></i></a>{{/isfirst}}
+                        {{^islast}}<a class="btn btn-sm btn-outline-secondary" href="{{downurl}}" title="{{#str}}movedown, mod_examcheck{{/str}}"><i class="fa fa-arrow-down" aria-hidden="true"></i></a>{{/islast}}
+                        <a class="btn btn-sm btn-outline-secondary" href="{{editurl}}" title="{{#str}}editstep, mod_examcheck{{/str}}"><i class="fa fa-pencil" aria-hidden="true"></i></a>
+                        <a class="btn btn-sm btn-outline-warning" href="{{clearurl}}" title="{{#str}}clearchecks, mod_examcheck{{/str}}"><i class="fa fa-eraser" aria-hidden="true"></i></a>
+                        {{#candelete}}<a class="btn btn-sm btn-outline-danger" href="{{deleteurl}}" title="{{#str}}deletestep, mod_examcheck{{/str}}"><i class="fa fa-trash" aria-hidden="true"></i></a>{{/candelete}}
+                    </td>
+                </tr>
+                {{/steps}}
+            </tbody>
+        </table>
+    </div>
+
+    {{#hasmarks}}
+        <a class="btn btn-outline-danger mb-3" href="{{resetallurl}}">
+            <i class="fa fa-eraser me-1" aria-hidden="true"></i>{{#str}}resetallchecks, mod_examcheck{{/str}}
+        </a>
+    {{/hasmarks}}
+    {{/steps.0}}
+
+    <h3 class="h5 mt-3">{{#str}}addeditstep, mod_examcheck{{/str}}</h3>
+</div>

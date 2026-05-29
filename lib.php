@@ -130,6 +130,51 @@ function examcheck_delete_instance($id) {
 }
 
 /**
+ * Add the reset option to the course reset form.
+ *
+ * @param MoodleQuickForm $mform The course reset form.
+ */
+function examcheck_reset_course_form_definition($mform) {
+    $mform->addElement('header', 'examcheckheader', get_string('modulenameplural', 'mod_examcheck'));
+    $mform->addElement('checkbox', 'reset_examcheck_marks', get_string('resetmarks', 'mod_examcheck'));
+}
+
+/**
+ * Default values for the course reset form.
+ *
+ * @param stdClass $course The course.
+ * @return array Default settings.
+ */
+function examcheck_reset_course_form_defaults($course) {
+    return ['reset_examcheck_marks' => 1];
+}
+
+/**
+ * Remove recorded checks as part of a course reset.
+ *
+ * @param stdClass $data The course reset data.
+ * @return array Status entries for the reset report.
+ */
+function examcheck_reset_userdata($data) {
+    global $DB;
+
+    $status = [];
+    if (!empty($data->reset_examcheck_marks)) {
+        $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
+        if ($instances) {
+            [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
+            $DB->delete_records_select('examcheck_marks', "examcheckid $insql", $params);
+        }
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_examcheck'),
+            'item'      => get_string('resetmarks', 'mod_examcheck'),
+            'error'     => false,
+        ];
+    }
+    return $status;
+}
+
+/**
  * Provide the icon-style activity information shown on the course page.
  *
  * @param cm_info $coursemodule The course module.
