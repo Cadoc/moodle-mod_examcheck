@@ -128,6 +128,12 @@ class dashboard implements renderable, templatable {
                 ['id' => $this->cmid, 'group' => $this->groupid]))->out(false),
             'manageurl'   => (new moodle_url('/mod/examcheck/manage.php', ['id' => $this->cmid]))->out(false),
             'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
+            'exportform'  => (!empty($roster) && !empty($steps)) ? $output->download_dataformat_selector(
+                get_string('export', 'mod_examcheck'),
+                new moodle_url('/mod/examcheck/export.php'),
+                'dataformat',
+                ['id' => $this->cmid, 'group' => $this->groupid]
+            ) : '',
         ];
     }
 }
