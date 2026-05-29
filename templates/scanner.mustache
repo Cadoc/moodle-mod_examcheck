@@ -1,0 +1,125 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/scanner
+
+    Camera / barcode scanner page.
+
+    Context variables required for this template:
+    * cmid - course module id
+    * groupid - group context
+    * name - activity name
+    * steps - array of {value, name, selected}
+    * fields - array of {value, name, selected}
+    * requireconfirm - boolean default for the confirm toggle
+    * dashboardurl - link back to the dashboard
+
+    Example context (json):
+    {
+        "cmid": 12, "groupid": 0, "name": "Final exam",
+        "steps": [{"value": 1, "name": "Attendance", "selected": true}],
+        "fields": [{"value": "idnumber", "name": "ID number", "selected": true}],
+        "requireconfirm": false, "dashboardurl": "#"
+    }
+}}
+<div class="mod_examcheck-scanner" data-region="examcheck-scanner" data-cmid="{{cmid}}" data-groupid="{{groupid}}">
+
+    <div class="mb-3">
+        <a href="{{dashboardurl}}"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5">
+            <fieldset class="examcheck-session card mb-3">
+                <div class="card-body">
+                    <legend class="h6">{{#str}}sessionsettings, mod_examcheck{{/str}}</legend>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="examcheck-step">{{#str}}scanstep, mod_examcheck{{/str}}</label>
+                        <select id="examcheck-step" class="form-select" data-region="step">
+                            {{#steps}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{name}}</option>{{/steps}}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="examcheck-field">{{#str}}scanfield, mod_examcheck{{/str}}</label>
+                        <select id="examcheck-field" class="form-select" data-region="scanfield">
+                            {{#fields}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{name}}</option>{{/fields}}
+                        </select>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="examcheck-confirm"
+                            data-action="requireconfirm" {{#requireconfirm}}checked{{/requireconfirm}}>
+                        <label class="form-check-label" for="examcheck-confirm">{{#str}}requireconfirm, mod_examcheck{{/str}}</label>
+                    </div>
+                </div>
+            </fieldset>
+
+            <form data-region="manualform" class="examcheck-manual mb-3">
+                <label class="form-label" for="examcheck-manual">{{#str}}scanmanualentry, mod_examcheck{{/str}}</label>
+                <div class="input-group">
+                    <input type="text" id="examcheck-manual" class="form-control" data-region="manualvalue"
+                        autocomplete="off" placeholder="{{#str}}scanmanualentryplaceholder, mod_examcheck{{/str}}">
+                    <button type="submit" class="btn btn-primary">{{#str}}scansubmit, mod_examcheck{{/str}}</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-md-7">
+            <div data-region="camerawrap" class="examcheck-camerawrap mb-3">
+                <div class="examcheck-video-frame">
+                    <video data-region="video" class="examcheck-video" playsinline muted></video>
+                    <div class="examcheck-reticle" aria-hidden="true"></div>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-success" data-action="startcamera">
+                        <i class="fa fa-camera me-1" aria-hidden="true"></i>{{#str}}startcamera, mod_examcheck{{/str}}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary d-none" data-action="stopcamera">
+                        <i class="fa fa-stop me-1" aria-hidden="true"></i>{{#str}}stopcamera, mod_examcheck{{/str}}
+                    </button>
+                </div>
+            </div>
+
+            <div data-region="result" class="examcheck-result d-none" role="status" aria-live="polite"></div>
+
+            <div data-region="pending" class="card border-primary d-none mt-2">
+                <div class="card-body text-center">
+                    <div class="examcheck-pendingname h4" data-region="pendingname"></div>
+                    <div class="d-flex justify-content-center gap-2 mt-2">
+                        <button type="button" class="btn btn-success btn-lg" data-action="confirm">
+                            <i class="fa fa-check me-1" aria-hidden="true"></i>{{#str}}confirmmark, mod_examcheck{{/str}}
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-lg" data-action="cancel">
+                            {{#str}}cancel{{/str}}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-primary btn-lg d-none mt-2 w-100" data-action="next">
+                <i class="fa fa-arrow-right me-1" aria-hidden="true"></i>{{#str}}scannext, mod_examcheck{{/str}}
+            </button>
+        </div>
+    </div>
+</div>
+{{#js}}
+require(['mod_examcheck/scanner'], function(Scanner) {
+    Scanner.init({{cmid}}, {{groupid}});
+});
+{{/js}}

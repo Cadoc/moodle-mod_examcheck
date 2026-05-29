@@ -1,0 +1,12 @@
+This file describes API changes in the examcheck activity module.
+Information provided here is intended especially for developers.
+
+=== 1.0.0 ===
+
+* First release. Public API:
+  - \mod_examcheck\local\checker — roster, marking (with conflict detection),
+    unmarking, scan resolution and per-step progress.
+  - \mod_examcheck\local\steps — step CRUD and reordering.
+  - \mod_examcheck\local\scanfield — scan field menu and user lookup.
+  - Web services: mod_examcheck_mark_user, mod_examcheck_unmark_user,
+    mod_examcheck_scan_lookup, mod_examcheck_get_marks.

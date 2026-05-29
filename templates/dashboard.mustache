@@ -1,0 +1,144 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/dashboard
+
+    Checking dashboard: roster grid with one toggle per step.
+
+    Context variables required for this template:
+    * cmid - course module id
+    * groupid - selected group id
+    * groupmenu - rendered group selector HTML
+    * hasgroupmenu - whether a group selector is shown
+    * steps - array of {id, name, count, total}
+    * students - array of {userid, fullname, picture, idnumber, hasidnumber, cells}
+    * hassteps, hasstudents - booleans
+    * total - number of students
+    * canmanage - whether the step management link is shown
+    * scanurl, manageurl - action URLs
+    * pollinterval - live refresh interval in seconds
+
+    Example context (json):
+    {
+        "cmid": 12, "groupid": 0, "groupmenu": "", "hasgroupmenu": false,
+        "steps": [{"id": 1, "name": "Attendance", "count": 1, "total": 2}],
+        "students": [
+            {"userid": 5, "fullname": "Ann Other", "picture": "", "idnumber": "S1", "hasidnumber": true,
+             "cells": [{"stepid": 1, "stepname": "Attendance", "checked": true, "checkedbyname": "Mr Teacher", "ago": "just now", "timecreated": 1}]}
+        ],
+        "hassteps": true, "hasstudents": true, "total": 2, "canmanage": true,
+        "scanurl": "#", "manageurl": "#", "pollinterval": 5
+    }
+}}
+<div class="mod_examcheck-dashboard" data-region="examcheck-dashboard" data-cmid="{{cmid}}" data-groupid="{{groupid}}" data-pollinterval="{{pollinterval}}">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="examcheck-groupmenu">
+            {{#hasgroupmenu}}{{{groupmenu}}}{{/hasgroupmenu}}
+        </div>
+        <div class="examcheck-actions d-flex gap-2">
+            <a class="btn btn-primary" href="{{scanurl}}">
+                <i class="fa fa-camera me-1" aria-hidden="true"></i>{{#str}}opascanner, mod_examcheck{{/str}}
+            </a>
+            {{#canmanage}}
+                <a class="btn btn-secondary" href="{{manageurl}}">
+                    <i class="fa fa-list-ol me-1" aria-hidden="true"></i>{{#str}}managestepslink, mod_examcheck{{/str}}
+                </a>
+            {{/canmanage}}
+        </div>
+    </div>
+
+    {{^hassteps}}
+        <div class="alert alert-info">{{#str}}error_nosteps, mod_examcheck{{/str}}</div>
+    {{/hassteps}}
+
+    {{#hassteps}}
+        {{^hasstudents}}
+            <div class="alert alert-info">{{#str}}nostudents, mod_examcheck{{/str}}</div>
+        {{/hasstudents}}
+
+        {{#hasstudents}}
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+                <div class="input-group examcheck-search" style="max-width: 22rem;">
+                    <span class="input-group-text"><i class="fa fa-search" aria-hidden="true"></i></span>
+                    <input type="text" class="form-control" data-action="filter"
+                        aria-label="{{#str}}searchstudents, mod_examcheck{{/str}}"
+                        placeholder="{{#str}}searchstudents, mod_examcheck{{/str}}">
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="examcheck-onlyunchecked" data-action="onlyunchecked">
+                    <label class="form-check-label" for="examcheck-onlyunchecked">{{#str}}showonlyunchecked, mod_examcheck{{/str}}</label>
+                </div>
+                <div class="examcheck-export ms-auto">{{{exportform}}}</div>
+                <div class="text-muted" data-region="visiblecount" aria-live="polite"></div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover examcheck-roster align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">{{#str}}student, mod_examcheck{{/str}}</th>
+                            {{#steps}}
+                                <th scope="col" class="text-center examcheck-stepcol">
+                                    <span class="examcheck-stepname">{{name}}</span>
+                                    <span class="badge bg-secondary examcheck-progress" data-region="progress" data-stepid="{{id}}">
+                                        <span data-region="count">{{count}}</span>/<span data-region="total">{{total}}</span>
+                                    </span>
+                                </th>
+                            {{/steps}}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{#students}}
+                            <tr data-region="student" data-userid="{{userid}}">
+                                <th scope="row" class="examcheck-student fw-normal">
+                                    <span class="d-inline-flex align-items-center gap-2">
+                                        {{{picture}}}
+                                        <span>
+                                            <span class="examcheck-studentname">{{fullname}}</span>
+                                            {{#hasidnumber}}<small class="text-muted d-block">{{idnumber}}</small>{{/hasidnumber}}
+                                        </span>
+                                    </span>
+                                </th>
+                                {{#cells}}
+                                    <td class="text-center">
+                                        <button type="button"
+                                            class="btn examcheck-cell {{#checked}}btn-success{{/checked}}{{^checked}}btn-outline-secondary{{/checked}}"
+                                            data-action="toggle"
+                                            data-stepid="{{stepid}}"
+                                            data-userid="{{userid}}"
+                                            data-checked="{{#checked}}1{{/checked}}{{^checked}}0{{/checked}}"
+                                            aria-pressed="{{#checked}}true{{/checked}}{{^checked}}false{{/checked}}"
+                                            title="{{#checked}}{{#str}}checkedbyon, mod_examcheck, {"user": "{{checkedbyname}}", "ago": "{{ago}}"}{{/str}}{{/checked}}{{^checked}}{{#str}}markaction, mod_examcheck, {{stepname}}{{/str}}{{/checked}}">
+                                            <i class="fa {{#checked}}fa-check{{/checked}}{{^checked}}fa-square-o{{/checked}}" aria-hidden="true"></i>
+                                            <span class="sr-only">{{#checked}}{{#str}}checked, mod_examcheck{{/str}}{{/checked}}{{^checked}}{{#str}}notchecked, mod_examcheck{{/str}}{{/checked}}</span>
+                                        </button>
+                                    </td>
+                                {{/cells}}
+                            </tr>
+                        {{/students}}
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-light text-center d-none" data-region="norows">{{#str}}nomatchingstudents, mod_examcheck{{/str}}</div>
+        {{/hasstudents}}
+    {{/hassteps}}
+</div>
+{{#js}}
+require(['mod_examcheck/checker'], function(Checker) {
+    Checker.init({{cmid}}, {{groupid}}, {{pollinterval}});
+});
+{{/js}}
