@@ -41,6 +41,8 @@ export const init = (cmid, groupid, pollInterval) => {
 
     registerToggles(root, cmid, groupid);
     registerFilter(root);
+    registerColumns(root);
+    applyColumnVisibility(root);
     updateVisibleCount(root);
 
     if (pollInterval > 0) {
@@ -74,7 +76,7 @@ const registerToggles = (root, cmid, groupid) => {
  * @param {Number} cmid Course module id.
  * @param {Number} groupid Selected group id.
  */
-const toggle = (root, button, cmid, groupid) => {
+const toggle = async (root, button, cmid, groupid) => {
     const wasChecked = button.dataset.checked === '1';
     const stepid = parseInt(button.dataset.stepid, 10);
     const userid = parseInt(button.dataset.userid, 10);
@@ -84,16 +86,17 @@ const toggle = (root, button, cmid, groupid) => {
         ? {cmid, stepid, userid}
         : {cmid, stepid, userid, groupid, method: 'list'};
 
+    // Note: core/ajax returns jQuery promises, which have no .finally(); re-enable
+    // the button from a real try/finally so it can never be left stuck disabled.
     button.disabled = true;
-    Ajax.call([{methodname, args}])[0]
-        .then((outcome) => {
-            applyOutcome(root, button, outcome);
-            return outcome;
-        })
-        .catch(Notification.exception)
-        .finally(() => {
-            button.disabled = false;
-        });
+    try {
+        const outcome = await Ajax.call([{methodname, args}])[0];
+        applyOutcome(root, button, outcome);
+    } catch (err) {
+        Notification.exception(err);
+    } finally {
+        button.disabled = false;
+    }
 };
 
 /**
@@ -204,6 +207,10 @@ const refresh = (root, cmid, groupid) => {
             root.querySelectorAll('[data-region="progress"] [data-region="total"]').forEach((el) => {
                 el.textContent = data.total;
             });
+
+            // Re-apply the row filter so marks made elsewhere (e.g. another teacher)
+            // hide/show rows under "only unchecked" without a manual reload.
+            filterRows(root);
             return data;
         })
         .catch(() => {
@@ -239,19 +246,60 @@ const filterRows = (root) => {
     const term = (search ? search.value : '').trim().toLowerCase();
     const uncheckedOnly = onlyUnchecked ? onlyUnchecked.checked : false;
 
+    // The "only unchecked" switch considers only the currently visible columns, so a
+    // teacher can narrow to (say) the first step and see only students missing it.
+    const columnToggles = root.querySelectorAll('[data-action="togglecolumn"]');
+    const hasColumnFilter = columnToggles.length > 0;
+    const visibleSteps = new Set();
+    columnToggles.forEach((cb) => {
+        if (cb.checked) {
+            visibleSteps.add(cb.dataset.stepid);
+        }
+    });
+
     root.querySelectorAll('[data-region="student"]').forEach((row) => {
         const name = (row.querySelector('.examcheck-studentname')?.textContent || '').toLowerCase();
         const idnumber = (row.querySelector('.text-muted')?.textContent || '').toLowerCase();
         const matchesTerm = !term || name.includes(term) || idnumber.includes(term);
 
-        const cells = row.querySelectorAll('[data-action="toggle"]');
-        const hasUnchecked = Array.from(cells).some((c) => c.dataset.checked !== '1');
-        const matchesToggle = !uncheckedOnly || hasUnchecked;
+        const cells = Array.from(row.querySelectorAll('[data-action="toggle"]'))
+            .filter((c) => !hasColumnFilter || visibleSteps.has(c.dataset.stepid));
+        const hasUnchecked = cells.some((c) => c.dataset.checked !== '1');
+        const matchesToggle = !uncheckedOnly || cells.length === 0 || hasUnchecked;
 
         row.classList.toggle('d-none', !(matchesTerm && matchesToggle));
     });
 
     updateVisibleCount(root);
+};
+
+/**
+ * Wire up the "Columns" dropdown checkboxes that show or hide step columns.
+ *
+ * @param {HTMLElement} root The dashboard root element.
+ */
+const registerColumns = (root) => {
+    root.querySelectorAll('[data-action="togglecolumn"]').forEach((cb) => {
+        cb.addEventListener('change', () => {
+            applyColumnVisibility(root);
+            filterRows(root);
+        });
+    });
+};
+
+/**
+ * Show or hide each step column (header and cells) per its checkbox state.
+ *
+ * @param {HTMLElement} root The dashboard root element.
+ */
+const applyColumnVisibility = (root) => {
+    root.querySelectorAll('[data-action="togglecolumn"]').forEach((cb) => {
+        const stepid = cb.dataset.stepid;
+        const show = cb.checked;
+        root.querySelectorAll(
+            `.examcheck-stepcol[data-stepid="${stepid}"], td[data-stepid="${stepid}"]`)
+            .forEach((el) => el.classList.toggle('d-none', !show));
+    });
 };
 
 /**

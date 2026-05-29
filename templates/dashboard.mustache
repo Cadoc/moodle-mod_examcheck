@@ -83,6 +83,21 @@
                     <input class="form-check-input" type="checkbox" role="switch" id="examcheck-onlyunchecked" data-action="onlyunchecked">
                     <label class="form-check-label" for="examcheck-onlyunchecked">{{#str}}showonlyunchecked, mod_examcheck{{/str}}</label>
                 </div>
+                <div class="dropdown examcheck-columns">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <i class="fa fa-columns me-1" aria-hidden="true"></i>{{#str}}columns, mod_examcheck{{/str}}
+                    </button>
+                    <div class="dropdown-menu p-2" data-region="columnmenu">
+                        {{#steps}}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" checked
+                                    id="examcheck-col-{{id}}" data-action="togglecolumn" data-stepid="{{id}}">
+                                <label class="form-check-label" for="examcheck-col-{{id}}">{{{name}}}</label>
+                            </div>
+                        {{/steps}}
+                    </div>
+                </div>
                 <div class="examcheck-export ms-auto">{{{exportform}}}</div>
                 <div class="text-muted" data-region="visiblecount" aria-live="polite"></div>
             </div>
@@ -92,7 +107,7 @@
                         <tr>
                             <th scope="col">{{#str}}student, mod_examcheck{{/str}}</th>
                             {{#steps}}
-                                <th scope="col" class="text-center examcheck-stepcol">
+                                <th scope="col" class="text-center examcheck-stepcol" data-stepid="{{id}}">
                                     <span class="examcheck-stepname">{{{name}}}</span>
                                     <span class="badge bg-secondary examcheck-progress" data-region="progress" data-stepid="{{id}}">
                                         <span data-region="count">{{count}}</span>/<span data-region="total">{{total}}</span>
@@ -114,7 +129,7 @@
                                     </span>
                                 </th>
                                 {{#cells}}
-                                    <td class="text-center">
+                                    <td class="text-center" data-stepid="{{stepid}}">
                                         <button type="button"
                                             class="btn examcheck-cell {{#checked}}btn-success{{/checked}}{{^checked}}btn-outline-secondary{{/checked}}"
                                             data-action="toggle"

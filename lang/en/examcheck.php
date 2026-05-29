@@ -40,6 +40,7 @@ $string['clearchecks'] = 'Clear checks';
 $string['col_checked'] = '{$a}: checked';
 $string['col_checkedat'] = '{$a}: checked at';
 $string['col_checkedby'] = '{$a}: checked by';
+$string['columns'] = 'Columns';
 $string['completionallsteps'] = 'All steps';
 $string['completionchecked'] = 'Student must be checked to complete the activity';
 $string['completionchecked_desc'] = 'Checked as required';
