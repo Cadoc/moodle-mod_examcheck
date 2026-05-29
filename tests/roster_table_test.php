@@ -36,16 +36,18 @@ final class roster_table_test extends \advanced_testcase {
      * The roster renders one toggle button per student/step and shows student names.
      */
     public function test_roster_renders(): void {
-        global $PAGE;
+        global $PAGE, $CFG;
         $this->resetAfterTest();
         $this->setAdminUser();
+        // Configure email as an identity field; admin has moodle/site:viewuseridentity.
+        $CFG->showuseridentity = 'email';
 
         $course = $this->getDataGenerator()->create_course();
         $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
         $student = $this->getDataGenerator()->create_and_enrol(
             $course,
             'student',
-            ['firstname' => 'Ann', 'lastname' => 'Other']
+            ['firstname' => 'Ann', 'lastname' => 'Other', 'email' => 'ann.other@example.com']
         );
         // A teacher is a checker and must be excluded from the roster.
         $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
@@ -64,5 +66,7 @@ final class roster_table_test extends \advanced_testcase {
         $this->assertStringContainsString('data-action="toggle"', $html);
         // The dynamic-table wrapper that the AJAX refresh targets must be present.
         $this->assertStringContainsString('core_table/dynamic', $html);
+        // The email identity column shows because the viewer may see it.
+        $this->assertStringContainsString('ann.other@example.com', $html);
     }
 }

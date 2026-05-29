@@ -164,11 +164,15 @@ class checker {
      * students (i.e. teachers and graders are excluded), sorted by name.
      *
      * @param int $groupid Group id to filter by, or 0 for all participants.
+     * @param string[] $extrafields Extra user-table fields to select (e.g. identity fields).
      * @return stdClass[] User records keyed by user id.
      */
-    public function get_roster(int $groupid = 0): array {
-        $fields = 'u.id, u.firstname, u.lastname, u.firstnamephonetic, u.lastnamephonetic, ' .
-            'u.middlename, u.alternatename, u.picture, u.imagealt, u.email, u.idnumber';
+    public function get_roster(int $groupid = 0, array $extrafields = []): array {
+        $base = ['id', 'firstname', 'lastname', 'firstnamephonetic', 'lastnamephonetic',
+            'middlename', 'alternatename', 'picture', 'imagealt', 'email', 'idnumber'];
+        // Append any requested extra fields not already selected (e.g. phone, department).
+        $select = array_values(array_unique(array_merge($base, $extrafields)));
+        $fields = implode(', ', array_map(fn($f) => 'u.' . $f, $select));
         $users = get_enrolled_users($this->context, '', $groupid, $fields, 'u.lastname ASC, u.firstname ASC', 0, 0, true);
 
         // Exclude anyone who is themselves a checker (teacher / grader).

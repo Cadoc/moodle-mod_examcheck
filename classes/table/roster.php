@@ -61,6 +61,9 @@ class roster extends \table_sql implements dynamic_table {
     /** @var stdClass[] Ordered step records. */
     protected array $steps = [];
 
+    /** @var string[] Identity fields (email, etc.) the current user may see. */
+    protected array $extrafields = [];
+
     /** @var array<int, string> Step id => display name. */
     protected array $stepnames = [];
 
@@ -96,8 +99,11 @@ class roster extends \table_sql implements dynamic_table {
         $this->checker = new checker($this->examcheck, $this->context);
         $this->steps = array_values(steps::get_steps((int) $this->examcheck->id));
         $this->marks = $this->checker->get_marks();
+        // Identity fields (email, etc.) shown only to viewers with permission to see them.
+        $this->extrafields = \core_user\fields::get_identity_fields($this->context, false);
         foreach ($this->steps as $step) {
-            $this->stepnames[(int) $step->id] = format_string($step->name);
+            // Pass the context explicitly: the AJAX endpoint has not set $PAGE->context yet.
+            $this->stepnames[(int) $step->id] = format_string($step->name, true, ['context' => $this->context]);
         }
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
@@ -146,10 +152,18 @@ class roster extends \table_sql implements dynamic_table {
     protected function define_table_columns(): void {
         $columns = ['fullname'];
         $headers = [get_string('student', 'mod_examcheck')];
+
+        // Identity columns (email, etc.) the viewer is permitted to see.
+        foreach ($this->extrafields as $field) {
+            $columns[] = $field;
+            $headers[] = \core_user\fields::get_display_name($field);
+        }
+
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $columns[] = $key;
-            $headers[] = format_string($step->name);
+            // Pass the context explicitly: the AJAX endpoint has not set $PAGE->context yet.
+            $headers[] = format_string($step->name, true, ['context' => $this->context]);
         }
 
         $this->define_columns($columns);
@@ -157,6 +171,9 @@ class roster extends \table_sql implements dynamic_table {
         $this->define_header_column('fullname');
 
         $this->sortable(true, 'fullname');
+        foreach ($this->extrafields as $field) {
+            $this->no_sorting($field);
+        }
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $this->no_sorting($key);
@@ -181,7 +198,7 @@ class roster extends \table_sql implements dynamic_table {
             return;
         }
 
-        $users = $this->checker->get_roster($this->effectivegroup);
+        $users = $this->checker->get_roster($this->effectivegroup, $this->extrafields);
 
         $keywords = [];
         if ($this->get_filterset()->has_filter('keywords')) {
@@ -193,8 +210,12 @@ class roster extends \table_sql implements dynamic_table {
                 continue;
             }
             foreach ($users as $id => $user) {
-                $haystack = \core_text::strtolower(fullname($user) . ' ' . ($user->idnumber ?? ''));
-                if (strpos($haystack, $needle) === false) {
+                // Match name plus the visible identity fields (idnumber, email, ...).
+                $parts = [fullname($user)];
+                foreach ($this->extrafields as $field) {
+                    $parts[] = (string) ($user->$field ?? '');
+                }
+                if (strpos(\core_text::strtolower(implode(' ', $parts)), $needle) === false) {
                     unset($users[$id]);
                 }
             }
@@ -239,6 +260,9 @@ class roster extends \table_sql implements dynamic_table {
      * @return string|null Cell HTML, or null when not a step column.
      */
     public function other_cols($colname, $row) {
+        if (in_array($colname, $this->extrafields, true)) {
+            return s($row->$colname ?? '');
+        }
         if (strpos($colname, 'step_') !== 0) {
             return null;
         }
