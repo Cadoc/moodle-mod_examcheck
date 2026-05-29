@@ -34,6 +34,13 @@ import ZXing from 'mod_examcheck/zxing';
 const DETECT_INTERVAL = 350;
 const DEDUPE_MS = 2500;
 
+// Resolve the ZXing library across module-interop shapes, falling back to the global the
+// vendored UMD also sets. Returns the object exposing BrowserMultiFormatReader, or null.
+const zxinglib = (() => {
+    const candidates = [ZXing, ZXing && ZXing.default, window.ZXing];
+    return candidates.find((c) => c && c.BrowserMultiFormatReader) || null;
+})();
+
 let config = {cmid: 0, groupid: 0};
 let root = null;
 let detector = null;
@@ -102,7 +109,7 @@ const detectFeatureSupport = () => {
         }
     }
     const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    const candecode = detector || Boolean(ZXing);
+    const candecode = detector || Boolean(zxinglib);
     if (!hascamera || !candecode) {
         toggle('[data-region="camerawrap"]', false);
         showStatus('cameraunsupported', 'info');
@@ -145,7 +152,7 @@ const startCamera = async() => {
  */
 const startZxing = (video) => {
     try {
-        zxingReader = new ZXing.BrowserMultiFormatReader();
+        zxingReader = new zxinglib.BrowserMultiFormatReader();
         zxingReader.decodeFromVideoElement(video, (result) => {
             if (result && scanning) {
                 process(result.getText());
