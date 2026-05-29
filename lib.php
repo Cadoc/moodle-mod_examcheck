@@ -46,6 +46,8 @@ function examcheck_supports($feature) {
             return MOD_PURPOSE_ADMINISTRATION;
         case FEATURE_COMPLETION_TRACKS_VIEWS:
             return true;
+        case FEATURE_COMPLETION_HAS_RULES:
+            return true;
         case FEATURE_GRADE_HAS_GRADE:
             return false;
         case FEATURE_NO_VIEW_LINK:
@@ -67,6 +69,7 @@ function examcheck_add_instance($data, $mform = null) {
 
     $data->timecreated = time();
     $data->timemodified = $data->timecreated;
+    examcheck_prepare_completion_fields($data);
     $data->id = $DB->insert_record('examcheck', $data);
 
     // Every new instance starts with a single "Attendance" step. Teachers add more later.
@@ -87,8 +90,23 @@ function examcheck_update_instance($data, $mform = null) {
 
     $data->id = $data->instance;
     $data->timemodified = time();
+    examcheck_prepare_completion_fields($data);
 
     return $DB->update_record('examcheck', $data);
+}
+
+/**
+ * Normalise the completion form fields into the values stored on the instance.
+ *
+ * The "completionstep" selector is 0 when the student must be checked on all
+ * steps, or a single step id when one specific step completes the activity.
+ *
+ * @param stdClass $data Form data, modified in place.
+ */
+function examcheck_prepare_completion_fields($data) {
+    $enabled = !empty($data->completionchecked);
+    $data->completionchecked = $enabled ? 1 : 0;
+    $data->completionstep = $enabled ? (int) ($data->completionstep ?? 0) : 0;
 }
 
 /**
@@ -112,6 +130,51 @@ function examcheck_delete_instance($id) {
 }
 
 /**
+ * Add the reset option to the course reset form.
+ *
+ * @param MoodleQuickForm $mform The course reset form.
+ */
+function examcheck_reset_course_form_definition($mform) {
+    $mform->addElement('header', 'examcheckheader', get_string('modulenameplural', 'mod_examcheck'));
+    $mform->addElement('checkbox', 'reset_examcheck_marks', get_string('resetmarks', 'mod_examcheck'));
+}
+
+/**
+ * Default values for the course reset form.
+ *
+ * @param stdClass $course The course.
+ * @return array Default settings.
+ */
+function examcheck_reset_course_form_defaults($course) {
+    return ['reset_examcheck_marks' => 1];
+}
+
+/**
+ * Remove recorded checks as part of a course reset.
+ *
+ * @param stdClass $data The course reset data.
+ * @return array Status entries for the reset report.
+ */
+function examcheck_reset_userdata($data) {
+    global $DB;
+
+    $status = [];
+    if (!empty($data->reset_examcheck_marks)) {
+        $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
+        if ($instances) {
+            [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
+            $DB->delete_records_select('examcheck_marks', "examcheckid $insql", $params);
+        }
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_examcheck'),
+            'item'      => get_string('resetmarks', 'mod_examcheck'),
+            'error'     => false,
+        ];
+    }
+    return $status;
+}
+
+/**
  * Provide the icon-style activity information shown on the course page.
  *
  * @param cm_info $coursemodule The course module.
@@ -120,7 +183,7 @@ function examcheck_delete_instance($id) {
 function examcheck_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $fields = 'id, name, intro, introformat';
+    $fields = 'id, name, intro, introformat, completionchecked, completionstep';
     if (!$examcheck = $DB->get_record('examcheck', ['id' => $coursemodule->instance], $fields)) {
         return null;
     }
@@ -132,5 +195,32 @@ function examcheck_get_coursemodule_info($coursemodule) {
         $info->content = format_module_intro('examcheck', $examcheck, $coursemodule->id, false);
     }
 
+    // Populate the custom completion rules, but only for automatic completion.
+    if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
+        $info->customdata['customcompletionrules']['completionchecked'] = $examcheck->completionchecked;
+        $info->customdata['completionstep'] = $examcheck->completionstep;
+    }
+
     return $info;
+}
+
+/**
+ * Human-readable descriptions of the active custom completion rules.
+ *
+ * @param cm_info|stdClass $cm Course module with completion customdata.
+ * @return string[] Rule descriptions.
+ */
+function mod_examcheck_get_completion_active_rule_descriptions($cm) {
+    if (empty($cm->customdata['customcompletionrules'])
+            || $cm->completion != COMPLETION_TRACKING_AUTOMATIC) {
+        return [];
+    }
+
+    $descriptions = [];
+    foreach ($cm->customdata['customcompletionrules'] as $key => $val) {
+        if ($key === 'completionchecked' && !empty($val)) {
+            $descriptions[] = get_string('completionchecked_desc', 'mod_examcheck');
+        }
+    }
+    return $descriptions;
 }

@@ -68,4 +68,62 @@ class mod_examcheck_mod_form extends moodleform_mod {
 
         $this->add_action_buttons();
     }
+
+    /**
+     * Add the custom completion rule controls.
+     *
+     * @return string[] The names of the added rule elements.
+     */
+    public function add_completion_rules() {
+        $mform = $this->_form;
+        $suffix = $this->get_suffix();
+
+        $checkbox = 'completionchecked' . $suffix;
+        $mform->addElement('checkbox', $checkbox, '', get_string('completionchecked', 'mod_examcheck'));
+
+        // "All steps" plus one option per existing step: the teacher picks
+        // whether all steps or a single step completes the activity.
+        $options = [0 => get_string('completionallsteps', 'mod_examcheck')];
+        if (!empty($this->_instance)) {
+            foreach (\mod_examcheck\local\steps::get_steps($this->_instance) as $step) {
+                $options[(int) $step->id] = format_string($step->name);
+            }
+        }
+
+        $stepsel = 'completionstep' . $suffix;
+        $mform->addElement('select', $stepsel, get_string('completionstepsel', 'mod_examcheck'), $options);
+        $mform->setType($stepsel, PARAM_INT);
+        $mform->setDefault($stepsel, 0);
+        $mform->addHelpButton($stepsel, 'completionstepsel', 'mod_examcheck');
+        $mform->hideIf($stepsel, $checkbox, 'notchecked');
+
+        return [$checkbox, $stepsel];
+    }
+
+    /**
+     * Whether the custom completion rule is enabled in the submitted data.
+     *
+     * @param array $data Submitted form data.
+     * @return bool
+     */
+    public function completion_rule_enabled($data) {
+        $suffix = $this->get_suffix();
+        return !empty($data['completionchecked' . $suffix]);
+    }
+
+    /**
+     * Ensure the completion checkbox has a stored value when unlocked.
+     *
+     * @param stdClass $data Submitted form data, modified in place.
+     */
+    public function data_postprocessing($data) {
+        parent::data_postprocessing($data);
+        if (!empty($data->completionunlocked)) {
+            $suffix = $this->get_suffix();
+            $checkbox = 'completionchecked' . $suffix;
+            if (empty($data->$checkbox)) {
+                $data->$checkbox = 0;
+            }
+        }
+    }
 }

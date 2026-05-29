@@ -69,6 +69,10 @@ $string['checkedbyon'] = 'Checked by {$a->user}, {$a->time} ({$a->ago})';
 $string['markaction'] = 'Mark "{$a}"';
 $string['unmarkaction'] = 'Undo "{$a}"';
 $string['progresscount'] = '{$a->done} of {$a->total} checked';
+$string['searchstudents'] = 'Search by name or ID number';
+$string['showonlyunchecked'] = 'Show only not-yet-checked';
+$string['nomatchingstudents'] = 'No students match your search.';
+$string['visiblecount'] = '{$a->visible} of {$a->total} shown';
 $string['opascanner'] = 'Open scanner';
 $string['managestepslink'] = 'Manage steps';
 $string['backtodashboard'] = 'Back to dashboard';
@@ -88,6 +92,15 @@ $string['stepadded'] = 'Step added.';
 $string['stepupdated'] = 'Step updated.';
 $string['stepdeleted'] = 'Step deleted.';
 $string['defaultstepname'] = 'Attendance';
+$string['marksrecorded'] = 'Checks recorded';
+$string['clearchecks'] = 'Clear checks';
+$string['resetallchecks'] = 'Clear all checks';
+$string['checkscleared'] = 'Checks cleared.';
+$string['confirmclearstep'] = 'Remove all recorded checks for the step "{$a}"? The step itself is kept.';
+$string['confirmresetall'] = 'Remove every recorded check for all steps in this activity? The steps themselves are kept.';
+$string['nostepsyet'] = 'No steps yet.';
+$string['addeditstep'] = 'Add or edit a step';
+$string['resetmarks'] = 'Delete all recorded checks';
 
 // Scanner page.
 $string['scanner'] = 'Scanner';
@@ -112,12 +125,23 @@ $string['result_notfound'] = 'No student in this roster matches the scanned valu
 $string['result_notinroster'] = '{$a} is not in the selected group for this activity.';
 $string['result_conflict'] = 'Already checked: {$a->user} was marked by {$a->by}, {$a->ago}.';
 $string['result_unmarked'] = 'Check removed for {$a}.';
+$string['result_notchecked'] = '{$a} was not checked.';
 $string['error_alreadychecked'] = 'This student has already been checked for this step.';
 $string['error_overridedenied'] = 'This mark was recorded by another teacher and you do not have permission to change it.';
 $string['error_nosteps'] = 'This activity has no check steps yet. Add a step first.';
 $string['justnow'] = 'just now';
 $string['agoseconds'] = '{$a} seconds ago';
 $string['ago'] = '{$a} ago';
+
+// Completion.
+$string['completionchecked'] = 'Student must be checked to complete the activity';
+$string['completionchecked_desc'] = 'Checked as required';
+$string['completionallsteps'] = 'All steps';
+$string['completionstepsel'] = 'Step required for completion';
+$string['completionstepsel_help'] = 'Choose what completes the activity for a student. Select "All steps" to require the student to be checked on every step, or pick a single step (for example "Attendance") to complete the activity as soon as the student is checked on just that step.
+
+Because completion is recorded per student, you can use it as a prerequisite elsewhere — for example, requiring this activity to be complete before a quiz becomes available.';
+$string['completiondetail:checked'] = 'Be checked as required';
 
 // Events.
 $string['eventusermarked'] = 'Student marked as checked';

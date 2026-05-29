@@ -199,6 +199,7 @@ class checker {
         }
 
         \mod_examcheck\event\user_marked::create_from_mark($this->context, $mark, $step)->trigger();
+        $this->update_completion_for_user($userid);
 
         return ['status' => 'marked', 'mark' => $mark, 'user' => self::user_label($userid)];
     }
@@ -231,6 +232,7 @@ class checker {
         $DB->delete_records('examcheck_marks', ['id' => $mark->id]);
 
         \mod_examcheck\event\user_unmarked::create_from_mark($this->context, $mark, $step)->trigger();
+        $this->update_completion_for_user($userid);
 
         return ['status' => 'unmarked', 'user' => self::user_label($userid)];
     }
@@ -298,6 +300,30 @@ class checker {
             $progress[(int) $step->id] = $count;
         }
         return $progress;
+    }
+
+    /**
+     * Recalculate activity completion for a student after a mark change.
+     *
+     * This makes the "checked on the required steps" rule take effect
+     * immediately, so completion-gated activities (e.g. a quiz that requires
+     * attendance) unlock as soon as the teacher checks the student.
+     *
+     * @param int $userid The student whose completion should be recalculated.
+     */
+    protected function update_completion_for_user(int $userid): void {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $cm = get_coursemodule_from_instance('examcheck', $this->examcheck->id, $this->examcheck->course);
+        if (!$cm) {
+            return;
+        }
+        $course = get_course($this->examcheck->course);
+        $completion = new \completion_info($course);
+        if ($completion->is_enabled($cm) == COMPLETION_TRACKING_AUTOMATIC && !empty($this->examcheck->completionchecked)) {
+            $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
+        }
     }
 
     /**
