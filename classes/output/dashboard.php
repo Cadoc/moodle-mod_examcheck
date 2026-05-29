@@ -56,7 +56,7 @@ class dashboard implements renderable, templatable {
         [$course, $cm] = get_course_and_cm_from_cmid($this->cmid, 'examcheck');
         $context = \context_module::instance($cm->id);
         $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
-        $hassteps = !empty(steps::get_steps($examcheck->id));
+        $hassteps = !empty(steps::get_steps((int) $examcheck->id));
 
         // Render the roster dynamic table (its body reloads over AJAX on filter/sort/hide).
         $table = new roster("examcheck-roster-{$this->cmid}");

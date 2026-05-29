@@ -94,7 +94,7 @@ class roster extends \table_sql implements dynamic_table {
         $this->context = context_module::instance($cm->id);
         $this->examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
         $this->checker = new checker($this->examcheck, $this->context);
-        $this->steps = array_values(steps::get_steps($this->examcheck->id));
+        $this->steps = array_values(steps::get_steps((int) $this->examcheck->id));
         $this->marks = $this->checker->get_marks();
         foreach ($this->steps as $step) {
             $this->stepnames[(int) $step->id] = format_string($step->name);
@@ -102,6 +102,7 @@ class roster extends \table_sql implements dynamic_table {
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
         $this->define_table_columns();
+        $this->guess_base_url();
 
         parent::set_filterset($filterset);
     }
