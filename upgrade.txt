@@ -1,19 +1,14 @@
 This file describes API changes in the examcheck activity module.
 Information provided here is intended especially for developers.
 
-=== 1.1.0 ===
-
-* New examcheck DB column: scanregex (optional extraction regex).
-* \mod_examcheck\local\scanfield::apply_regex() and ::is_valid_regex() added.
-* \mod_examcheck\local\checker::scan() gained an optional $regex parameter.
-* mod_examcheck_scan_lookup web service gained an optional scanregex parameter.
-
 === 1.0.0 ===
 
 * First release. Public API:
   - \mod_examcheck\local\checker — roster, marking (with conflict detection),
-    unmarking, scan resolution and per-step progress.
+    unmarking, scan resolution (with optional extraction regex) and per-step
+    progress.
   - \mod_examcheck\local\steps — step CRUD and reordering.
-  - \mod_examcheck\local\scanfield — scan field menu and user lookup.
+  - \mod_examcheck\local\scanfield — scan field menu, user lookup and the
+    apply_regex() / is_valid_regex() extraction helpers.
   - Web services: mod_examcheck_mark_user, mod_examcheck_unmark_user,
     mod_examcheck_scan_lookup, mod_examcheck_get_marks.
