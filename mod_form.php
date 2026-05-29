@@ -98,7 +98,12 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $suffix = $this->get_suffix();
 
         $checkbox = 'completionchecked' . $suffix;
-        $mform->addElement('checkbox', $checkbox, '', get_string('completionchecked', 'mod_examcheck'));
+        $mform->addElement(
+            'checkbox',
+            $checkbox,
+            get_string('completioncheck', 'mod_examcheck'),
+            get_string('completionchecked', 'mod_examcheck')
+        );
 
         // Offer "All steps" plus one option per existing step, so the teacher
         // can choose whether all steps or a single step completes the activity.
