@@ -16,6 +16,7 @@
 
 namespace mod_examcheck;
 
+use mod_examcheck\output\dashboard;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
 
@@ -28,6 +29,7 @@ use mod_examcheck\table\roster_filterset;
  * @package    mod_examcheck
  * @category   test
  * @covers     \mod_examcheck\table\roster
+ * @covers     \mod_examcheck\output\dashboard
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -72,5 +74,31 @@ final class roster_table_test extends \advanced_testcase {
         $this->assertStringContainsString("data-togglegroup=\"examcheck-roster\"", $html);
         // The student name links to their profile.
         $this->assertStringContainsString('/user/view.php', $html);
+    }
+
+    /**
+     * The dashboard renderable builds without error and includes the bulk-action menu.
+     */
+    public function test_dashboard_renders(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $PAGE->set_context(\context_module::instance($examcheck->cmid));
+
+        $output = $PAGE->get_renderer('core');
+        $context = (new dashboard((int) $examcheck->cmid))->export_for_template($output);
+
+        // The "With selected students" optgroup menu builds (regression: optgroup format).
+        $this->assertStringContainsString('export:csv', $context['withselected']);
+        $this->assertStringContainsString('export:pdf', $context['withselected']);
+        // Admin can check, so per-step mark/unmark options are present.
+        $this->assertStringContainsString('mark:', $context['withselected']);
+        $this->assertStringContainsString('unmark:', $context['withselected']);
     }
 }

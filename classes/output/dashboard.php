@@ -92,13 +92,15 @@ class dashboard implements renderable, templatable {
      * @return string The rendered label + select.
      */
     protected function build_actions_menu(\context_module $context, array $steps): string {
+        // Optgroups for html_writer::select are numerically-indexed elements whose value is
+        // a single ['Group label' => [options]] pair (it reads key()/current()).
         // Export submenu, restricted to CSV / Excel (.xlsx) / PDF.
         $options = [
-            get_string('exportas', 'mod_examcheck') => [
+            [get_string('exportas', 'mod_examcheck') => [
                 'export:csv'   => get_string('dataformat', 'dataformat_csv'),
                 'export:excel' => get_string('dataformat', 'dataformat_excel'),
                 'export:pdf'   => get_string('dataformat', 'dataformat_pdf'),
-            ],
+            ]],
         ];
 
         // Per-step mark/unmark, only for users who may record checks.
@@ -110,8 +112,8 @@ class dashboard implements renderable, templatable {
                 $check['mark:' . (int) $step->id] = get_string('bulkcheck', 'mod_examcheck', $name);
                 $uncheck['unmark:' . (int) $step->id] = get_string('bulkuncheck', 'mod_examcheck', $name);
             }
-            $options[get_string('markchecked', 'mod_examcheck')] = $check;
-            $options[get_string('uncheck', 'mod_examcheck')] = $uncheck;
+            $options[] = [get_string('markchecked', 'mod_examcheck') => $check];
+            $options[] = [get_string('uncheck', 'mod_examcheck') => $uncheck];
         }
 
         // Disabled until at least one row is selected (core/checkbox-toggleall enables it).
