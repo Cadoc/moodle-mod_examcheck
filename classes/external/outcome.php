@@ -31,7 +31,6 @@ use core_external\external_value;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class outcome {
-
     /**
      * The shared external return structure.
      *
@@ -45,8 +44,12 @@ class outcome {
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
             'userlabel'   => new external_value(PARAM_TEXT, 'The student full name, when known.', VALUE_DEFAULT, ''),
-            'checkedby'   => new external_value(PARAM_INT, 'For conflicts: the teacher who recorded the existing mark.',
-                VALUE_DEFAULT, 0),
+            'checkedby'   => new external_value(
+                PARAM_INT,
+                'For conflicts: the teacher who recorded the existing mark.',
+                VALUE_DEFAULT,
+                0
+            ),
             'checkedbyname' => new external_value(PARAM_TEXT, 'For conflicts: that teacher\'s name.', VALUE_DEFAULT, ''),
             'timecreated' => new external_value(PARAM_INT, 'For conflicts/marks: when it was recorded.', VALUE_DEFAULT, 0),
             'ago'         => new external_value(PARAM_TEXT, 'For conflicts: how long ago, in words.', VALUE_DEFAULT, ''),

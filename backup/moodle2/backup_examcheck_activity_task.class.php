@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/mod/examcheck/backup/moodle2/backup_examcheck_ste
  * Provides the steps to perform one complete backup of the examcheck instance.
  */
 class backup_examcheck_activity_task extends backup_activity_task {
-
     /**
      * No specific settings for this activity.
      */

@@ -28,7 +28,6 @@ use mod_examcheck\local\scanfield;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class scanfield_test extends \advanced_testcase {
-
     /**
      * Match by ID number, case-insensitively and trimming whitespace.
      */
@@ -93,6 +92,35 @@ final class scanfield_test extends \advanced_testcase {
         $one = $this->getDataGenerator()->create_user(['idnumber' => 'DUP']);
         $two = $this->getDataGenerator()->create_user(['idnumber' => 'DUP']);
         $this->assertSame(0, scanfield::find_user('idnumber', 'DUP', [$one->id, $two->id]));
+    }
+
+    /**
+     * The extraction regex pulls a capture group out of a longer value.
+     */
+    public function test_apply_regex(): void {
+        // No regex: value is returned trimmed.
+        $this->assertSame('12345678', scanfield::apply_regex('', '  12345678 '));
+
+        // Capture group is preferred.
+        $this->assertSame('12345678', scanfield::apply_regex('(\d{8})', 'U=12345678;LIB=987'));
+
+        // Whole match when there is no capturing group.
+        $this->assertSame('12345678', scanfield::apply_regex('\d{8}', 'prefix12345678suffix'));
+
+        // No match yields null so the caller can report "not found".
+        $this->assertNull(scanfield::apply_regex('(\d{8})', 'no-digits-here'));
+
+        // Invalid pattern yields null and does not raise an error.
+        $this->assertNull(scanfield::apply_regex('(unclosed', 'anything'));
+    }
+
+    /**
+     * Regex validity is reported correctly.
+     */
+    public function test_is_valid_regex(): void {
+        $this->assertTrue(scanfield::is_valid_regex(''));
+        $this->assertTrue(scanfield::is_valid_regex('(\d{8})'));
+        $this->assertFalse(scanfield::is_valid_regex('(unclosed'));
     }
 
     /**

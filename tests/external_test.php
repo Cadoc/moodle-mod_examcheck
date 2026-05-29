@@ -36,7 +36,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class external_test extends \advanced_testcase {
-
     /** @var \stdClass The examcheck module stub. */
     protected $examcheck;
     /** @var \stdClass The student. */
@@ -81,7 +80,9 @@ final class external_test extends \advanced_testcase {
         mark_user::execute($this->examcheck->cmid, $this->stepid, $this->student->id, 0, 'list');
 
         $other = $this->getDataGenerator()->create_and_enrol(
-            get_course($this->examcheck->course), 'editingteacher');
+            get_course($this->examcheck->course),
+            'editingteacher'
+        );
         $this->setUser($other);
 
         $result = mark_user::execute($this->examcheck->cmid, $this->stepid, $this->student->id, 0, 'list');

@@ -79,6 +79,7 @@ $templatecontext = [
     'steps'          => $stepoptions,
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
+    'scanregex'      => s($examcheck->scanregex),
     'dashboardurl'   => $dashboardurl->out(false),
 ];
 

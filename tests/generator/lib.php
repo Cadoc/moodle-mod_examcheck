@@ -23,8 +23,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 use mod_examcheck\local\steps;
 
 /**
@@ -36,7 +34,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mod_examcheck_generator extends testing_module_generator {
-
     /**
      * Create an examcheck instance.
      *
@@ -49,6 +46,7 @@ class mod_examcheck_generator extends testing_module_generator {
 
         $defaults = [
             'scanfield'         => 'idnumber',
+            'scanregex'         => '',
             'requireconfirm'    => 0,
             'completionchecked' => 0,
             'completionstep'    => 0,

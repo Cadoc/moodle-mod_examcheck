@@ -34,7 +34,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class custom_completion extends activity_custom_completion {
-
     /**
      * Compute the completion state of a rule for the current user.
      *

@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manual-entry fallback for hardware (keyboard-wedge) scanners. Match against ID
   number, internal user id, or any custom profile field. Optional
   confirm-before-marking mode.
+- Optional scan extraction pattern (regex) to pull the value to match (e.g. a
+  student number) out of a longer encoded barcode payload; configurable per
+  activity with a site default and a per-session override.
 - AJAX web services: `mark_user`, `unmark_user`, `scan_lookup`, `get_marks`.
 - Custom completion: complete when checked on **all steps** or on a single
   chosen step; usable as a prerequisite for other activities.

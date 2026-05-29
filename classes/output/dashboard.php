@@ -31,7 +31,6 @@ use moodle_url;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class dashboard implements renderable, templatable {
-
     /** @var checker The checker for this instance. */
     protected checker $checker;
 
@@ -124,8 +123,10 @@ class dashboard implements renderable, templatable {
             'hassteps'    => !empty($steps),
             'hasstudents' => !empty($roster),
             'canmanage'   => $this->canmanage,
-            'scanurl'     => (new moodle_url('/mod/examcheck/scan.php',
-                ['id' => $this->cmid, 'group' => $this->groupid]))->out(false),
+            'scanurl'     => (new moodle_url(
+                '/mod/examcheck/scan.php',
+                ['id' => $this->cmid, 'group' => $this->groupid]
+            ))->out(false),
             'manageurl'   => (new moodle_url('/mod/examcheck/manage.php', ['id' => $this->cmid]))->out(false),
             'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
             'exportform'  => (!empty($roster) && !empty($steps)) ? $output->download_dataformat_selector(

@@ -29,7 +29,6 @@ namespace mod_examcheck\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class scanfield {
-
     /** @var string Prefix marking a custom profile field key. */
     const PROFILE_PREFIX = 'profile_field_';
 
@@ -74,6 +73,49 @@ class scanfield {
     public static function get_label(string $key): string {
         $menu = self::get_field_menu();
         return $menu[$key] ?? $key;
+    }
+
+    /**
+     * Extract the part of a scanned value to match against, using an optional
+     * regular expression.
+     *
+     * This lets a teacher pull a student number out of a barcode that also
+     * encodes other information. The regex is entered without delimiters; the
+     * first capturing group is used, or the whole match when there is no group.
+     *
+     * @param string $regex The regular expression (without delimiters), or '' to skip.
+     * @param string $value The raw scanned value.
+     * @return string|null The extracted value, the trimmed value when no regex is
+     *                     set, or null when the regex is invalid or does not match.
+     */
+    public static function apply_regex(string $regex, string $value): ?string {
+        $value = trim($value);
+        if ($regex === '') {
+            return $value;
+        }
+
+        $pattern = '~' . str_replace('~', '\~', $regex) . '~';
+        $result = @preg_match($pattern, $value, $matches);
+        if ($result === false || $result === 0) {
+            // Invalid pattern or no match: nothing to compare against.
+            return null;
+        }
+
+        return $matches[1] ?? $matches[0];
+    }
+
+    /**
+     * Whether a regular expression (entered without delimiters) is valid.
+     *
+     * @param string $regex The regular expression.
+     * @return bool
+     */
+    public static function is_valid_regex(string $regex): bool {
+        if ($regex === '') {
+            return true;
+        }
+        $pattern = '~' . str_replace('~', '\~', $regex) . '~';
+        return @preg_match($pattern, '') !== false;
     }
 
     /**
