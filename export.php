@@ -39,6 +39,7 @@ require_capability('mod/examcheck:view', $context);
 
 $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
 $checker = new checker($examcheck, $context);
+$checker->require_group_access($groupid);
 
 $steplist = array_values(steps::get_steps($examcheck->id));
 $roster = $checker->get_roster($groupid);

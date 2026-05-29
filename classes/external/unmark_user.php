@@ -61,6 +61,7 @@ class unmark_user extends external_api {
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
         require_capability('mod/examcheck:check', $checker->get_context());
+        $checker->require_user_access($params['userid']);
 
         $result = $checker->unmark_user($params['stepid'], $params['userid'], (int) $USER->id);
 
