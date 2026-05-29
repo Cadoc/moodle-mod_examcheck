@@ -17,19 +17,23 @@
 {{!
     @template mod_examcheck/dashboard
 
-    Checking dashboard: a datafilter bar above the roster dynamic table.
+    Checking dashboard: a datafilter bar above the roster dynamic table, with a bottom
+    "With selected students" bulk-action bar (export + per-step check/uncheck).
 
     Context variables required for this template:
     * cmid - course module id
     * hassteps - whether the activity has any steps
     * filter - rendered datafilter bar HTML
     * table - rendered roster dynamic table HTML
-    * exportform - rendered export dataformat selector HTML
+    * withselected - rendered "with selected students" action menu HTML
+    * exporturl - action URL for the export form
+    * sesskey - session key
     * pollinterval - live refresh interval in seconds
 
     Example context (json):
     {
-        "cmid": 12, "hassteps": true, "filter": "", "table": "", "exportform": "", "pollinterval": 5
+        "cmid": 12, "hassteps": true, "filter": "", "table": "", "withselected": "",
+        "exporturl": "#", "sesskey": "abc", "pollinterval": 5
     }
 }}
 <div class="mod_examcheck-dashboard" data-region="examcheck-dashboard" data-cmid="{{cmid}}" data-pollinterval="{{pollinterval}}">
@@ -39,20 +43,25 @@
     {{/hassteps}}
 
     {{#hassteps}}
-        <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="examcheck-onlyunchecked" data-action="onlyunchecked">
-                <label class="form-check-label" for="examcheck-onlyunchecked">{{#str}}showonlyunchecked, mod_examcheck{{/str}}</label>
-            </div>
-            <div class="examcheck-export ms-auto">{{{exportform}}}</div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="examcheck-onlyunchecked" data-action="onlyunchecked">
+            <label class="form-check-label" for="examcheck-onlyunchecked">{{#str}}showonlyunchecked, mod_examcheck{{/str}}</label>
         </div>
 
         {{{filter}}}
-        {{{table}}}
+
+        <form id="examcheck-rosterform" method="post" action="{{exporturl}}">
+            <input type="hidden" name="id" value="{{cmid}}">
+            <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <input type="hidden" name="dataformat" value="" data-region="dataformat">
+            {{{table}}}
+            {{{withselected}}}
+        </form>
     {{/hassteps}}
 </div>
 {{#js}}
-require(['mod_examcheck/checker'], function(Checker) {
+require(['mod_examcheck/checker', 'mod_examcheck/roster_actions'], function(Checker, RosterActions) {
     Checker.init({{cmid}}, {{pollinterval}});
+    RosterActions.init({{cmid}});
 });
 {{/js}}

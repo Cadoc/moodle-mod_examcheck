@@ -30,20 +30,37 @@ use mod_examcheck\local\steps;
 $id = required_param('id', PARAM_INT);              // Course module id.
 $groupid = optional_param('group', 0, PARAM_INT);
 $dataformat = required_param('dataformat', PARAM_ALPHA);
+$userids = optional_param_array('userid', [], PARAM_INT); // Selected students, if any.
 
 [$course, $cm] = get_course_and_cm_from_cmid($id, 'examcheck');
 require_login($course, true, $cm);
 
 $context = context_module::instance($cm->id);
 require_capability('mod/examcheck:view', $context);
+require_sesskey();
 
 $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
 $checker = new checker($examcheck, $context);
-$checker->require_group_access($groupid);
 
 $steplist = array_values(steps::get_steps($examcheck->id));
-$roster = $checker->get_roster($groupid);
 $marks = $checker->get_marks();
+
+if ($userids) {
+    // Export just the selected students: keep only real roster members and check access to
+    // each one (separate-groups safe).
+    $all = $checker->get_roster();
+    $roster = [];
+    foreach ($userids as $userid) {
+        if (isset($all[$userid])) {
+            $checker->require_user_access($userid);
+            $roster[$userid] = $all[$userid];
+        }
+    }
+} else {
+    // No selection: export the whole (accessible) group.
+    $checker->require_group_access($groupid);
+    $roster = $checker->get_roster($groupid);
+}
 
 // Column headers: identity, then three columns per step.
 $columns = [

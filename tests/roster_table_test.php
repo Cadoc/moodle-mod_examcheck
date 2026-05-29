@@ -68,5 +68,9 @@ final class roster_table_test extends \advanced_testcase {
         $this->assertStringContainsString('core_table/dynamic', $html);
         // The email identity column shows because the viewer may see it.
         $this->assertStringContainsString('ann.other@example.com', $html);
+        // Row-selection checkbox is present for bulk actions.
+        $this->assertStringContainsString("data-togglegroup=\"examcheck-roster\"", $html);
+        // The student name links to their profile.
+        $this->assertStringContainsString('/user/view.php', $html);
     }
 }

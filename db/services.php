@@ -39,6 +39,13 @@ $functions = [
         'capabilities' => 'mod/examcheck:check',
         'ajax'        => true,
     ],
+    'mod_examcheck_bulk_action' => [
+        'classname'   => 'mod_examcheck\external\bulk_action',
+        'description' => 'Mark or unmark a step for many students at once.',
+        'type'        => 'write',
+        'capabilities' => 'mod/examcheck:check',
+        'ajax'        => true,
+    ],
     'mod_examcheck_scan_lookup' => [
         'classname'   => 'mod_examcheck\external\scan_lookup',
         'description' => 'Resolve a scanned QR/barcode value to a student and mark them.',

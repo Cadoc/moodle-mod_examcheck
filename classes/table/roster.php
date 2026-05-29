@@ -20,6 +20,7 @@ namespace mod_examcheck\table;
 
 use context;
 use context_module;
+use core\output\checkbox_toggleall;
 use core_table\dynamic as dynamic_table;
 use core_table\local\filter\filterset;
 use html_writer;
@@ -107,10 +108,22 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
-        $this->define_table_columns();
         $this->guess_base_url();
 
         parent::set_filterset($filterset);
+    }
+
+    /**
+     * Define the columns then render, so the select-all header (which needs a validated
+     * page context) is built only once the dynamic-table endpoint has set the context.
+     *
+     * @param int $pagesize Rows per page.
+     * @param bool $useinitialsbar Whether to show the initials bar.
+     * @param string $downloadhelpbutton Download help button.
+     */
+    public function out($pagesize, $useinitialsbar, $downloadhelpbutton = '') {
+        $this->define_table_columns();
+        parent::out($pagesize, $useinitialsbar, $downloadhelpbutton);
     }
 
     /**
@@ -150,8 +163,18 @@ class roster extends \table_sql implements dynamic_table {
      * Define the student column plus one column per step.
      */
     protected function define_table_columns(): void {
-        $columns = ['fullname'];
-        $headers = [get_string('student', 'mod_examcheck')];
+        global $OUTPUT;
+
+        // Row-selection column with a select-all toggler in the header.
+        $selectall = new checkbox_toggleall('examcheck-roster', true, [
+            'id'           => 'examcheck-selectall',
+            'name'         => 'examcheck-selectall',
+            'label'        => get_string('selectall'),
+            'labelclasses' => 'visually-hidden',
+            'checked'      => false,
+        ]);
+        $columns = ['select', 'fullname'];
+        $headers = [$OUTPUT->render($selectall), get_string('student', 'mod_examcheck')];
 
         // Identity columns (email, etc.) the viewer is permitted to see.
         foreach ($this->extrafields as $field) {
@@ -171,6 +194,7 @@ class roster extends \table_sql implements dynamic_table {
         $this->define_header_column('fullname');
 
         $this->sortable(true, 'fullname');
+        $this->no_sorting('select');
         foreach ($this->extrafields as $field) {
             $this->no_sorting($field);
         }
@@ -231,7 +255,28 @@ class roster extends \table_sql implements dynamic_table {
     }
 
     /**
-     * The student column: picture, name and id number.
+     * The row-selection checkbox.
+     *
+     * @param stdClass $row The user record.
+     * @return string
+     */
+    public function col_select($row): string {
+        global $OUTPUT;
+
+        $checkbox = new checkbox_toggleall('examcheck-roster', false, [
+            'classes'      => 'usercheckbox',
+            'id'           => 'examcheck-select-' . (int) $row->id,
+            'name'         => 'userid[]',
+            'value'        => (int) $row->id,
+            'checked'      => false,
+            'label'        => get_string('selectitem', 'moodle', fullname($row)),
+            'labelclasses' => 'accesshide',
+        ]);
+        return $OUTPUT->render($checkbox);
+    }
+
+    /**
+     * The student column: picture, profile-linked name and id number.
      *
      * @param stdClass $row The user record.
      * @return string
@@ -240,7 +285,8 @@ class roster extends \table_sql implements dynamic_table {
         global $OUTPUT;
 
         $picture = $OUTPUT->user_picture($row, ['size' => 35, 'link' => false]);
-        $name = html_writer::tag('span', fullname($row), ['class' => 'examcheck-studentname']);
+        $profileurl = new moodle_url('/user/view.php', ['id' => (int) $row->id, 'course' => $this->examcheck->course]);
+        $name = html_writer::link($profileurl, fullname($row), ['class' => 'examcheck-studentname']);
         $idnumber = !empty($row->idnumber)
             ? html_writer::tag('small', s($row->idnumber), ['class' => 'text-muted d-block'])
             : '';

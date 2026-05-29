@@ -19,13 +19,15 @@ namespace mod_examcheck\output;
 use core\output\renderer_base;
 use core\output\renderable;
 use core\output\templatable;
+use html_writer;
 use mod_examcheck\local\steps;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
 use moodle_url;
 
 /**
- * Renderable for the checking dashboard: the datafilter bar plus the roster dynamic table.
+ * Renderable for the checking dashboard: the datafilter bar, the roster dynamic table,
+ * and the bottom "With selected students" bulk-action bar.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -56,7 +58,8 @@ class dashboard implements renderable, templatable {
         [$course, $cm] = get_course_and_cm_from_cmid($this->cmid, 'examcheck');
         $context = \context_module::instance($cm->id);
         $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
-        $hassteps = !empty(steps::get_steps((int) $examcheck->id));
+        $steps = array_values(steps::get_steps((int) $examcheck->id));
+        $hassteps = !empty($steps);
 
         // Render the roster dynamic table (its body reloads over AJAX on filter/sort/hide).
         $table = new roster("examcheck-roster-{$this->cmid}");
@@ -69,40 +72,64 @@ class dashboard implements renderable, templatable {
         $filter = new roster_filter($context, $table->uniqueid, $this->cmid);
         $filterhtml = $output->render_from_template('mod_examcheck/roster_filter', $filter->export_for_template($output));
 
-        // Export honours the viewer's default group so restricted users stay in their room.
-        $exportgroup = $this->default_export_group($cm, $context);
-        $exportform = ($hassteps && $exportgroup !== -1) ? $output->download_dataformat_selector(
-            get_string('export', 'mod_examcheck'),
-            new moodle_url('/mod/examcheck/export.php'),
-            'dataformat',
-            ['id' => $this->cmid, 'group' => $exportgroup]
-        ) : '';
-
         return [
             'cmid'         => $this->cmid,
             'hassteps'     => $hassteps,
             'filter'       => $filterhtml,
             'table'        => $tablehtml,
-            'exportform'   => $exportform,
+            'withselected' => $hassteps ? $this->build_actions_menu($context, $steps) : '',
+            'exporturl'    => (new moodle_url('/mod/examcheck/export.php'))->out(false),
+            'sesskey'      => sesskey(),
             'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
         ];
     }
 
     /**
-     * The group to export, mirroring the roster's separate-groups restriction.
+     * Build the "With selected students" action dropdown (export + per-step check/uncheck).
      *
-     * @param \cm_info $cm The course module.
      * @param \context_module $context The module context.
-     * @return int 0 = all, -1 = none, otherwise a group id.
+     * @param \stdClass[] $steps The ordered step records.
+     * @return string The rendered label + select.
      */
-    protected function default_export_group(\cm_info $cm, \context_module $context): int {
-        if (
-            groups_get_activity_groupmode($cm) != SEPARATEGROUPS
-                || has_capability('moodle/site:accessallgroups', $context)
-        ) {
-            return 0;
+    protected function build_actions_menu(\context_module $context, array $steps): string {
+        // Export submenu, restricted to CSV / Excel (.xlsx) / PDF.
+        $options = [
+            get_string('exportas', 'mod_examcheck') => [
+                'export:csv'   => get_string('dataformat', 'dataformat_csv'),
+                'export:excel' => get_string('dataformat', 'dataformat_excel'),
+                'export:pdf'   => get_string('dataformat', 'dataformat_pdf'),
+            ],
+        ];
+
+        // Per-step mark/unmark, only for users who may record checks.
+        if (has_capability('mod/examcheck:check', $context)) {
+            $check = [];
+            $uncheck = [];
+            foreach ($steps as $step) {
+                $name = format_string($step->name, true, ['context' => $context]);
+                $check['mark:' . (int) $step->id] = get_string('bulkcheck', 'mod_examcheck', $name);
+                $uncheck['unmark:' . (int) $step->id] = get_string('bulkuncheck', 'mod_examcheck', $name);
+            }
+            $options[get_string('markchecked', 'mod_examcheck')] = $check;
+            $options[get_string('uncheck', 'mod_examcheck')] = $uncheck;
         }
-        $allowed = groups_get_activity_allowed_groups($cm);
-        return empty($allowed) ? -1 : (int) array_key_first($allowed);
+
+        // Disabled until at least one row is selected (core/checkbox-toggleall enables it).
+        $attributes = [
+            'id'               => 'examcheck-bulkaction',
+            'data-action'      => 'toggle',
+            'data-togglegroup' => 'examcheck-roster',
+            'data-toggle'      => 'action',
+            'disabled'         => 'disabled',
+        ];
+        $select = html_writer::select($options, 'bulkaction', '', ['' => get_string('choosedots')], $attributes);
+        $label = html_writer::tag('label', get_string('withselectedstudents', 'mod_examcheck'), [
+            'for'   => 'examcheck-bulkaction',
+            'class' => 'col-form-label',
+        ]);
+
+        return html_writer::tag('div', $label . ' ' . $select, [
+            'class' => 'examcheck-withselected d-flex flex-wrap align-items-center gap-2 my-3',
+        ]);
     }
 }
