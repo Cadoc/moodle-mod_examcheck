@@ -112,6 +112,7 @@ $string['result_notfound'] = 'No student in this roster matches the scanned valu
 $string['result_notinroster'] = '{$a} is not in the selected group for this activity.';
 $string['result_conflict'] = 'Already checked: {$a->user} was marked by {$a->by}, {$a->ago}.';
 $string['result_unmarked'] = 'Check removed for {$a}.';
+$string['result_notchecked'] = '{$a} was not checked.';
 $string['error_alreadychecked'] = 'This student has already been checked for this step.';
 $string['error_overridedenied'] = 'This mark was recorded by another teacher and you do not have permission to change it.';
 $string['error_nosteps'] = 'This activity has no check steps yet. Add a step first.';
