@@ -106,6 +106,7 @@ $string['confirmresetall'] = 'Remove every recorded check for all steps in this 
 $string['nostepsyet'] = 'No steps yet.';
 $string['addeditstep'] = 'Add or edit a step';
 $string['resetmarks'] = 'Delete all recorded checks';
+$string['noinstances'] = 'There are no exam check activities in this course.';
 
 // Scanner page.
 $string['scanner'] = 'Scanner';
