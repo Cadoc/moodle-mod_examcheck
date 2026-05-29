@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Checking dashboard: roster grid with one toggle per check step, live
   multi-teacher refresh, client-side search and a "show only not-yet-checked"
   filter, and group selection.
+- Room separation via group mode: in separate groups an invigilator without
+  "access all groups" sees only their own group's students on the dashboard,
+  scanner and export. Request-supplied group/user ids are validated server-side.
 - Custom, ordered check steps per activity (seeded with one *Attendance* step);
   add, rename, reorder and delete steps.
 - Shared single-mark semantics with conflict reporting: a student can be checked

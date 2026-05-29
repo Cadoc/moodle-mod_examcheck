@@ -39,8 +39,12 @@ the result into a completion condition you can use to gate other activities.
   ago.”* — instead of a silent double entry.
 - **Real‑time, multi‑teacher.** The dashboard refreshes live, so two or more
   invigilators on different phones always see an up‑to‑date roster.
-- **Group aware.** Pick a group (or all participants) using the activity's group
-  mode; the roster, scanner and export all respect the selection.
+- **Group aware / room separation.** Pick a group (or all participants) using
+  the activity's group mode; the roster, scanner and export all respect the
+  selection. In **separate groups** mode an invigilator without *access all
+  groups* sees **only their own group's students** on the dashboard, scanner and
+  export — so you can split students by room and assign one invigilator per room
+  without them seeing other rooms.
 - **QR / barcode scanning.** Use a phone camera to scan a code printed on the
   student card. Choose which field the code matches: **ID number**, **internal
   user id**, or any **custom profile field**.

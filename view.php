@@ -64,8 +64,21 @@ if ($groupmode != NOGROUPS) {
     $url = new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]);
     $groupmenu = groups_print_activity_menu($cm, $url, true);
 }
-$activegroup = groups_get_activity_group($cm, true);
-$activegroup = $activegroup ?: 0;
+$activegroup = (int) (groups_get_activity_group($cm, true) ?: 0);
+
+// Under separate groups, an invigilator without "access all groups" must only
+// ever see the students of their own group(s) - never the whole course. This
+// keeps rooms separated: each invigilator sees only their room's roster.
+if ($groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $context)) {
+    $allowedgroups = groups_get_activity_allowed_groups($cm);
+    if (empty($allowedgroups)) {
+        // Restricted user who belongs to no group: show no students at all.
+        $activegroup = -1;
+    } else if ($activegroup <= 0 || !isset($allowedgroups[$activegroup])) {
+        // Never fall back to "all participants": default to one of their groups.
+        $activegroup = (int) array_key_first($allowedgroups);
+    }
+}
 
 $checker = new checker($examcheck, $context);
 $canmanage = has_capability('mod/examcheck:managesteps', $context);
