@@ -47,5 +47,17 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052901, 'examcheck');
     }
 
+    if ($oldversion < 2026052906) {
+        // The scan extraction pattern is now a single site-wide admin setting
+        // (mod_examcheck/defaultscanregex), so the per-activity column is removed.
+        $table = new xmldb_table('examcheck');
+        $field = new xmldb_field('scanregex');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026052906, 'examcheck');
+    }
+
     return true;
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<libraries>
+    <library>
+        <location>thirdpartylibs/zxing.min.js</location>
+        <name>ZXing-js (@zxing/library)</name>
+        <description>TypeScript port of the ZXing barcode library: decodes QR codes and common 1D barcodes from a camera in the browser. Used as the scanner fallback where the native BarcodeDetector API is unavailable (e.g. Safari, Firefox). The UMD wrapper has been trimmed to always expose the global "ZXing" object (the AMD branch is removed) so it can be loaded as a plain script alongside Moodle's RequireJS.</description>
+        <version>0.21.3</version>
+        <license>MIT</license>
+    </library>
+</libraries>

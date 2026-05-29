@@ -58,10 +58,8 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $mform->setDefault('scanfield', get_config('mod_examcheck', 'defaultscanfield') ?: 'idnumber');
         $mform->addHelpButton('scanfield', 'scanfield', 'mod_examcheck');
 
-        $mform->addElement('text', 'scanregex', get_string('scanregex', 'mod_examcheck'), ['size' => 48]);
-        $mform->setType('scanregex', PARAM_RAW);
-        $mform->setDefault('scanregex', (string) get_config('mod_examcheck', 'defaultscanregex'));
-        $mform->addHelpButton('scanregex', 'scanregex', 'mod_examcheck');
+        // The scan extraction pattern is a single site-wide admin setting (see settings.php),
+        // applied server-side, so it is not configured per activity.
 
         $mform->addElement('selectyesno', 'requireconfirm', get_string('requireconfirm', 'mod_examcheck'));
         $mform->setDefault('requireconfirm', (int) get_config('mod_examcheck', 'defaultrequireconfirm'));
@@ -71,21 +69,6 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $this->standard_coursemodule_elements();
 
         $this->add_action_buttons();
-    }
-
-    /**
-     * Validate the form: ensure the extraction regex compiles.
-     *
-     * @param array $data Submitted data.
-     * @param array $files Submitted files.
-     * @return array Validation errors keyed by element name.
-     */
-    public function validation($data, $files) {
-        $errors = parent::validation($data, $files);
-        if (!empty($data['scanregex']) && !\mod_examcheck\local\scanfield::is_valid_regex($data['scanregex'])) {
-            $errors['scanregex'] = get_string('error_invalidregex', 'mod_examcheck');
-        }
-        return $errors;
     }
 
     /**

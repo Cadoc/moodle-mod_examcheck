@@ -85,12 +85,12 @@ class roster_filter extends \core\output\datafilter {
     protected function get_groups_filter(): ?stdClass {
         $cm = get_coursemodule_from_id('examcheck', $this->cmid, 0, false, MUST_EXIST);
         $groupmode = groups_get_activity_groupmode($cm);
-        if ($groupmode == NOGROUPS) {
-            return null;
-        }
 
-        $seeall = $groupmode != SEPARATEGROUPS || has_capability('moodle/site:accessallgroups', $this->context);
-        $groups = $seeall ? groups_get_all_groups($this->course->id) : groups_get_activity_allowed_groups($cm);
+        // Offer the group filter whenever the course has groups, even with no group mode:
+        // selecting one simply narrows the roster to that group's members. Under separate
+        // groups a restricted user is still limited to their own groups.
+        $separate = $groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $this->context);
+        $groups = $separate ? groups_get_activity_allowed_groups($cm) : groups_get_all_groups($this->course->id);
         if (empty($groups)) {
             return null;
         }

@@ -52,6 +52,10 @@ $PAGE->set_title(get_string('scannerfor', 'mod_examcheck', format_string($examch
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 
+// Load the ZXing decoder as a plain script (exposes window.ZXing) so the scanner can decode
+// on browsers without the native BarcodeDetector API (Safari, Firefox, many mobiles).
+$PAGE->requires->js(new moodle_url('/mod/examcheck/thirdpartylibs/zxing.min.js'));
+
 // Build the step options.
 $stepoptions = [];
 foreach ($steps as $index => $step) {
@@ -80,7 +84,6 @@ $templatecontext = [
     'steps'          => $stepoptions,
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
-    'scanregex'      => $examcheck->scanregex,
     'dashboardurl'   => $dashboardurl->out(false),
 ];
 

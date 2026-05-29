@@ -46,7 +46,6 @@ class mod_examcheck_generator extends testing_module_generator {
 
         $defaults = [
             'scanfield'         => 'idnumber',
-            'scanregex'         => '',
             'requireconfirm'    => 0,
             'completionchecked' => 0,
             'completionstep'    => 0,

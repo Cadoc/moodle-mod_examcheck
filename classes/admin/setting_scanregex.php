@@ -14,19 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace mod_examcheck\admin;
+
+use mod_examcheck\local\scanfield;
+
 /**
- * Version information for mod_examcheck.
+ * Admin text setting that rejects an invalid scan extraction regular expression.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->version   = 2026052906;        // The current module version (Date: YYYYMMDDXX).
-$plugin->requires  = 2025092600;        // Requires this Moodle version (5.1).
-$plugin->component = 'mod_examcheck';   // Full name of the plugin (used for diagnostics).
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.0';
-$plugin->cron      = 0;
+class setting_scanregex extends \admin_setting_configtext {
+    /**
+     * Validate the submitted pattern.
+     *
+     * @param string $data The submitted value.
+     * @return true|string True if valid, or an error message string.
+     */
+    public function validate($data) {
+        $parent = parent::validate($data);
+        if ($parent !== true) {
+            return $parent;
+        }
+        return scanfield::is_valid_regex((string) $data)
+            ? true
+            : get_string('error_invalidregex', 'mod_examcheck');
+    }
+}

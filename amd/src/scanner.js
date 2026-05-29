@@ -17,8 +17,9 @@
  * Camera-based QR/barcode scanner for marking students.
  *
  * Uses the native BarcodeDetector API when available (Android Chrome, desktop
- * Chrome/Edge). A manual entry box is always available as a fallback and works
- * with USB / Bluetooth "keyboard wedge" scanners or by typing the value.
+ * Chrome/Edge) and falls back to the bundled ZXing decoder elsewhere (Safari,
+ * iOS, Firefox, desktop webcams). A manual entry box is always available too and
+ * works with USB / Bluetooth "keyboard wedge" scanners or by typing the value.
  *
  * @module     mod_examcheck/scanner
  * @copyright  2026 André Camacho
@@ -35,6 +36,7 @@ const DEDUPE_MS = 2500;
 let config = {cmid: 0, groupid: 0};
 let root = null;
 let detector = null;
+let zxingReader = null;
 let stream = null;
 let detectTimer = null;
 let scanning = false;
@@ -85,7 +87,10 @@ const registerControls = () => {
 };
 
 /**
- * Detect whether the BarcodeDetector API is available and adjust the UI.
+ * Decide whether live camera scanning is possible and adjust the UI.
+ *
+ * Needs a camera (getUserMedia, which requires a secure/HTTPS context) and a
+ * decoder: the native BarcodeDetector, or the bundled ZXing fallback.
  */
 const detectFeatureSupport = () => {
     if ('BarcodeDetector' in window) {
@@ -95,19 +100,19 @@ const detectFeatureSupport = () => {
             detector = null;
         }
     }
-    if (!detector) {
+    const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    const candecode = detector || typeof window.ZXing !== 'undefined';
+    if (!hascamera || !candecode) {
         toggle('[data-region="camerawrap"]', false);
         showStatus('cameraunsupported', 'info');
     }
 };
 
 /**
- * Start the camera and the detection loop.
+ * Start the camera and the detection loop (native detector or ZXing fallback).
  */
 const startCamera = async() => {
-    if (!detector) {
-        return;
-    }
+    const video = root.querySelector('[data-region="video"]');
     try {
         stream = await navigator.mediaDevices.getUserMedia({
             video: {facingMode: 'environment'},
@@ -118,14 +123,37 @@ const startCamera = async() => {
         return;
     }
 
-    const video = root.querySelector('[data-region="video"]');
     video.srcObject = stream;
     await video.play();
 
     toggle('[data-action="startcamera"]', false);
     toggle('[data-action="stopcamera"]', true);
     resumeScanning();
-    detectTimer = window.setInterval(detectFrame, DETECT_INTERVAL);
+
+    if (detector) {
+        detectTimer = window.setInterval(detectFrame, DETECT_INTERVAL);
+    } else {
+        startZxing(video);
+    }
+};
+
+/**
+ * Decode continuously from the playing video element using the ZXing fallback.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ */
+const startZxing = (video) => {
+    try {
+        zxingReader = new window.ZXing.BrowserMultiFormatReader();
+        zxingReader.decodeFromVideoElement(video, (result) => {
+            if (result && scanning) {
+                process(result.getText());
+            }
+        });
+    } catch (e) {
+        zxingReader = null;
+        showStatus('cameraunsupported', 'info');
+    }
 };
 
 /**
@@ -136,6 +164,14 @@ const stopCamera = () => {
     if (detectTimer) {
         window.clearInterval(detectTimer);
         detectTimer = null;
+    }
+    if (zxingReader) {
+        try {
+            zxingReader.reset();
+        } catch (e) {
+            // Reader already stopped; ignore.
+        }
+        zxingReader = null;
     }
     if (stream) {
         stream.getTracks().forEach((t) => t.stop());
@@ -198,7 +234,6 @@ const process = (value) => {
             confirm: false,
             requireconfirm: requireConfirm,
             groupid: config.groupid,
-            scanregex: currentRegex(),
         },
     }])[0].then((outcome) => {
         handleOutcome(outcome, value, requireConfirm);
@@ -259,7 +294,6 @@ const confirmPending = () => {
             confirm: true,
             requireconfirm: true,
             groupid: config.groupid,
-            scanregex: currentRegex(),
         },
     }])[0].then((outcome) => {
         if (outcome.status === 'marked') {
@@ -384,12 +418,4 @@ const currentField = () => root.querySelector('[data-region="scanfield"]').value
 const isConfirmRequired = () => {
     const el = root.querySelector('[data-action="requireconfirm"]');
     return el ? el.checked : false;
-};
-
-/**
- * @returns {String} The current extraction regex (empty for none).
- */
-const currentRegex = () => {
-    const el = root.querySelector('[data-region="scanregex"]');
-    return el ? el.value : '';
 };

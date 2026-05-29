@@ -50,12 +50,6 @@ class scan_lookup extends external_api {
                 false
             ),
             'groupid'        => new external_value(PARAM_INT, 'Group context (0 for all)', VALUE_DEFAULT, 0),
-            'scanregex'      => new external_value(
-                PARAM_RAW,
-                'Optional extraction regex; empty uses the instance default',
-                VALUE_DEFAULT,
-                null
-            ),
         ]);
     }
 
@@ -69,7 +63,6 @@ class scan_lookup extends external_api {
      * @param bool $confirm Whether the teacher confirmed the match.
      * @param bool $requireconfirm Whether confirmation is required this session.
      * @param int $groupid Group context.
-     * @param string|null $scanregex Optional extraction regex, or null for the instance default.
      * @return array Outcome (see {@see outcome::structure()}).
      */
     public static function execute(
@@ -79,15 +72,13 @@ class scan_lookup extends external_api {
         string $value,
         bool $confirm = false,
         bool $requireconfirm = false,
-        int $groupid = 0,
-        ?string $scanregex = null
+        int $groupid = 0
     ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid' => $cmid, 'stepid' => $stepid, 'scanfield' => $scanfield, 'value' => $value,
             'confirm' => $confirm, 'requireconfirm' => $requireconfirm, 'groupid' => $groupid,
-            'scanregex' => $scanregex,
         ]);
 
         $checker = checker::from_cmid($params['cmid']);
@@ -100,8 +91,8 @@ class scan_lookup extends external_api {
             ? $params['scanfield']
             : $checker->get_instance()->scanfield;
 
-        // Fall back to the instance default regex when none is supplied.
-        $regex = $params['scanregex'] ?? ($checker->get_instance()->scanregex ?? '');
+        // The extraction pattern is a single site-wide admin setting, applied server-side.
+        $regex = (string) get_config('mod_examcheck', 'defaultscanregex');
 
         $result = $checker->scan(
             $params['stepid'],

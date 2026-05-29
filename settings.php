@@ -34,8 +34,9 @@ if ($ADMIN->fulltree) {
         \mod_examcheck\local\scanfield::get_field_menu()
     ));
 
-    // Default scan extraction regex for new instances.
-    $settings->add(new admin_setting_configtext(
+    // Site-wide scan extraction pattern applied by every examcheck scanner.
+    // The custom setting rejects a pattern that does not compile.
+    $settings->add(new \mod_examcheck\admin\setting_scanregex(
         'mod_examcheck/defaultscanregex',
         get_string('defaultscanregex', 'mod_examcheck'),
         get_string('defaultscanregex_desc', 'mod_examcheck'),

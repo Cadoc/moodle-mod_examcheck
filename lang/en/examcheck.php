@@ -24,7 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['addeditstep'] = 'Add or edit a step';
+$string['addeditstep'] = 'Add a step';
 $string['addstep'] = 'Add step';
 $string['ago'] = '{$a} ago';
 $string['agoseconds'] = '{$a} seconds ago';
@@ -34,7 +34,7 @@ $string['bulkcheck'] = 'Check: {$a}';
 $string['bulkresult'] = '{$a->done} updated, {$a->skipped} skipped.';
 $string['bulkuncheck'] = 'Uncheck: {$a}';
 $string['camerablocked'] = 'The camera could not be started. Check that you granted camera permission and that the page is served over HTTPS, or use manual entry below.';
-$string['cameraunsupported'] = 'Live camera scanning is not supported by this browser. You can still type or scan values into the manual entry box below (for example with a USB or Bluetooth barcode scanner).';
+$string['cameraunsupported'] = 'Live camera scanning is unavailable here. It needs a device camera and a secure (HTTPS) connection. You can still type or scan values into the manual entry box below (for example with a USB or Bluetooth barcode scanner).';
 $string['cannotdeletelaststep'] = 'You cannot delete the last remaining step. An exam check activity must have at least one step.';
 $string['checked'] = 'Checked';
 $string['checkedbyon'] = 'Checked by {$a->user} ({$a->ago})';
@@ -62,8 +62,8 @@ $string['defaultrequireconfirm'] = 'Confirm before marking by default';
 $string['defaultrequireconfirm_desc'] = 'Whether new exam check activities require the teacher to confirm a scanned student before marking them.';
 $string['defaultscanfield'] = 'Default scan match field';
 $string['defaultscanfield_desc'] = 'The scan match field selected by default when a teacher creates a new exam check activity.';
-$string['defaultscanregex'] = 'Default scan extraction pattern';
-$string['defaultscanregex_desc'] = 'The extraction regular expression selected by default when a teacher creates a new exam check activity. Leave empty for no extraction.';
+$string['defaultscanregex'] = 'Scan extraction pattern';
+$string['defaultscanregex_desc'] = 'A regular expression (without delimiters) applied by every exam check scanner on this site to extract the part of a scanned QR/barcode value to match against the scan field. The first capturing group is used, or the whole match if there is no group. For example, if a card scans as "U=12345678;LIB=987", the pattern "(\d{8})" extracts "12345678". Leave empty to match the whole scanned value.';
 $string['defaultstepname'] = 'Attendance';
 $string['deletestep'] = 'Delete step';
 $string['editstep'] = 'Edit step';
@@ -136,11 +136,6 @@ $string['scannerfor'] = 'Scanner: {$a}';
 $string['scannext'] = 'Scan next student';
 $string['scanning'] = 'Point the camera at a QR code or barcode…';
 $string['scanningsettings'] = 'Scanning defaults';
-$string['scanregex'] = 'Scan extraction pattern';
-$string['scanregex_help'] = 'An optional regular expression (without delimiters) applied to the scanned QR/barcode value to extract the part to match against the scan field. The first capturing group is used, or the whole match if there is no group.
-
-This is useful when the code on a student card encodes extra information around the student number. For example, if a card scans as "U=12345678;LIB=987" and the student number is the 8 digits, the pattern "(\d{8})" extracts "12345678" to match against the ID number. Leave empty to match the whole scanned value.';
-$string['scanregexplaceholder'] = 'e.g. (\d{8})';
 $string['scanstep'] = 'Step to mark';
 $string['scansubmit'] = 'Look up';
 $string['searchstudents'] = 'Search by name or ID number';
