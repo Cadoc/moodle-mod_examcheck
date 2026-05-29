@@ -34,7 +34,6 @@ require_once($CFG->dirroot . '/course/moodleform_mod.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mod_examcheck_mod_form extends moodleform_mod {
-
     /**
      * Define the form fields.
      */
@@ -101,8 +100,8 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $checkbox = 'completionchecked' . $suffix;
         $mform->addElement('checkbox', $checkbox, '', get_string('completionchecked', 'mod_examcheck'));
 
-        // "All steps" plus one option per existing step: the teacher picks
-        // whether all steps or a single step completes the activity.
+        // Offer "All steps" plus one option per existing step, so the teacher
+        // can choose whether all steps or a single step completes the activity.
         $options = [0 => get_string('completionallsteps', 'mod_examcheck')];
         if (!empty($this->_instance)) {
             foreach (\mod_examcheck\local\steps::get_steps($this->_instance) as $step) {

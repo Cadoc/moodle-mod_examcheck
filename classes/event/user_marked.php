@@ -35,7 +35,6 @@ use stdClass;
  * }
  */
 class user_marked extends base {
-
     /**
      * Build the event from a freshly created mark.
      *

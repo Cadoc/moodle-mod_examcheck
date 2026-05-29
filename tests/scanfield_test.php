@@ -28,7 +28,6 @@ use mod_examcheck\local\scanfield;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class scanfield_test extends \advanced_testcase {
-
     /**
      * Match by ID number, case-insensitively and trimming whitespace.
      */

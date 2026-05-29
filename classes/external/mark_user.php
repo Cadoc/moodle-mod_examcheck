@@ -30,7 +30,6 @@ use mod_examcheck\local\checker;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class mark_user extends external_api {
-
     /**
      * Parameters.
      *
@@ -68,7 +67,12 @@ class mark_user extends external_api {
         require_capability('mod/examcheck:check', $checker->get_context());
 
         $result = $checker->mark_user(
-            $params['stepid'], $params['userid'], (int) $USER->id, $params['method'], $params['groupid']);
+            $params['stepid'],
+            $params['userid'],
+            (int) $USER->id,
+            $params['method'],
+            $params['groupid']
+        );
 
         return outcome::format($result, $params['stepid']);
     }

@@ -37,9 +37,8 @@ use core_privacy\local\request\writer;
  */
 class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
-
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
     /**
      * Describe the personal data stored by this plugin.
      *
@@ -126,14 +125,16 @@ class provider implements
                 continue;
             }
 
-            $marks = $DB->get_records_sql("
+            $marks = $DB->get_records_sql(
+                "
                 SELECT mk.id, mk.method, mk.timecreated, mk.userid, mk.checkedby, s.name AS stepname
                   FROM {examcheck_marks} mk
                   JOIN {examcheck_steps} s ON s.id = mk.stepid
                  WHERE mk.examcheckid = :examcheckid
                    AND (mk.userid = :userid OR mk.checkedby = :checkedby)
               ORDER BY mk.timecreated ASC",
-                ['examcheckid' => $cm->instance, 'userid' => $userid, 'checkedby' => $userid]);
+                ['examcheckid' => $cm->instance, 'userid' => $userid, 'checkedby' => $userid]
+            );
 
             if (!$marks) {
                 continue;
@@ -160,7 +161,9 @@ class provider implements
                 'checkedbyme'    => $aschecker,
             ];
             writer::with_context($context)->export_data(
-                [get_string('pluginname', 'mod_examcheck')], $data);
+                [get_string('pluginname', 'mod_examcheck')],
+                $data
+            );
         }
     }
 
@@ -231,12 +234,20 @@ class provider implements
         [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params = $inparams + ['examcheckid' => $cm->instance];
 
-        $DB->delete_records_select('examcheck_marks',
-            "examcheckid = :examcheckid AND userid $insql", $params);
+        $DB->delete_records_select(
+            'examcheck_marks',
+            "examcheckid = :examcheckid AND userid $insql",
+            $params
+        );
 
         [$insql2, $inparams2] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $params2 = $inparams2 + ['examcheckid' => $cm->instance];
-        $DB->set_field_select('examcheck_marks', 'checkedby', 0,
-            "examcheckid = :examcheckid AND checkedby $insql2", $params2);
+        $DB->set_field_select(
+            'examcheck_marks',
+            'checkedby',
+            0,
+            "examcheckid = :examcheckid AND checkedby $insql2",
+            $params2
+        );
     }
 }

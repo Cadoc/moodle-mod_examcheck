@@ -31,7 +31,6 @@ use mod_examcheck\local\scanfield;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class scan_lookup extends external_api {
-
     /**
      * Parameters.
      *
@@ -44,11 +43,19 @@ class scan_lookup extends external_api {
             'scanfield'      => new external_value(PARAM_RAW_TRIMMED, 'Scan field key'),
             'value'          => new external_value(PARAM_RAW, 'Raw value read from the QR code or barcode'),
             'confirm'        => new external_value(PARAM_BOOL, 'Teacher confirmed the matched student', VALUE_DEFAULT, false),
-            'requireconfirm' => new external_value(PARAM_BOOL, 'Session requires confirmation before marking',
-                VALUE_DEFAULT, false),
+            'requireconfirm' => new external_value(
+                PARAM_BOOL,
+                'Session requires confirmation before marking',
+                VALUE_DEFAULT,
+                false
+            ),
             'groupid'        => new external_value(PARAM_INT, 'Group context (0 for all)', VALUE_DEFAULT, 0),
-            'scanregex'      => new external_value(PARAM_RAW, 'Optional extraction regex; empty uses the instance default',
-                VALUE_DEFAULT, null),
+            'scanregex'      => new external_value(
+                PARAM_RAW,
+                'Optional extraction regex; empty uses the instance default',
+                VALUE_DEFAULT,
+                null
+            ),
         ]);
     }
 
@@ -65,8 +72,16 @@ class scan_lookup extends external_api {
      * @param string|null $scanregex Optional extraction regex, or null for the instance default.
      * @return array Outcome (see {@see outcome::structure()}).
      */
-    public static function execute(int $cmid, int $stepid, string $scanfield, string $value,
-            bool $confirm = false, bool $requireconfirm = false, int $groupid = 0, ?string $scanregex = null): array {
+    public static function execute(
+        int $cmid,
+        int $stepid,
+        string $scanfield,
+        string $value,
+        bool $confirm = false,
+        bool $requireconfirm = false,
+        int $groupid = 0,
+        ?string $scanregex = null
+    ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
@@ -88,9 +103,15 @@ class scan_lookup extends external_api {
         $regex = $params['scanregex'] ?? ($checker->get_instance()->scanregex ?? '');
 
         $result = $checker->scan(
-            $params['stepid'], $fieldkey, $params['value'],
-            (bool) $params['confirm'], (bool) $params['requireconfirm'],
-            (int) $USER->id, $params['groupid'], (string) $regex);
+            $params['stepid'],
+            $fieldkey,
+            $params['value'],
+            (bool) $params['confirm'],
+            (bool) $params['requireconfirm'],
+            (int) $USER->id,
+            $params['groupid'],
+            (string) $regex
+        );
 
         return outcome::format($result, $params['stepid']);
     }

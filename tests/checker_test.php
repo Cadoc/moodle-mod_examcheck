@@ -29,7 +29,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class checker_test extends \advanced_testcase {
-
     /** @var \stdClass The course. */
     protected $course;
     /** @var \stdClass The examcheck instance. */
@@ -178,8 +177,16 @@ final class checker_test extends \advanced_testcase {
 
         // The card encodes extra data around the ID number "S3".
         $payload = 'CARD;ID=S3;ISSUED=2026';
-        $result = $checker->scan($this->stepid, 'idnumber', $payload, false, false,
-            $this->teacher->id, 0, 'ID=(S\d+)');
+        $result = $checker->scan(
+            $this->stepid,
+            'idnumber',
+            $payload,
+            false,
+            false,
+            $this->teacher->id,
+            0,
+            'ID=(S\d+)'
+        );
 
         $this->assertSame('marked', $result['status']);
         $this->assertEquals($this->students[3]->id, $result['mark']->userid);
@@ -190,8 +197,16 @@ final class checker_test extends \advanced_testcase {
      */
     public function test_scan_regex_no_match(): void {
         $checker = new checker($this->examcheck, $this->context);
-        $result = $checker->scan($this->stepid, 'idnumber', 'S1', false, false,
-            $this->teacher->id, 0, 'ID=(S\d+)');
+        $result = $checker->scan(
+            $this->stepid,
+            'idnumber',
+            'S1',
+            false,
+            false,
+            $this->teacher->id,
+            0,
+            'ID=(S\d+)'
+        );
         $this->assertSame('notfound', $result['status']);
     }
 
