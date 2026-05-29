@@ -40,9 +40,13 @@ const zxinglib = (() => {
     return candidates.find((c) => c && c.BrowserMultiFormatReader) || null;
 })();
 
+const DECODE_INTERVAL = 250;
+
 let config = {cmid: 0, groupid: 0};
 let root = null;
 let zxingReader = null;
+let stream = null;
+let decodeTimer = null;
 let scanning = false;
 let pending = null; // {value} awaiting confirmation.
 let lastValue = '';
@@ -60,6 +64,9 @@ export const init = (cmid, groupid) => {
         return;
     }
     config = {cmid, groupid};
+
+    // Unmistakable marker so it is obvious whether the current scanner JS is being served.
+    window.console.log('[examcheck] scanner init', {cmid, groupid, zxing: Boolean(zxinglib)});
 
     registerControls();
     detectFeatureSupport();
@@ -107,10 +114,9 @@ const detectFeatureSupport = () => {
 };
 
 /**
- * Start the camera and the continuous ZXing decode loop.
- *
- * ZXing's decodeFromConstraints opens the camera, attaches it to the video
- * element (with the iOS-friendly attributes it needs) and runs the decode loop.
+ * Open the camera (we manage the stream so it is reliable) and start a self-driven
+ * decode loop that hands each video frame to ZXing. Driving the loop ourselves makes
+ * it observable (heartbeat logs) and avoids ZXing's internal loop not firing.
  */
 const startCamera = async() => {
     if (!zxinglib) {
@@ -118,37 +124,57 @@ const startCamera = async() => {
     }
     const video = root.querySelector('[data-region="video"]');
     try {
-        zxingReader = new zxinglib.BrowserMultiFormatReader();
-        await zxingReader.decodeFromConstraints(
-            {video: {facingMode: 'environment'}, audio: false},
-            video,
-            (result) => {
-                if (result) {
-                    window.console.log('[examcheck] decoded:', result.getText());
-                    if (scanning) {
-                        process(result.getText());
-                    }
-                }
-                // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
-            }
-        );
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {facingMode: 'environment'},
+            audio: false,
+        });
     } catch (e) {
-        window.console.log('[examcheck] camera/decoder could not start:', e);
-        if (zxingReader) {
-            try {
-                zxingReader.reset();
-            } catch (ignore) {
-                zxingReader = null;
-            }
-            zxingReader = null;
-        }
+        window.console.log('[examcheck] camera could not start:', e);
         showStatus('camerablocked', 'warning');
         return;
     }
 
+    video.setAttribute('playsinline', 'true');
+    video.srcObject = stream;
+    await video.play();
+    window.console.log('[examcheck] camera started:', video.videoWidth + 'x' + video.videoHeight);
+
+    zxingReader = new zxinglib.BrowserMultiFormatReader();
     toggle('[data-action="startcamera"]', false);
     toggle('[data-action="stopcamera"]', true);
     resumeScanning();
+    startDecodeLoop(video);
+};
+
+/**
+ * Decode the live video frame by frame with ZXing.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ */
+const startDecodeLoop = (video) => {
+    let frames = 0;
+    decodeTimer = window.setInterval(() => {
+        if (!scanning || !video.videoWidth) {
+            return;
+        }
+        frames++;
+        // Heartbeat so it is clear the loop is alive even when no code is in view.
+        if (frames === 1 || frames % 40 === 0) {
+            window.console.log('[examcheck] scanning frame', frames, video.videoWidth + 'x' + video.videoHeight);
+        }
+        try {
+            const result = zxingReader.decodeBitmap(zxingReader.createBinaryBitmap(video));
+            if (result) {
+                window.console.log('[examcheck] decoded:', result.getText());
+                process(result.getText());
+            }
+        } catch (e) {
+            // A NotFoundException every frame with no code is normal; log anything else once.
+            if (e && e.name && e.name !== 'NotFoundException') {
+                window.console.log('[examcheck] decode error:', e.name, e.message || e);
+            }
+        }
+    }, DECODE_INTERVAL);
 };
 
 /**
@@ -156,6 +182,10 @@ const startCamera = async() => {
  */
 const stopCamera = () => {
     scanning = false;
+    if (decodeTimer) {
+        window.clearInterval(decodeTimer);
+        decodeTimer = null;
+    }
     if (zxingReader) {
         try {
             zxingReader.reset();
@@ -163,6 +193,10 @@ const stopCamera = () => {
             // Reader already stopped; ignore.
         }
         zxingReader = null;
+    }
+    if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
     }
     const video = root.querySelector('[data-region="video"]');
     if (video) {
