@@ -51,14 +51,14 @@
                     <div class="mb-3">
                         <label class="form-label" for="examcheck-step">{{#str}}scanstep, mod_examcheck{{/str}}</label>
                         <select id="examcheck-step" class="form-select" data-region="step">
-                            {{#steps}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{name}}</option>{{/steps}}
+                            {{#steps}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{{name}}}</option>{{/steps}}
                         </select>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="examcheck-field">{{#str}}scanfield, mod_examcheck{{/str}}</label>
                         <select id="examcheck-field" class="form-select" data-region="scanfield">
-                            {{#fields}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{name}}</option>{{/fields}}
+                            {{#fields}}<option value="{{value}}" {{#selected}}selected{{/selected}}>{{{name}}}</option>{{/fields}}
                         </select>
                     </div>
 
