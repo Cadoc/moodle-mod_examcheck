@@ -26,6 +26,7 @@
     * steps - array of {value, name, selected}
     * fields - array of {value, name, selected}
     * requireconfirm - boolean default for the confirm toggle
+    * showcameraswitcher - whether to offer the manual camera picker
     * dashboardurl - link back to the dashboard
 
     Example context (json):
@@ -33,7 +34,7 @@
         "cmid": 12, "groupid": 0, "name": "Final exam",
         "steps": [{"value": 1, "name": "Attendance", "selected": true}],
         "fields": [{"value": "idnumber", "name": "ID number", "selected": true}],
-        "requireconfirm": false, "dashboardurl": "#"
+        "requireconfirm": false, "showcameraswitcher": true, "dashboardurl": "#"
     }
 }}
 <div class="mod_examcheck-scanner" data-region="examcheck-scanner" data-cmid="{{cmid}}" data-groupid="{{groupid}}">
@@ -86,6 +87,10 @@
                     <video data-region="video" class="examcheck-video" playsinline muted></video>
                     <div class="examcheck-reticle" aria-hidden="true"></div>
                 </div>
+                <div class="examcheck-cameraselect mb-2 d-none" data-region="cameraselectwrap">
+                    <label class="form-label" for="examcheck-camera">{{#str}}camera, mod_examcheck{{/str}}</label>
+                    <select id="examcheck-camera" class="form-select" data-region="cameraselect"></select>
+                </div>
                 <div class="d-flex gap-2 mt-2">
                     <button type="button" class="btn btn-success" data-action="startcamera">
                         {{#str}}startcamera, mod_examcheck{{/str}}
@@ -120,6 +125,6 @@
 </div>
 {{#js}}
 require(['mod_examcheck/scanner'], function(Scanner) {
-    Scanner.init({{cmid}}, {{groupid}});
+    Scanner.init({{cmid}}, {{groupid}}, {{#showcameraswitcher}}true{{/showcameraswitcher}}{{^showcameraswitcher}}false{{/showcameraswitcher}});
 });
 {{/js}}

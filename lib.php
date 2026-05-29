@@ -212,6 +212,8 @@ function examcheck_get_coursemodule_info($coursemodule) {
  * @param navigation_node $examchecknode The activity's settings node.
  */
 function examcheck_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $examchecknode) {
+    global $DB;
+
     $cm = $settingsnav->get_page()->cm;
     if (!$cm) {
         return;
@@ -223,7 +225,9 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
     $i = array_search('modedit', $keys, true);
     $beforekey = $i !== false ? $keys[$i] : (array_key_exists(0, $keys) ? $keys[0] : null);
 
-    if (has_capability('mod/examcheck:check', $context)) {
+    // Only when the activity has the scanner enabled and the user may check.
+    $scannerenabled = $DB->get_field('examcheck', 'enablescanner', ['id' => $cm->instance]);
+    if ($scannerenabled && has_capability('mod/examcheck:check', $context)) {
         $examchecknode->add_node(navigation_node::create(
             get_string('scanner', 'mod_examcheck'),
             new moodle_url('/mod/examcheck/scan.php', ['id' => $cm->id]),

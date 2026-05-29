@@ -52,6 +52,22 @@ if ($ADMIN->fulltree) {
         0
     ));
 
+    // Default "enable scanner" for new instances.
+    $settings->add(new admin_setting_configcheckbox(
+        'mod_examcheck/defaultenablescanner',
+        get_string('defaultenablescanner', 'mod_examcheck'),
+        get_string('defaultenablescanner_desc', 'mod_examcheck'),
+        1
+    ));
+
+    // Default "show camera switcher" for new instances.
+    $settings->add(new admin_setting_configcheckbox(
+        'mod_examcheck/defaultshowcameraswitcher',
+        get_string('defaultshowcameraswitcher', 'mod_examcheck'),
+        get_string('defaultshowcameraswitcher_desc', 'mod_examcheck'),
+        1
+    ));
+
     // How often (seconds) the dashboard polls for marks made by other teachers.
     $settings->add(new admin_setting_configtext(
         'mod_examcheck/pollinterval',

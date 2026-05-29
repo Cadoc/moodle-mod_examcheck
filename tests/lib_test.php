@@ -184,6 +184,42 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * The Scanner secondary-nav node appears only when the activity enables the scanner.
+     */
+    public function test_settings_navigation_scanner_gated(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+
+        $enabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enablescanner' => 1]);
+        $disabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enablescanner' => 0]);
+
+        $this->assertTrue($this->has_scanner_node($course, $enabled));
+        $this->assertFalse($this->has_scanner_node($course, $disabled));
+    }
+
+    /**
+     * Whether examcheck_extend_settings_navigation adds the Scanner node for an instance.
+     *
+     * @param \stdClass $course The course.
+     * @param \stdClass $examcheck The instance stub with ->cmid.
+     * @return bool
+     */
+    protected function has_scanner_node(\stdClass $course, \stdClass $examcheck): bool {
+        $cm = get_fast_modinfo($course)->get_cm($examcheck->cmid);
+        $page = new \moodle_page();
+        $page->set_course($course);
+        $page->set_cm($cm, $course);
+        $page->set_url('/mod/examcheck/view.php', ['id' => $cm->id]);
+
+        $settingsnav = new \settings_navigation($page);
+        $node = \navigation_node::create('examcheck', null, \navigation_node::TYPE_SETTING, null, 'modulesettings');
+        examcheck_extend_settings_navigation($settingsnav, $node);
+
+        return (bool) $node->find('mod_examcheck_scanner', \navigation_node::TYPE_SETTING);
+    }
+
+    /**
      * Build a course + instance with automatic "all steps" completion.
      *
      * @param int $completionstep 0 for all steps, or a step id.

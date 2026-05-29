@@ -59,5 +59,20 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026052906, 'examcheck');
     }
 
+    if ($oldversion < 2026053003) {
+        // Per-activity scanner toggles. Existing activities keep the scanner (and switcher) on.
+        $table = new xmldb_table('examcheck');
+        $enable = new xmldb_field('enablescanner', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'requireconfirm');
+        if (!$dbman->field_exists($table, $enable)) {
+            $dbman->add_field($table, $enable);
+        }
+        $switcher = new xmldb_field('showcameraswitcher', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'enablescanner');
+        if (!$dbman->field_exists($table, $switcher)) {
+            $dbman->add_field($table, $switcher);
+        }
+
+        upgrade_mod_savepoint(true, 2026053003, 'examcheck');
+    }
+
     return true;
 }

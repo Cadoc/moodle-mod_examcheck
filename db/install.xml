@@ -13,6 +13,8 @@
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="scanfield" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="idnumber" SEQUENCE="false" COMMENT="Default field key used to match scanned QR/barcode values to a user."/>
         <FIELD NAME="requireconfirm" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the scanner shows the matched user and waits for the teacher to confirm before marking."/>
+        <FIELD NAME="enablescanner" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 0, the camera/barcode scanner is disabled for this activity (no tab, scan.php blocked)."/>
+        <FIELD NAME="showcameraswitcher" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 1, the scanner offers a camera/lens picker dropdown."/>
         <FIELD NAME="completionchecked" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the student completes the activity once they are checked as required."/>
         <FIELD NAME="completionstep" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = student must be checked on ALL steps; otherwise the single step id that completes the activity."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

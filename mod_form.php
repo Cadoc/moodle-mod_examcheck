@@ -61,9 +61,21 @@ class mod_examcheck_mod_form extends moodleform_mod {
         // The scan extraction pattern is a single site-wide admin setting (see settings.php),
         // applied server-side, so it is not configured per activity.
 
+        // Master toggle: when off, the scanner is fully disabled (no tab, scan.php blocked).
+        $mform->addElement('selectyesno', 'enablescanner', get_string('enablescanner', 'mod_examcheck'));
+        $mform->setDefault('enablescanner', (int) get_config('mod_examcheck', 'defaultenablescanner'));
+        $mform->addHelpButton('enablescanner', 'enablescanner', 'mod_examcheck');
+
         $mform->addElement('selectyesno', 'requireconfirm', get_string('requireconfirm', 'mod_examcheck'));
         $mform->setDefault('requireconfirm', (int) get_config('mod_examcheck', 'defaultrequireconfirm'));
         $mform->addHelpButton('requireconfirm', 'requireconfirm', 'mod_examcheck');
+        $mform->hideIf('requireconfirm', 'enablescanner', 'eq', 0);
+
+        // Whether the scanner offers a manual camera/lens picker; only relevant when enabled.
+        $mform->addElement('selectyesno', 'showcameraswitcher', get_string('showcameraswitcher', 'mod_examcheck'));
+        $mform->setDefault('showcameraswitcher', (int) get_config('mod_examcheck', 'defaultshowcameraswitcher'));
+        $mform->addHelpButton('showcameraswitcher', 'showcameraswitcher', 'mod_examcheck');
+        $mform->hideIf('showcameraswitcher', 'enablescanner', 'eq', 0);
 
         // Standard course module elements (visibility, groups, etc.).
         $this->standard_coursemodule_elements();

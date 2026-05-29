@@ -42,6 +42,12 @@ $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXI
 
 $dashboardurl = new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]);
 
+// The scanner can be disabled per activity; block direct access to this page when off.
+if (empty($examcheck->enablescanner)) {
+    redirect($dashboardurl, get_string('scannerdisabled', 'mod_examcheck'), null,
+        \core\output\notification::NOTIFY_ERROR);
+}
+
 $steps = array_values(steps::get_steps($examcheck->id));
 if (empty($steps)) {
     redirect($dashboardurl, get_string('error_nosteps', 'mod_examcheck'), null, \core\output\notification::NOTIFY_ERROR);
@@ -80,6 +86,7 @@ $templatecontext = [
     'steps'          => $stepoptions,
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
+    'showcameraswitcher' => (bool) $examcheck->showcameraswitcher,
     'dashboardurl'   => $dashboardurl->out(false),
 ];
 

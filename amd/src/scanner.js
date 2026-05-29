@@ -32,6 +32,7 @@ import {getString} from 'core/str';
 import ZXing from 'mod_examcheck/zxing';
 
 const DEDUPE_MS = 2500;
+const CAMERA_STORAGE_KEY = 'examcheck_scanner_camera';
 
 // Resolve the ZXing library across module-interop shapes, falling back to the global the
 // vendored UMD also sets. Returns the object exposing BrowserMultiFormatReader, or null.
@@ -47,19 +48,28 @@ let scanning = false;
 let pending = null; // {value} awaiting confirmation.
 let lastValue = '';
 let lastValueTime = 0;
+let showCameraSwitcher = false;
+let selectedDeviceId = null; // Preferred camera deviceId, or null for the default (rear).
 
 /**
  * Initialise the scanner page.
  *
  * @param {Number} cmid Course module id.
  * @param {Number} groupid Group context.
+ * @param {Boolean} showcameraswitcher Whether to offer the manual camera picker.
  */
-export const init = (cmid, groupid) => {
+export const init = (cmid, groupid, showcameraswitcher) => {
     root = document.querySelector('[data-region="examcheck-scanner"]');
     if (!root) {
         return;
     }
     config = {cmid, groupid};
+    showCameraSwitcher = Boolean(showcameraswitcher);
+    try {
+        selectedDeviceId = window.localStorage.getItem(CAMERA_STORAGE_KEY) || null;
+    } catch (e) {
+        selectedDeviceId = null;
+    }
 
     registerControls();
     detectFeatureSupport();
@@ -74,6 +84,7 @@ const registerControls = () => {
     root.querySelector('[data-action="confirm"]')?.addEventListener('click', confirmPending);
     root.querySelector('[data-action="next"]')?.addEventListener('click', resumeScanning);
     root.querySelector('[data-action="cancel"]')?.addEventListener('click', resumeScanning);
+    root.querySelector('[data-region="cameraselect"]')?.addEventListener('change', (e) => switchCamera(e.target.value));
 
     const form = root.querySelector('[data-region="manualform"]');
     form?.addEventListener('submit', (e) => {
@@ -107,55 +118,41 @@ const detectFeatureSupport = () => {
 };
 
 /**
- * Start the camera and the continuous ZXing decode loop.
+ * Build the getUserMedia constraints: a high ideal resolution (so small/distant codes
+ * decode, especially on desktop webcams) for either the chosen camera or the rear one.
  *
- * ZXing's decodeFromConstraints opens the camera, attaches it to the video
- * element (with the iOS-friendly attributes it needs) and runs the decode loop.
+ * @returns {Object} MediaStreamConstraints.
  */
-const startCamera = async() => {
-    if (!zxinglib) {
-        return;
+const buildConstraints = () => {
+    const video = {width: {ideal: 1920}, height: {ideal: 1080}};
+    if (selectedDeviceId) {
+        video.deviceId = {exact: selectedDeviceId};
+    } else {
+        video.facingMode = {ideal: 'environment'};
     }
-    const video = root.querySelector('[data-region="video"]');
-    try {
-        zxingReader = new zxinglib.BrowserMultiFormatReader();
-        await zxingReader.decodeFromConstraints(
-            {video: {facingMode: 'environment'}, audio: false},
-            video,
-            (result) => {
-                if (result) {
-                    window.console.log('[examcheck] decoded:', result.getText());
-                    if (scanning) {
-                        process(result.getText());
-                    }
-                }
-                // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
-            }
-        );
-    } catch (e) {
-        window.console.log('[examcheck] camera/decoder could not start:', e);
-        if (zxingReader) {
-            try {
-                zxingReader.reset();
-            } catch (ignore) {
-                zxingReader = null;
-            }
-            zxingReader = null;
-        }
-        showStatus('camerablocked', 'warning');
-        return;
-    }
-
-    toggle('[data-action="startcamera"]', false);
-    toggle('[data-action="stopcamera"]', true);
-    resumeScanning();
+    return {audio: false, video};
 };
 
 /**
- * Stop the camera and the decode loop.
+ * Open the camera and run the continuous ZXing decode loop on the given reader.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ * @returns {Promise} Resolves once decoding has started.
  */
-const stopCamera = () => {
-    scanning = false;
+const runDecode = (video) => zxingReader.decodeFromConstraints(buildConstraints(), video, (result) => {
+    if (result) {
+        window.console.log('[examcheck] decoded:', result.getText());
+        if (scanning) {
+            process(result.getText());
+        }
+    }
+    // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
+});
+
+/**
+ * Reset and drop the current ZXing reader (also stops its camera stream).
+ */
+const stopReader = () => {
     if (zxingReader) {
         try {
             zxingReader.reset();
@@ -164,10 +161,137 @@ const stopCamera = () => {
         }
         zxingReader = null;
     }
+};
+
+/**
+ * Report that the camera could not be started.
+ *
+ * @param {*} e The error.
+ */
+const failStart = (e) => {
+    window.console.log('[examcheck] camera/decoder could not start:', e);
+    stopReader();
+    showStatus('camerablocked', 'warning');
+};
+
+/**
+ * Start the camera and the continuous ZXing decode loop, then offer the camera picker.
+ *
+ * ZXing's decodeFromConstraints opens the camera, attaches it to the video element (with
+ * the iOS-friendly attributes it needs) and runs the decode loop.
+ */
+const startCamera = async() => {
+    if (!zxinglib) {
+        return;
+    }
+    const video = root.querySelector('[data-region="video"]');
+    zxingReader = new zxinglib.BrowserMultiFormatReader();
+    try {
+        await runDecode(video);
+    } catch (e) {
+        // A remembered camera may no longer exist on this device: drop it and retry.
+        if (selectedDeviceId) {
+            window.console.log('[examcheck] selected camera unavailable, using default:', e);
+            selectedDeviceId = null;
+            try {
+                await runDecode(video);
+            } catch (retryerror) {
+                failStart(retryerror);
+                return;
+            }
+        } else {
+            failStart(e);
+            return;
+        }
+    }
+
+    toggle('[data-action="startcamera"]', false);
+    toggle('[data-action="stopcamera"]', true);
+    resumeScanning();
+    populateCameras(video);
+};
+
+/**
+ * Populate and reveal the camera picker (when enabled and more than one camera exists).
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ */
+const populateCameras = async(video) => {
+    if (!showCameraSwitcher) {
+        return;
+    }
+    const wrap = root.querySelector('[data-region="cameraselectwrap"]');
+    const select = root.querySelector('[data-region="cameraselect"]');
+    if (!wrap || !select) {
+        return;
+    }
+
+    let cameras;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        cameras = devices.filter((d) => d.kind === 'videoinput');
+    } catch (e) {
+        return;
+    }
+    if (cameras.length < 2) {
+        return;
+    }
+
+    const track = video.srcObject && video.srcObject.getVideoTracks ? video.srcObject.getVideoTracks()[0] : null;
+    const current = (track && track.getSettings) ? (track.getSettings().deviceId || '') : '';
+
+    select.innerHTML = '';
+    cameras.forEach((camera, index) => {
+        const option = document.createElement('option');
+        option.value = camera.deviceId;
+        option.textContent = camera.label || ('Camera ' + (index + 1));
+        if (camera.deviceId && camera.deviceId === current) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+    wrap.classList.remove('d-none');
+};
+
+/**
+ * Switch to a specific camera and restart decoding.
+ *
+ * @param {String} deviceId The chosen camera deviceId.
+ */
+const switchCamera = async(deviceId) => {
+    if (!deviceId || !zxinglib) {
+        return;
+    }
+    selectedDeviceId = deviceId;
+    try {
+        window.localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+    } catch (e) {
+        // Storage unavailable (private mode); the choice just won't persist.
+    }
+
+    scanning = false;
+    stopReader();
+    const video = root.querySelector('[data-region="video"]');
+    zxingReader = new zxinglib.BrowserMultiFormatReader();
+    try {
+        await runDecode(video);
+        resumeScanning();
+    } catch (e) {
+        failStart(e);
+    }
+};
+
+/**
+ * Stop the camera and the decode loop.
+ */
+const stopCamera = () => {
+    scanning = false;
+    stopReader();
     const video = root.querySelector('[data-region="video"]');
     if (video) {
         video.srcObject = null;
     }
+    toggle('[data-region="cameraselectwrap"]', false);
     toggle('[data-action="startcamera"]', true);
     toggle('[data-action="stopcamera"]', false);
 };

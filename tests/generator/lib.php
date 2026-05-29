@@ -45,10 +45,12 @@ class mod_examcheck_generator extends testing_module_generator {
         $record = (object) (array) $record;
 
         $defaults = [
-            'scanfield'         => 'idnumber',
-            'requireconfirm'    => 0,
-            'completionchecked' => 0,
-            'completionstep'    => 0,
+            'scanfield'          => 'idnumber',
+            'requireconfirm'     => 0,
+            'enablescanner'      => 1,
+            'showcameraswitcher' => 1,
+            'completionchecked'  => 0,
+            'completionstep'     => 0,
         ];
         foreach ($defaults as $key => $value) {
             if (!isset($record->$key)) {
