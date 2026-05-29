@@ -28,7 +28,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class steps_test extends \advanced_testcase {
-
     /** @var \stdClass The examcheck instance. */
     protected $examcheck;
 

@@ -33,7 +33,6 @@ use stdClass;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class checker {
-
     /** @var stdClass The examcheck instance record. */
     protected stdClass $examcheck;
 
@@ -248,14 +247,30 @@ class checker {
      * @param bool $requireconfirm Whether confirmation is required this session.
      * @param int $checkedby The teacher recording the mark.
      * @param int $groupid Group context used to validate roster membership.
+     * @param string $regex Optional regex (no delimiters) to extract the value to match.
      * @return array Result: notfound|needsconfirm|marked|conflict, plus user data.
      */
-    public function scan(int $stepid, string $fieldkey, string $value, bool $confirm,
-            bool $requireconfirm, int $checkedby, int $groupid = 0): array {
+    public function scan(
+        int $stepid,
+        string $fieldkey,
+        string $value,
+        bool $confirm,
+        bool $requireconfirm,
+        int $checkedby,
+        int $groupid = 0,
+        string $regex = ''
+    ): array {
         $this->require_step($stepid);
 
+        // Optionally extract the part of the scanned code to match (e.g. a
+        // student number embedded in a longer barcode payload).
+        $needle = scanfield::apply_regex($regex, $value);
+        if ($needle === null || $needle === '') {
+            return ['status' => 'notfound', 'value' => trim($value)];
+        }
+
         $rosterids = $this->get_roster_ids($groupid);
-        $userid = scanfield::find_user($fieldkey, $value, $rosterids);
+        $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
 
         if (!$userid) {
             return ['status' => 'notfound', 'value' => trim($value)];
@@ -353,8 +368,12 @@ class checker {
      */
     protected function require_step(int $stepid): stdClass {
         global $DB;
-        return $DB->get_record('examcheck_steps',
-            ['id' => $stepid, 'examcheckid' => $this->examcheck->id], '*', MUST_EXIST);
+        return $DB->get_record(
+            'examcheck_steps',
+            ['id' => $stepid, 'examcheckid' => $this->examcheck->id],
+            '*',
+            MUST_EXIST
+        );
     }
 
     /**

@@ -44,6 +44,11 @@ the result into a completion condition you can use to gate other activities.
 - **QR / barcode scanning.** Use a phone camera to scan a code printed on the
   student card. Choose which field the code matches: **ID number**, **internal
   user id**, or any **custom profile field**.
+- **Extraction pattern (regex).** When the code encodes more than the student
+  number, set a regular expression to pull out just the part to match. For a
+  card scanning as `U=12345678;LIB=987`, the pattern `(\d{8})` extracts
+  `12345678` before comparing it to the chosen field. Configurable per activity
+  and overridable per scanning session.
 - **Two scanning modes.** *Mark immediately* (scan → checked → next student
   automatically) or *confirm first* (scan → the student's name is shown → the
   teacher presses **Confirm and mark**, then **Scan next**).

@@ -30,7 +30,6 @@ use mod_examcheck\local\checker;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class unmark_user extends external_api {
-
     /**
      * Parameters.
      *

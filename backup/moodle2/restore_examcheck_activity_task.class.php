@@ -31,7 +31,6 @@ require_once($CFG->dirroot . '/mod/examcheck/backup/moodle2/restore_examcheck_st
  * Restore task that provides the settings and steps to restore the activity.
  */
 class restore_examcheck_activity_task extends restore_activity_task {
-
     /**
      * No particular settings for this activity.
      */

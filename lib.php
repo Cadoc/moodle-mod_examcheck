@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Return whether a feature is supported by this module.
  *
@@ -211,8 +209,10 @@ function examcheck_get_coursemodule_info($coursemodule) {
  * @return string[] Rule descriptions.
  */
 function mod_examcheck_get_completion_active_rule_descriptions($cm) {
-    if (empty($cm->customdata['customcompletionrules'])
-            || $cm->completion != COMPLETION_TRACKING_AUTOMATIC) {
+    if (
+        empty($cm->customdata['customcompletionrules'])
+            || $cm->completion != COMPLETION_TRACKING_AUTOMATIC
+    ) {
         return [];
     }
 

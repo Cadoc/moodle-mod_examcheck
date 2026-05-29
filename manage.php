@@ -144,8 +144,14 @@ foreach ($steprecords as $index => $step) {
         'isfirst'   => $index === 0,
         'islast'    => $index === $count - 1,
         'editurl'   => (new moodle_url($baseurl, ['action' => 'edit', 'stepid' => $step->id]))->out(false),
-        'upurl'     => (new moodle_url($baseurl, ['action' => 'moveup', 'stepid' => $step->id, 'sesskey' => sesskey()]))->out(false),
-        'downurl'   => (new moodle_url($baseurl, ['action' => 'movedown', 'stepid' => $step->id, 'sesskey' => sesskey()]))->out(false),
+        'upurl'     => (new moodle_url(
+            $baseurl,
+            ['action' => 'moveup', 'stepid' => $step->id, 'sesskey' => sesskey()]
+        ))->out(false),
+        'downurl'   => (new moodle_url(
+            $baseurl,
+            ['action' => 'movedown', 'stepid' => $step->id, 'sesskey' => sesskey()]
+        ))->out(false),
         'clearurl'  => (new moodle_url($baseurl, ['action' => 'clear', 'stepid' => $step->id]))->out(false),
         'deleteurl' => (new moodle_url($baseurl, ['action' => 'delete', 'stepid' => $step->id]))->out(false),
         'candelete' => $count > 1,

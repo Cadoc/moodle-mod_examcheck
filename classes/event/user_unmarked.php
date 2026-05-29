@@ -34,7 +34,6 @@ use stdClass;
  * }
  */
 class user_unmarked extends base {
-
     /**
      * Build the event from the mark that was removed.
      *

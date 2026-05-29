@@ -5,8 +5,10 @@ Information provided here is intended especially for developers.
 
 * First release. Public API:
   - \mod_examcheck\local\checker — roster, marking (with conflict detection),
-    unmarking, scan resolution and per-step progress.
+    unmarking, scan resolution (with optional extraction regex) and per-step
+    progress.
   - \mod_examcheck\local\steps — step CRUD and reordering.
-  - \mod_examcheck\local\scanfield — scan field menu and user lookup.
+  - \mod_examcheck\local\scanfield — scan field menu, user lookup and the
+    apply_regex() / is_valid_regex() extraction helpers.
   - Web services: mod_examcheck_mark_user, mod_examcheck_unmark_user,
     mod_examcheck_scan_lookup, mod_examcheck_get_marks.

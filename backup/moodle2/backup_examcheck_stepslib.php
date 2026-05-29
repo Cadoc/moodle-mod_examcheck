@@ -23,13 +23,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Defines the complete examcheck structure for backup, with annotations.
  */
 class backup_examcheck_activity_structure_step extends backup_activity_structure_step {
-
     /**
      * Define the backup structure.
      *

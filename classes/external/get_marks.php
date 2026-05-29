@@ -34,7 +34,6 @@ use mod_examcheck\local\checker;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_marks extends external_api {
-
     /**
      * Parameters.
      *

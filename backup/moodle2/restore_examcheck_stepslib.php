@@ -23,13 +23,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Structure step to restore one examcheck activity.
  */
 class restore_examcheck_activity_structure_step extends restore_activity_structure_step {
-
     /**
      * Define the restore paths.
      *

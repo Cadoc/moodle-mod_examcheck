@@ -32,7 +32,6 @@ use mod_examcheck\local\steps;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class provider_test extends \core_privacy\tests\provider_testcase {
-
     /** @var \stdClass The examcheck module stub. */
     protected $examcheck;
     /** @var \context_module The module context. */
@@ -58,7 +57,9 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
 
         $stepid = (int) array_values(steps::get_steps($this->examcheck->id))[0]->id;
         $checker = new checker(
-            $this->reload(), $this->context);
+            $this->reload(),
+            $this->context
+        );
         $checker->mark_user($stepid, $this->student->id, $this->teacher->id, 'list');
     }
 
@@ -134,8 +135,10 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         global $DB;
         $userlist = new approved_userlist($this->context, 'mod_examcheck', [$this->student->id]);
         provider::delete_data_for_users($userlist);
-        $this->assertEquals(0, $DB->count_records('examcheck_marks',
-            ['examcheckid' => $this->examcheck->id, 'userid' => $this->student->id]));
+        $this->assertEquals(0, $DB->count_records(
+            'examcheck_marks',
+            ['examcheckid' => $this->examcheck->id, 'userid' => $this->student->id]
+        ));
     }
 
     /**
