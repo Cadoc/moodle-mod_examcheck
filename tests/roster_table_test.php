@@ -49,7 +49,7 @@ final class roster_table_test extends \advanced_testcase {
         $student = $this->getDataGenerator()->create_and_enrol(
             $course,
             'student',
-            ['firstname' => 'Ann', 'lastname' => 'Other', 'email' => 'ann.other@example.com']
+            ['firstname' => 'Ann', 'lastname' => 'Other', 'email' => 'ann.other@example.com', 'idnumber' => 'STU-42']
         );
         // A teacher is a checker and must be excluded from the roster.
         $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
@@ -74,6 +74,35 @@ final class roster_table_test extends \advanced_testcase {
         $this->assertStringContainsString("data-togglegroup=\"examcheck-roster\"", $html);
         // The student name links to their profile.
         $this->assertStringContainsString('/user/view.php', $html);
+        // The match field (default idnumber) shows in its own column, labelled "ID number".
+        $this->assertStringContainsString('STU-42', $html);
+        $this->assertStringContainsString(get_string('field_idnumber', 'mod_examcheck'), $html);
+    }
+
+    /**
+     * The match column follows the activity's configured scan field, not a hardcoded one.
+     */
+    public function test_match_column_uses_configured_field(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        // Match on the internal user id instead of the id number.
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'scanfield' => 'userid']);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student', ['idnumber' => 'IGNORED']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $table = new roster("examcheck-roster-{$examcheck->cmid}");
+        $table->set_filterset(new roster_filterset());
+
+        ob_start();
+        $table->out(1000, false);
+        $html = ob_get_clean();
+
+        // Column is labelled for the userid field and shows the student's id, not the idnumber.
+        $this->assertStringContainsString(get_string('field_userid', 'mod_examcheck'), $html);
+        $this->assertStringContainsString('>' . $student->id . '<', $html);
     }
 
     /**

@@ -25,6 +25,7 @@ use core_table\dynamic as dynamic_table;
 use core_table\local\filter\filterset;
 use html_writer;
 use mod_examcheck\local\checker;
+use mod_examcheck\local\scanfield;
 use mod_examcheck\local\steps;
 use moodle_url;
 use stdClass;
@@ -65,6 +66,12 @@ class roster extends \table_sql implements dynamic_table {
     /** @var string[] Identity fields (email, etc.) the current user may see. */
     protected array $extrafields = [];
 
+    /** @var string The activity's scan match field key (idnumber, userid or profile_field_x). */
+    protected string $matchfield = 'idnumber';
+
+    /** @var array<int, string> User id => their value for the match field. */
+    protected array $matchvalues = [];
+
     /** @var array<int, string> Step id => display name. */
     protected array $stepnames = [];
 
@@ -100,8 +107,15 @@ class roster extends \table_sql implements dynamic_table {
         $this->checker = new checker($this->examcheck, $this->context);
         $this->steps = array_values(steps::get_steps((int) $this->examcheck->id));
         $this->marks = $this->checker->get_marks();
+        // The scan match field (idnumber, userid or a custom profile field) gets its own column.
+        $this->matchfield = (string) ($this->examcheck->scanfield ?: 'idnumber');
+
         // Identity fields (email, etc.) shown only to viewers with permission to see them.
-        $this->extrafields = \core_user\fields::get_identity_fields($this->context, false);
+        // Drop the match field from here so it is not shown twice.
+        $this->extrafields = array_values(array_filter(
+            \core_user\fields::get_identity_fields($this->context, false),
+            fn($field) => $field !== $this->matchfield
+        ));
         foreach ($this->steps as $step) {
             // Pass the context explicitly: the AJAX endpoint has not set $PAGE->context yet.
             $this->stepnames[(int) $step->id] = format_string($step->name, true, ['context' => $this->context]);
@@ -173,8 +187,10 @@ class roster extends \table_sql implements dynamic_table {
             'labelclasses' => 'visually-hidden',
             'checked'      => false,
         ]);
-        $columns = ['select', 'fullname'];
-        $headers = [$OUTPUT->render($selectall), get_string('student', 'mod_examcheck')];
+        // The scan match field gets its own sortable, hideable column, labelled per the field.
+        $columns = ['select', 'fullname', 'matchfield'];
+        $headers = [$OUTPUT->render($selectall), get_string('student', 'mod_examcheck'),
+            scanfield::get_label($this->matchfield)];
 
         // Identity columns (email, etc.) the viewer is permitted to see.
         foreach ($this->extrafields as $field) {
@@ -223,6 +239,7 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $users = $this->checker->get_roster($this->effectivegroup, $this->extrafields);
+        $this->matchvalues = $this->load_match_values($users);
 
         $keywords = [];
         if ($this->get_filterset()->has_filter('keywords')) {
@@ -234,8 +251,8 @@ class roster extends \table_sql implements dynamic_table {
                 continue;
             }
             foreach ($users as $id => $user) {
-                // Match name plus the visible identity fields (idnumber, email, ...).
-                $parts = [fullname($user)];
+                // Match name, the match field, and the visible identity fields.
+                $parts = [fullname($user), $this->matchvalues[$id] ?? ''];
                 foreach ($this->extrafields as $field) {
                     $parts[] = (string) ($user->$field ?? '');
                 }
@@ -246,12 +263,65 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $sortcolumns = $this->get_sort_columns();
-        if (isset($sortcolumns['fullname']) && (int) $sortcolumns['fullname'] === SORT_DESC) {
+        if (isset($sortcolumns['matchfield'])) {
+            $dir = (int) $sortcolumns['matchfield'] === SORT_DESC ? -1 : 1;
+            uasort($users, fn($a, $b) => $dir * strnatcasecmp(
+                $this->matchvalues[$a->id] ?? '',
+                $this->matchvalues[$b->id] ?? ''
+            ));
+        } else if (isset($sortcolumns['fullname']) && (int) $sortcolumns['fullname'] === SORT_DESC) {
             $users = array_reverse($users, true);
         }
 
         $this->rawdata = $users;
         $this->totalrows = count($users);
+    }
+
+    /**
+     * Build a map of user id => their value for the configured scan match field.
+     *
+     * @param stdClass[] $users Roster users keyed by id.
+     * @return array<int, string>
+     */
+    protected function load_match_values(array $users): array {
+        global $DB;
+
+        $map = [];
+        if ($this->matchfield === 'userid') {
+            foreach ($users as $user) {
+                $map[(int) $user->id] = (string) $user->id;
+            }
+            return $map;
+        }
+
+        if (strpos($this->matchfield, scanfield::PROFILE_PREFIX) === 0) {
+            foreach ($users as $user) {
+                $map[(int) $user->id] = '';
+            }
+            $shortname = substr($this->matchfield, strlen(scanfield::PROFILE_PREFIX));
+            $field = $DB->get_record('user_info_field', ['shortname' => $shortname], 'id');
+            if ($field && $users) {
+                [$insql, $params] = $DB->get_in_or_equal(array_keys($map), SQL_PARAMS_NAMED, 'u');
+                $params['fieldid'] = $field->id;
+                $records = $DB->get_records_select(
+                    'user_info_data',
+                    "fieldid = :fieldid AND userid $insql",
+                    $params,
+                    '',
+                    'userid, data'
+                );
+                foreach ($records as $record) {
+                    $map[(int) $record->userid] = (string) $record->data;
+                }
+            }
+            return $map;
+        }
+
+        // Default: a standard user-table field (idnumber) already loaded on the record.
+        foreach ($users as $user) {
+            $map[(int) $user->id] = (string) ($user->{$this->matchfield} ?? '');
+        }
+        return $map;
     }
 
     /**
@@ -276,7 +346,7 @@ class roster extends \table_sql implements dynamic_table {
     }
 
     /**
-     * The student column: picture, profile-linked name and id number.
+     * The student column: picture and profile-linked name.
      *
      * @param stdClass $row The user record.
      * @return string
@@ -287,15 +357,22 @@ class roster extends \table_sql implements dynamic_table {
         $picture = $OUTPUT->user_picture($row, ['size' => 35, 'link' => false]);
         $profileurl = new moodle_url('/user/view.php', ['id' => (int) $row->id, 'course' => $this->examcheck->course]);
         $name = html_writer::link($profileurl, fullname($row), ['class' => 'examcheck-studentname']);
-        $idnumber = !empty($row->idnumber)
-            ? html_writer::tag('small', s($row->idnumber), ['class' => 'text-muted d-block'])
-            : '';
 
         return html_writer::tag(
             'span',
-            $picture . html_writer::tag('span', $name . $idnumber),
+            $picture . $name,
             ['class' => 'd-inline-flex align-items-center gap-2']
         );
+    }
+
+    /**
+     * The scan match field column (the value matched against scanned codes).
+     *
+     * @param stdClass $row The user record.
+     * @return string
+     */
+    public function col_matchfield($row): string {
+        return s($this->matchvalues[(int) $row->id] ?? '');
     }
 
     /**
