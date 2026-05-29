@@ -153,12 +153,20 @@ const startCamera = async() => {
 const startZxing = (video) => {
     try {
         zxingReader = new zxinglib.BrowserMultiFormatReader();
-        zxingReader.decodeFromVideoElement(video, (result) => {
-            if (result && scanning) {
-                process(result.getText());
+        const decoding = zxingReader.decodeFromVideoElement(video, (result) => {
+            if (result) {
+                window.console.log('[examcheck] ZXing decoded:', result.getText());
+                if (scanning) {
+                    process(result.getText());
+                }
             }
         });
+        // decodeFromVideoElement returns a promise that rejects if it cannot start.
+        if (decoding && typeof decoding.catch === 'function') {
+            decoding.catch((e) => window.console.log('[examcheck] ZXing decode could not start:', e));
+        }
     } catch (e) {
+        window.console.log('[examcheck] ZXing start failed:', e);
         zxingReader = null;
         showStatus('cameraunsupported', 'info');
     }
@@ -211,6 +219,7 @@ const detectFrame = async() => {
         return;
     }
     if (codes && codes.length) {
+        window.console.log('[examcheck] BarcodeDetector decoded:', codes[0].rawValue, codes[0].format);
         process(codes[0].rawValue);
     }
 };
@@ -260,24 +269,33 @@ const process = (value) => {
  * @param {Boolean} requireConfirm Whether confirmation is required this session.
  */
 const handleOutcome = (outcome, value, requireConfirm) => {
+    window.console.log('[examcheck] scan outcome:', outcome.status, '| value:', value,
+        '| student:', outcome.userlabel || '(none)', '| message:', outcome.message);
+
     switch (outcome.status) {
         case 'needsconfirm':
+            addToast(outcome.message, {type: 'info'});
             pending = {value};
             showPending(outcome.userlabel);
             break;
         case 'marked':
+            addToast(outcome.message, {type: 'success'});
             showMessage(outcome.message, 'success');
             afterDefinitive(requireConfirm);
             break;
         case 'conflict':
+            addToast(outcome.message, {type: 'warning'});
             showMessage(outcome.message, 'warning');
             afterDefinitive(requireConfirm);
             break;
         case 'notfound':
-            showMessage(outcome.message, 'info');
+            // Surface the value that was read so a mis-scan is obvious.
+            addToast(outcome.message, {type: 'warning'});
+            showMessage(outcome.message, 'warning');
             resumeScanning();
             break;
         default:
+            addToast(outcome.message, {type: 'info'});
             showMessage(outcome.message, 'info');
             resumeScanning();
     }
