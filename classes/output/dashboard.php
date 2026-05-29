@@ -19,48 +19,29 @@ namespace mod_examcheck\output;
 use core\output\renderer_base;
 use core\output\renderable;
 use core\output\templatable;
-use mod_examcheck\local\checker;
 use mod_examcheck\local\steps;
+use mod_examcheck\table\roster;
+use mod_examcheck\table\roster_filterset;
 use moodle_url;
 
 /**
- * Renderable for the checking dashboard (roster grid).
+ * Renderable for the checking dashboard: the datafilter bar plus the roster dynamic table.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class dashboard implements renderable, templatable {
-    /** @var checker The checker for this instance. */
-    protected checker $checker;
-
     /** @var int Course module id. */
     protected int $cmid;
-
-    /** @var int Selected group id (0 = all). */
-    protected int $groupid;
-
-    /** @var string Rendered group selector HTML. */
-    protected string $groupmenu;
-
-    /** @var bool Whether the current user may manage steps. */
-    protected bool $canmanage;
 
     /**
      * Constructor.
      *
-     * @param checker $checker The checker for this instance.
      * @param int $cmid Course module id.
-     * @param int $groupid Selected group id.
-     * @param string $groupmenu Rendered group selector HTML (may be empty).
-     * @param bool $canmanage Whether the user may manage steps.
      */
-    public function __construct(checker $checker, int $cmid, int $groupid, string $groupmenu, bool $canmanage) {
-        $this->checker = $checker;
+    public function __construct(int $cmid) {
         $this->cmid = $cmid;
-        $this->groupid = $groupid;
-        $this->groupmenu = $groupmenu;
-        $this->canmanage = $canmanage;
     }
 
     /**
@@ -70,71 +51,58 @@ class dashboard implements renderable, templatable {
      * @return array Template context.
      */
     public function export_for_template(renderer_base $output): array {
-        $steps = array_values(steps::get_steps($this->checker->get_instance()->id));
-        $roster = $this->checker->get_roster($this->groupid);
-        $marks = $this->checker->get_marks();
+        global $DB;
 
-        // Build the step header with its live progress count.
-        $progresscounts = $this->checker->get_progress($this->groupid);
-        $total = count($roster);
-        $stepheaders = [];
-        foreach ($steps as $step) {
-            $stepheaders[] = [
-                'id'    => (int) $step->id,
-                'name'  => format_string($step->name),
-                'count' => $progresscounts[$step->id] ?? 0,
-                'total' => $total,
-            ];
-        }
+        [$course, $cm] = get_course_and_cm_from_cmid($this->cmid, 'examcheck');
+        $context = \context_module::instance($cm->id);
+        $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
+        $hassteps = !empty(steps::get_steps($examcheck->id));
 
-        // Build a row per student with one cell per step.
-        $students = [];
-        foreach ($roster as $user) {
-            $cells = [];
-            foreach ($steps as $step) {
-                $mark = $marks[$step->id][$user->id] ?? null;
-                $cells[] = [
-                    'stepid'        => (int) $step->id,
-                    'stepname'      => format_string($step->name),
-                    'checked'       => (bool) $mark,
-                    'checkedbyname' => $mark ? checker::user_label((int) $mark->checkedby) : '',
-                    'ago'           => $mark ? checker::relative_time((int) $mark->timecreated) : '',
-                    'timecreated'   => $mark ? (int) $mark->timecreated : 0,
-                ];
-            }
-            $students[] = [
-                'userid'      => (int) $user->id,
-                'fullname'    => fullname($user),
-                'picture'     => $output->user_picture($user, ['size' => 35, 'link' => false]),
-                'idnumber'    => $user->idnumber ?? '',
-                'hasidnumber' => !empty($user->idnumber),
-                'cells'       => $cells,
-            ];
-        }
+        // Render the roster dynamic table (its body reloads over AJAX on filter/sort/hide).
+        $table = new roster("examcheck-roster-{$this->cmid}");
+        $table->set_filterset(new roster_filterset());
+        ob_start();
+        $table->out(1000, false);
+        $tablehtml = ob_get_clean();
+
+        // Render the datafilter (keyword + group) bar bound to that table.
+        $filter = new roster_filter($context, $table->uniqueid, $this->cmid);
+        $filterhtml = $output->render_from_template('mod_examcheck/roster_filter', $filter->export_for_template($output));
+
+        // Export honours the viewer's default group so restricted users stay in their room.
+        $exportgroup = $this->default_export_group($cm, $context);
+        $exportform = ($hassteps && $exportgroup !== -1) ? $output->download_dataformat_selector(
+            get_string('export', 'mod_examcheck'),
+            new moodle_url('/mod/examcheck/export.php'),
+            'dataformat',
+            ['id' => $this->cmid, 'group' => $exportgroup]
+        ) : '';
 
         return [
-            'cmid'        => $this->cmid,
-            'groupid'     => $this->groupid,
-            'groupmenu'   => $this->groupmenu,
-            'hasgroupmenu' => trim($this->groupmenu) !== '',
-            'steps'       => $stepheaders,
-            'students'    => $students,
-            'total'       => count($roster),
-            'hassteps'    => !empty($steps),
-            'hasstudents' => !empty($roster),
-            'canmanage'   => $this->canmanage,
-            'scanurl'     => (new moodle_url(
-                '/mod/examcheck/scan.php',
-                ['id' => $this->cmid, 'group' => $this->groupid]
-            ))->out(false),
-            'manageurl'   => (new moodle_url('/mod/examcheck/manage.php', ['id' => $this->cmid]))->out(false),
+            'cmid'         => $this->cmid,
+            'hassteps'     => $hassteps,
+            'filter'       => $filterhtml,
+            'table'        => $tablehtml,
+            'exportform'   => $exportform,
             'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
-            'exportform'  => (!empty($roster) && !empty($steps)) ? $output->download_dataformat_selector(
-                get_string('export', 'mod_examcheck'),
-                new moodle_url('/mod/examcheck/export.php'),
-                'dataformat',
-                ['id' => $this->cmid, 'group' => $this->groupid]
-            ) : '',
         ];
+    }
+
+    /**
+     * The group to export, mirroring the roster's separate-groups restriction.
+     *
+     * @param \cm_info $cm The course module.
+     * @param \context_module $context The module context.
+     * @return int 0 = all, -1 = none, otherwise a group id.
+     */
+    protected function default_export_group(\cm_info $cm, \context_module $context): int {
+        if (
+            groups_get_activity_groupmode($cm) != SEPARATEGROUPS
+                || has_capability('moodle/site:accessallgroups', $context)
+        ) {
+            return 0;
+        }
+        $allowed = groups_get_activity_allowed_groups($cm);
+        return empty($allowed) ? -1 : (int) array_key_first($allowed);
     }
 }

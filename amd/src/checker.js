@@ -14,7 +14,11 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Checking dashboard: inline toggle marking, live refresh and roster filtering.
+ * Checking dashboard: inline toggle marking, live polling and the "only unchecked" view.
+ *
+ * The roster is a core dynamic table whose body is replaced over AJAX on filter, sort
+ * and column hide. All handlers are delegated on the (stable) dashboard region so they
+ * survive those refreshes, and the "only unchecked" view is re-applied afterwards.
  *
  * @module     mod_examcheck/checker
  * @copyright  2026 André Camacho
@@ -23,75 +27,73 @@
 
 import Ajax from 'core/ajax';
 import {add as addToast} from 'core/toast';
-import {getString} from 'core/str';
 import Notification from 'core/notification';
+import * as DynamicTable from 'core_table/dynamic';
 
 /**
  * Initialise the dashboard behaviour.
  *
  * @param {Number} cmid Course module id.
- * @param {Number} groupid Selected group id.
  * @param {Number} pollInterval Live refresh interval in seconds (0 disables it).
  */
-export const init = (cmid, groupid, pollInterval) => {
+export const init = (cmid, pollInterval) => {
     const root = document.querySelector('[data-region="examcheck-dashboard"]');
     if (!root) {
         return;
     }
 
-    registerToggles(root, cmid, groupid);
-    registerFilter(root);
-    registerColumns(root);
-    applyColumnVisibility(root);
-    updateVisibleCount(root);
+    registerToggles(root, cmid);
+    registerOnlyUnchecked(root);
+
+    // The dynamic table replaces its body on filter/sort/column-hide; re-apply our view.
+    root.addEventListener(DynamicTable.Events.tableContentRefreshed, () => applyOnlyUnchecked(root));
 
     if (pollInterval > 0) {
-        window.setInterval(() => refresh(root, cmid, groupid), pollInterval * 1000);
+        window.setInterval(() => refresh(root, cmid), pollInterval * 1000);
     }
 };
 
 /**
- * Wire up click handling for the per-step toggle buttons.
+ * Delegate clicks on the per-step toggle buttons (survives dynamic-table refreshes).
  *
- * @param {HTMLElement} root The dashboard root element.
+ * @param {HTMLElement} root The dashboard region.
  * @param {Number} cmid Course module id.
- * @param {Number} groupid Selected group id.
  */
-const registerToggles = (root, cmid, groupid) => {
+const registerToggles = (root, cmid) => {
     root.addEventListener('click', (e) => {
         const button = e.target.closest('[data-action="toggle"]');
         if (!button || button.disabled) {
             return;
         }
         e.preventDefault();
-        toggle(root, button, cmid, groupid);
+        toggle(root, button, cmid);
     });
 };
 
 /**
  * Mark or unmark a single student/step on click.
  *
- * @param {HTMLElement} root The dashboard root element.
+ * @param {HTMLElement} root The dashboard region.
  * @param {HTMLElement} button The toggle button.
  * @param {Number} cmid Course module id.
- * @param {Number} groupid Selected group id.
  */
-const toggle = async (root, button, cmid, groupid) => {
+const toggle = async (root, button, cmid) => {
     const wasChecked = button.dataset.checked === '1';
     const stepid = parseInt(button.dataset.stepid, 10);
     const userid = parseInt(button.dataset.userid, 10);
+    const groupid = parseInt(button.dataset.groupid || '0', 10);
 
     const methodname = wasChecked ? 'mod_examcheck_unmark_user' : 'mod_examcheck_mark_user';
     const args = wasChecked
         ? {cmid, stepid, userid}
         : {cmid, stepid, userid, groupid, method: 'list'};
 
-    // Note: core/ajax returns jQuery promises, which have no .finally(); re-enable
-    // the button from a real try/finally so it can never be left stuck disabled.
+    // core/ajax returns jQuery promises (no .finally), so re-enable from try/finally.
     button.disabled = true;
     try {
         const outcome = await Ajax.call([{methodname, args}])[0];
-        applyOutcome(root, button, outcome);
+        applyOutcome(button, outcome);
+        applyOnlyUnchecked(root);
     } catch (err) {
         Notification.exception(err);
     } finally {
@@ -100,13 +102,12 @@ const toggle = async (root, button, cmid, groupid) => {
 };
 
 /**
- * Apply a web service outcome to a cell and show a toast where useful.
+ * Apply a web service outcome to a cell and toast where useful.
  *
- * @param {HTMLElement} root The dashboard root element.
  * @param {HTMLElement} button The toggle button acted on.
  * @param {Object} outcome The web service outcome.
  */
-const applyOutcome = (root, button, outcome) => {
+const applyOutcome = (button, outcome) => {
     switch (outcome.status) {
         case 'marked':
             setCellChecked(button, true, outcome.message);
@@ -128,7 +129,6 @@ const applyOutcome = (root, button, outcome) => {
                 addToast(outcome.message, {type: 'info'});
             }
     }
-    recomputeProgress(root, parseInt(button.dataset.stepid, 10));
 };
 
 /**
@@ -156,30 +156,19 @@ const setCellChecked = (button, checked, title) => {
 };
 
 /**
- * Recompute and display the checked count for a step from the current DOM.
+ * Poll the server so marks made by other teachers appear, then re-apply the view.
  *
- * @param {HTMLElement} root The dashboard root element.
- * @param {Number} stepid The step whose progress should be recomputed.
- */
-const recomputeProgress = (root, stepid) => {
-    const badge = root.querySelector(`[data-region="progress"][data-stepid="${stepid}"] [data-region="count"]`);
-    if (!badge) {
-        return;
-    }
-    const checked = root.querySelectorAll(
-        `[data-action="toggle"][data-stepid="${stepid}"][data-checked="1"]`).length;
-    badge.textContent = checked;
-};
-
-/**
- * Refresh the whole grid from the server so marks made by other teachers show up.
- *
- * @param {HTMLElement} root The dashboard root element.
+ * @param {HTMLElement} root The dashboard region.
  * @param {Number} cmid Course module id.
- * @param {Number} groupid Selected group id.
  * @returns {Promise} Resolves when the refresh completes.
  */
-const refresh = (root, cmid, groupid) => {
+const refresh = (root, cmid) => {
+    const first = root.querySelector('[data-action="toggle"]');
+    if (!first) {
+        return Promise.resolve();
+    }
+    const groupid = parseInt(first.dataset.groupid || '0', 10);
+
     return Ajax.call([{methodname: 'mod_examcheck_get_marks', args: {cmid, groupid}}])[0]
         .then((data) => {
             const marks = new Map();
@@ -188,29 +177,14 @@ const refresh = (root, cmid, groupid) => {
             });
 
             root.querySelectorAll('[data-action="toggle"]').forEach((button) => {
-                // Do not stomp on a button mid-request.
                 if (button.disabled) {
                     return;
                 }
-                const key = `${button.dataset.stepid}:${button.dataset.userid}`;
-                const mark = marks.get(key);
+                const mark = marks.get(`${button.dataset.stepid}:${button.dataset.userid}`);
                 setCellChecked(button, Boolean(mark), mark ? mark.ago : '');
             });
 
-            data.progress.forEach((p) => {
-                const badge = root.querySelector(
-                    `[data-region="progress"][data-stepid="${p.stepid}"] [data-region="count"]`);
-                if (badge) {
-                    badge.textContent = p.count;
-                }
-            });
-            root.querySelectorAll('[data-region="progress"] [data-region="total"]').forEach((el) => {
-                el.textContent = data.total;
-            });
-
-            // Re-apply the row filter so marks made elsewhere (e.g. another teacher)
-            // hide/show rows under "only unchecked" without a manual reload.
-            filterRows(root);
+            applyOnlyUnchecked(root);
             return data;
         })
         .catch(() => {
@@ -219,110 +193,35 @@ const refresh = (root, cmid, groupid) => {
 };
 
 /**
- * Wire up the search box and "only unchecked" toggle.
+ * Wire the "only not-yet-checked" switch.
  *
- * @param {HTMLElement} root The dashboard root element.
+ * @param {HTMLElement} root The dashboard region.
  */
-const registerFilter = (root) => {
-    const search = root.querySelector('[data-action="filter"]');
+const registerOnlyUnchecked = (root) => {
     const onlyUnchecked = root.querySelector('[data-action="onlyunchecked"]');
-    const apply = () => filterRows(root);
-    if (search) {
-        search.addEventListener('input', apply);
-    }
     if (onlyUnchecked) {
-        onlyUnchecked.addEventListener('change', apply);
+        onlyUnchecked.addEventListener('change', () => applyOnlyUnchecked(root));
     }
 };
 
 /**
- * Show or hide roster rows according to the current search and toggle.
+ * Hide rows that are fully checked across the visible columns, when the switch is on.
  *
- * @param {HTMLElement} root The dashboard root element.
+ * Hidden (collapsed) columns render no toggle button, so they are naturally ignored.
+ *
+ * @param {HTMLElement} root The dashboard region.
  */
-const filterRows = (root) => {
-    const search = root.querySelector('[data-action="filter"]');
+const applyOnlyUnchecked = (root) => {
     const onlyUnchecked = root.querySelector('[data-action="onlyunchecked"]');
-    const term = (search ? search.value : '').trim().toLowerCase();
-    const uncheckedOnly = onlyUnchecked ? onlyUnchecked.checked : false;
+    const active = onlyUnchecked ? onlyUnchecked.checked : false;
 
-    // The "only unchecked" switch considers only the currently visible columns, so a
-    // teacher can narrow to (say) the first step and see only students missing it.
-    const columnToggles = root.querySelectorAll('[data-action="togglecolumn"]');
-    const hasColumnFilter = columnToggles.length > 0;
-    const visibleSteps = new Set();
-    columnToggles.forEach((cb) => {
-        if (cb.checked) {
-            visibleSteps.add(cb.dataset.stepid);
+    root.querySelectorAll('table.examcheck-roster tbody tr').forEach((row) => {
+        if (!active) {
+            row.classList.remove('d-none');
+            return;
         }
+        const cells = row.querySelectorAll('[data-action="toggle"]');
+        const hasUnchecked = Array.from(cells).some((c) => c.dataset.checked !== '1');
+        row.classList.toggle('d-none', cells.length > 0 && !hasUnchecked);
     });
-
-    root.querySelectorAll('[data-region="student"]').forEach((row) => {
-        const name = (row.querySelector('.examcheck-studentname')?.textContent || '').toLowerCase();
-        const idnumber = (row.querySelector('.text-muted')?.textContent || '').toLowerCase();
-        const matchesTerm = !term || name.includes(term) || idnumber.includes(term);
-
-        const cells = Array.from(row.querySelectorAll('[data-action="toggle"]'))
-            .filter((c) => !hasColumnFilter || visibleSteps.has(c.dataset.stepid));
-        const hasUnchecked = cells.some((c) => c.dataset.checked !== '1');
-        const matchesToggle = !uncheckedOnly || cells.length === 0 || hasUnchecked;
-
-        row.classList.toggle('d-none', !(matchesTerm && matchesToggle));
-    });
-
-    updateVisibleCount(root);
-};
-
-/**
- * Wire up the "Columns" dropdown checkboxes that show or hide step columns.
- *
- * @param {HTMLElement} root The dashboard root element.
- */
-const registerColumns = (root) => {
-    root.querySelectorAll('[data-action="togglecolumn"]').forEach((cb) => {
-        cb.addEventListener('change', () => {
-            applyColumnVisibility(root);
-            filterRows(root);
-        });
-    });
-};
-
-/**
- * Show or hide each step column (header and cells) per its checkbox state.
- *
- * @param {HTMLElement} root The dashboard root element.
- */
-const applyColumnVisibility = (root) => {
-    root.querySelectorAll('[data-action="togglecolumn"]').forEach((cb) => {
-        const stepid = cb.dataset.stepid;
-        const show = cb.checked;
-        root.querySelectorAll(
-            `.examcheck-stepcol[data-stepid="${stepid}"], td[data-stepid="${stepid}"]`)
-            .forEach((el) => el.classList.toggle('d-none', !show));
-    });
-};
-
-/**
- * Update the "x of y shown" counter and the no-results notice.
- *
- * @param {HTMLElement} root The dashboard root element.
- */
-const updateVisibleCount = (root) => {
-    const rows = root.querySelectorAll('[data-region="student"]');
-    const visible = root.querySelectorAll('[data-region="student"]:not(.d-none)').length;
-    const norows = root.querySelector('[data-region="norows"]');
-    if (norows) {
-        norows.classList.toggle('d-none', visible !== 0 || rows.length === 0);
-    }
-    const counter = root.querySelector('[data-region="visiblecount"]');
-    if (counter) {
-        getString('visiblecount', 'mod_examcheck', {visible, total: rows.length})
-            .then((s) => {
-                counter.textContent = s;
-                return s;
-            })
-            .catch(() => {
-                counter.textContent = `${visible} / ${rows.length}`;
-            });
-    }
 };

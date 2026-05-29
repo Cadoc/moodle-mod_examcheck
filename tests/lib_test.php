@@ -145,6 +145,34 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * Completion reverts to incomplete when the qualifying check is removed.
+     *
+     * This round-trip guards the "require activity complete" use case: a quiz gated on
+     * this activity must re-lock if a teacher unchecks the student.
+     */
+    public function test_completion_reverts_on_unmark(): void {
+        $this->resetAfterTest();
+        [$course, $examcheck, $student, $teacher] = $this->setup_completion_course(0);
+
+        $step = (int) array_values(steps::get_steps($examcheck->id))[0]->id;
+        $context = \context_module::instance($examcheck->cmid);
+        $checker = new checker($this->reload($examcheck), $context);
+
+        $checker->mark_user($step, $student->id, $teacher->id);
+        $this->assertSame(COMPLETION_COMPLETE, $this->completionstate($course, $examcheck, $student));
+
+        $checker->unmark_user($step, $student->id, $teacher->id);
+        $this->assertSame(COMPLETION_INCOMPLETE, $this->completionstate($course, $examcheck, $student));
+    }
+
+    /**
+     * The module advertises custom completion rules so it can gate other activities.
+     */
+    public function test_supports_completion_rules(): void {
+        $this->assertTrue((bool) examcheck_supports(FEATURE_COMPLETION_HAS_RULES));
+    }
+
+    /**
      * The active rule description is reported when completion is automatic.
      */
     public function test_active_rule_descriptions(): void {

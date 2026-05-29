@@ -34,7 +34,7 @@
 }}
 <div class="mod_examcheck-manage">
     <div class="mb-3">
-        <a href="{{dashboardurl}}"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
+        <a href="{{dashboardurl}}">{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
     </div>
 
     {{^steps}}
@@ -70,9 +70,7 @@
     </div>
 
     {{#hasmarks}}
-        <a class="btn btn-outline-danger mb-3" href="{{resetallurl}}">
-            <i class="fa fa-eraser me-1" aria-hidden="true"></i>{{#str}}resetallchecks, mod_examcheck{{/str}}
-        </a>
+        <a class="btn btn-outline-danger mb-3" href="{{resetallurl}}">{{#str}}resetallchecks, mod_examcheck{{/str}}</a>
     {{/hasmarks}}
     {{/steps.0}}
 

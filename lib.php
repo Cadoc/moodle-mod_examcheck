@@ -203,6 +203,48 @@ function examcheck_get_coursemodule_info($coursemodule) {
 }
 
 /**
+ * Add Scanner and Manage steps tabs to the activity's secondary navigation.
+ *
+ * Each tab is shown only to users with the matching capability, and is inserted
+ * before the "Settings" tab so the day-to-day actions read as primary.
+ *
+ * @param settings_navigation $settingsnav The settings navigation.
+ * @param navigation_node $examchecknode The activity's settings node.
+ */
+function examcheck_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $examchecknode) {
+    $cm = $settingsnav->get_page()->cm;
+    if (!$cm) {
+        return;
+    }
+    $context = $cm->context;
+
+    // Insert before the "Settings" (modedit) tab, falling back to the front of the list.
+    $keys = $examchecknode->get_children_key_list();
+    $i = array_search('modedit', $keys, true);
+    $beforekey = $i !== false ? $keys[$i] : (array_key_exists(0, $keys) ? $keys[0] : null);
+
+    if (has_capability('mod/examcheck:check', $context)) {
+        $examchecknode->add_node(navigation_node::create(
+            get_string('scanner', 'mod_examcheck'),
+            new moodle_url('/mod/examcheck/scan.php', ['id' => $cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'mod_examcheck_scanner'
+        ), $beforekey);
+    }
+
+    if (has_capability('mod/examcheck:managesteps', $context)) {
+        $examchecknode->add_node(navigation_node::create(
+            get_string('managestepslink', 'mod_examcheck'),
+            new moodle_url('/mod/examcheck/manage.php', ['id' => $cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'mod_examcheck_managesteps'
+        ), $beforekey);
+    }
+}
+
+/**
  * Human-readable descriptions of the active custom completion rules.
  *
  * @param cm_info|stdClass $cm Course module with completion customdata.

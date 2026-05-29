@@ -24,11 +24,9 @@
 
 require(__DIR__ . '/../../config.php');
 
-use mod_examcheck\local\checker;
 use mod_examcheck\output\dashboard;
 
 $id = required_param('id', PARAM_INT); // Course module id.
-$groupid = optional_param('group', null, PARAM_INT);
 
 [$course, $cm] = get_course_and_cm_from_cmid($id, 'examcheck');
 require_login($course, true, $cm);
@@ -57,39 +55,15 @@ $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
 $PAGE->activityheader->set_attrs(['hidecompletion' => false]);
 
-// Resolve the active group using the activity's group mode.
-$groupmode = groups_get_activity_groupmode($cm);
-$groupmenu = '';
-if ($groupmode != NOGROUPS) {
-    $url = new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]);
-    $groupmenu = groups_print_activity_menu($cm, $url, true);
-}
-$activegroup = (int) (groups_get_activity_group($cm, true) ?: 0);
-
-// Under separate groups, an invigilator without "access all groups" must only
-// ever see the students of their own group(s) - never the whole course. This
-// keeps rooms separated: each invigilator sees only their room's roster.
-if ($groupmode == SEPARATEGROUPS && !has_capability('moodle/site:accessallgroups', $context)) {
-    $allowedgroups = groups_get_activity_allowed_groups($cm);
-    if (empty($allowedgroups)) {
-        // Restricted user who belongs to no group: show no students at all.
-        $activegroup = -1;
-    } else if ($activegroup <= 0 || !isset($allowedgroups[$activegroup])) {
-        // Never fall back to "all participants": default to one of their groups.
-        $activegroup = (int) array_key_first($allowedgroups);
-    }
-}
-
-$checker = new checker($examcheck, $context);
-$canmanage = has_capability('mod/examcheck:managesteps', $context);
-
 echo $OUTPUT->header();
 
 if (trim(strip_tags($examcheck->intro ?? '')) !== '') {
     echo $OUTPUT->box(format_module_intro('examcheck', $examcheck, $cm->id), 'generalbox', 'intro');
 }
 
-$dashboard = new dashboard($checker, $cm->id, (int) $activegroup, $groupmenu, $canmanage);
+// The roster table enforces the separate-groups restriction itself (see roster::resolve_group),
+// and the group selector lives in the datafilter bar, so the page only needs the cmid here.
+$dashboard = new dashboard($cm->id);
 echo $OUTPUT->render_from_template('mod_examcheck/dashboard', $dashboard->export_for_template($OUTPUT));
 
 echo $OUTPUT->footer();

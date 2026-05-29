@@ -39,7 +39,7 @@
 <div class="mod_examcheck-scanner" data-region="examcheck-scanner" data-cmid="{{cmid}}" data-groupid="{{groupid}}">
 
     <div class="mb-3">
-        <a href="{{dashboardurl}}"><i class="fa fa-arrow-left me-1" aria-hidden="true"></i>{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
+        <a href="{{dashboardurl}}">{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
     </div>
 
     <div class="row">
@@ -95,10 +95,10 @@
                 </div>
                 <div class="d-flex gap-2 mt-2">
                     <button type="button" class="btn btn-success" data-action="startcamera">
-                        <i class="fa fa-camera me-1" aria-hidden="true"></i>{{#str}}startcamera, mod_examcheck{{/str}}
+                        {{#str}}startcamera, mod_examcheck{{/str}}
                     </button>
                     <button type="button" class="btn btn-outline-secondary d-none" data-action="stopcamera">
-                        <i class="fa fa-stop me-1" aria-hidden="true"></i>{{#str}}stopcamera, mod_examcheck{{/str}}
+                        {{#str}}stopcamera, mod_examcheck{{/str}}
                     </button>
                 </div>
             </div>
@@ -110,7 +110,7 @@
                     <div class="examcheck-pendingname h4" data-region="pendingname"></div>
                     <div class="d-flex justify-content-center gap-2 mt-2">
                         <button type="button" class="btn btn-success btn-lg" data-action="confirm">
-                            <i class="fa fa-check me-1" aria-hidden="true"></i>{{#str}}confirmmark, mod_examcheck{{/str}}
+                            {{#str}}confirmmark, mod_examcheck{{/str}}
                         </button>
                         <button type="button" class="btn btn-outline-secondary btn-lg" data-action="cancel">
                             {{#str}}cancel{{/str}}
@@ -120,7 +120,7 @@
             </div>
 
             <button type="button" class="btn btn-primary btn-lg d-none mt-2 w-100" data-action="next">
-                <i class="fa fa-arrow-right me-1" aria-hidden="true"></i>{{#str}}scannext, mod_examcheck{{/str}}
+                {{#str}}scannext, mod_examcheck{{/str}}
             </button>
         </div>
     </div>
