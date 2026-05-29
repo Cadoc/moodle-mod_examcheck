@@ -40,12 +40,20 @@ $string['examcheck:managesteps'] = 'Manage the check steps of an exam check acti
 $string['scanningsettings'] = 'Scanning defaults';
 $string['scanfield'] = 'Scan match field';
 $string['scanfield_help'] = 'The user field whose value is encoded in the QR code or barcode on the student card. When a teacher scans a code, the value is matched against this field to find the student. Teachers can change the field for their own scanning session on the scanner page.';
+$string['scanregex'] = 'Scan extraction pattern';
+$string['scanregex_help'] = 'An optional regular expression (without delimiters) applied to the scanned QR/barcode value to extract the part to match against the scan field. The first capturing group is used, or the whole match if there is no group.
+
+This is useful when the code on a student card encodes extra information around the student number. For example, if a card scans as `U=12345678;LIB=987` and the student number is the 8 digits, the pattern `(\d{8})` extracts `12345678` to match against the ID number. Leave empty to match the whole scanned value.';
+$string['scanregexplaceholder'] = 'e.g. (\d{8})';
+$string['error_invalidregex'] = 'This is not a valid regular expression.';
 $string['requireconfirm'] = 'Confirm before marking';
 $string['requireconfirm_help'] = 'When enabled, the scanner shows the matched student\'s name and waits for the teacher to press a button before recording the check. When disabled, a scan marks the student immediately and returns to scanning the next student. Teachers can override this for their own session.';
 
 // Admin settings.
 $string['defaultscanfield'] = 'Default scan match field';
 $string['defaultscanfield_desc'] = 'The scan match field selected by default when a teacher creates a new exam check activity.';
+$string['defaultscanregex'] = 'Default scan extraction pattern';
+$string['defaultscanregex_desc'] = 'The extraction regular expression selected by default when a teacher creates a new exam check activity. Leave empty for no extraction.';
 $string['defaultrequireconfirm'] = 'Confirm before marking by default';
 $string['defaultrequireconfirm_desc'] = 'Whether new exam check activities require the teacher to confirm a scanned student before marking them.';
 $string['pollinterval'] = 'Live refresh interval';

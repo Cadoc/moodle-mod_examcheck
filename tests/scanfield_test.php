@@ -96,6 +96,35 @@ final class scanfield_test extends \advanced_testcase {
     }
 
     /**
+     * The extraction regex pulls a capture group out of a longer value.
+     */
+    public function test_apply_regex(): void {
+        // No regex: value is returned trimmed.
+        $this->assertSame('12345678', scanfield::apply_regex('', '  12345678 '));
+
+        // Capture group is preferred.
+        $this->assertSame('12345678', scanfield::apply_regex('(\d{8})', 'U=12345678;LIB=987'));
+
+        // Whole match when there is no capturing group.
+        $this->assertSame('12345678', scanfield::apply_regex('\d{8}', 'prefix12345678suffix'));
+
+        // No match yields null so the caller can report "not found".
+        $this->assertNull(scanfield::apply_regex('(\d{8})', 'no-digits-here'));
+
+        // Invalid pattern yields null and does not raise an error.
+        $this->assertNull(scanfield::apply_regex('(unclosed', 'anything'));
+    }
+
+    /**
+     * Regex validity is reported correctly.
+     */
+    public function test_is_valid_regex(): void {
+        $this->assertTrue(scanfield::is_valid_regex(''));
+        $this->assertTrue(scanfield::is_valid_regex('(\d{8})'));
+        $this->assertFalse(scanfield::is_valid_regex('(unclosed'));
+    }
+
+    /**
      * The field menu always offers the built-in fields.
      */
     public function test_field_menu(): void {

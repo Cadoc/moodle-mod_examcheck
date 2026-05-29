@@ -1,6 +1,13 @@
 This file describes API changes in the examcheck activity module.
 Information provided here is intended especially for developers.
 
+=== 1.1.0 ===
+
+* New examcheck DB column: scanregex (optional extraction regex).
+* \mod_examcheck\local\scanfield::apply_regex() and ::is_valid_regex() added.
+* \mod_examcheck\local\checker::scan() gained an optional $regex parameter.
+* mod_examcheck_scan_lookup web service gained an optional scanregex parameter.
+
 === 1.0.0 ===
 
 * First release. Public API:

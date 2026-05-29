@@ -5,6 +5,16 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-05-29
+
+### Added
+- Optional **scan extraction pattern**: a regular expression applied to the
+  scanned QR/barcode value to extract the part to match against the chosen field
+  (e.g. pull an 8-digit student number out of a longer encoded payload). The
+  first capturing group is used, or the whole match if there is no group.
+  Configurable per activity (with a site default) and overridable per scanning
+  session. Validated on save; tests included.
+
 ## [1.0.0] - 2026-05-29
 
 ### Added

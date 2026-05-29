@@ -198,6 +198,7 @@ const process = (value) => {
             confirm: false,
             requireconfirm: requireConfirm,
             groupid: config.groupid,
+            scanregex: currentRegex(),
         },
     }])[0].then((outcome) => {
         handleOutcome(outcome, value, requireConfirm);
@@ -258,6 +259,7 @@ const confirmPending = () => {
             confirm: true,
             requireconfirm: true,
             groupid: config.groupid,
+            scanregex: currentRegex(),
         },
     }])[0].then((outcome) => {
         if (outcome.status === 'marked') {
@@ -382,4 +384,12 @@ const currentField = () => root.querySelector('[data-region="scanfield"]').value
 const isConfirmRequired = () => {
     const el = root.querySelector('[data-action="requireconfirm"]');
     return el ? el.checked : false;
+};
+
+/**
+ * @returns {String} The current extraction regex (empty for none).
+ */
+const currentRegex = () => {
+    const el = root.querySelector('[data-region="scanregex"]');
+    return el ? el.value : '';
 };

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version information for mod_examcheck.
+ * Upgrade steps for mod_examcheck.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -24,9 +24,27 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2026053000;        // The current module version (Date: YYYYMMDDXX).
-$plugin->requires  = 2025092600;        // Requires this Moodle version (5.1).
-$plugin->component = 'mod_examcheck';   // Full name of the plugin (used for diagnostics).
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.1.0';
-$plugin->cron      = 0;
+/**
+ * Execute the examcheck upgrade from the given old version.
+ *
+ * @param int $oldversion The version we are upgrading from.
+ * @return bool Always true.
+ */
+function xmldb_examcheck_upgrade($oldversion) {
+    global $DB;
+
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2026053000) {
+        // Add the optional scan extraction regular expression.
+        $table = new xmldb_table('examcheck');
+        $field = new xmldb_field('scanregex', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, '', 'scanfield');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026053000, 'examcheck');
+    }
+
+    return true;
+}
