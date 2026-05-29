@@ -38,6 +38,7 @@ $context = context_module::instance($cm->id);
 require_capability('mod/examcheck:check', $context);
 
 $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
+(new \mod_examcheck\local\checker($examcheck, $context))->require_group_access($groupid);
 
 $dashboardurl = new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]);
 
@@ -79,7 +80,7 @@ $templatecontext = [
     'steps'          => $stepoptions,
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
-    'scanregex'      => s($examcheck->scanregex),
+    'scanregex'      => $examcheck->scanregex,
     'dashboardurl'   => $dashboardurl->out(false),
 ];
 

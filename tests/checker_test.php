@@ -248,6 +248,39 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Under separate groups, a teacher without accessallgroups may only act on
+     * their own group; another group's id is rejected.
+     */
+    public function test_group_access_separate_groups(): void {
+        global $DB;
+
+        $gen = $this->getDataGenerator();
+        $course = $gen->create_course(['groupmode' => SEPARATEGROUPS, 'groupmodeforce' => 1]);
+        $examcheck = $gen->create_module('examcheck', ['course' => $course->id]);
+        $context = \context_module::instance($examcheck->cmid);
+        $groupa = $gen->create_group(['courseid' => $course->id]);
+        $groupb = $gen->create_group(['courseid' => $course->id]);
+
+        $teacher = $gen->create_and_enrol($course, 'teacher');
+        $gen->create_group_member(['groupid' => $groupa->id, 'userid' => $teacher->id]);
+
+        // Remove the "access all groups" privilege for the teacher role here.
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'teacher'], MUST_EXIST);
+        assign_capability('moodle/site:accessallgroups', CAP_PROHIBIT, $roleid, $context->id, true);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($teacher);
+        $checker = new checker($DB->get_record('examcheck', ['id' => $examcheck->id], '*', MUST_EXIST), $context);
+
+        // Their own group is allowed (no exception).
+        $checker->require_group_access((int) $groupa->id);
+
+        // Another group is rejected.
+        $this->expectException(\required_capability_exception::class);
+        $checker->require_group_access((int) $groupb->id);
+    }
+
+    /**
      * Count rows in examcheck_marks for the instance.
      *
      * @return int
