@@ -29,6 +29,7 @@
 import Ajax from 'core/ajax';
 import {add as addToast} from 'core/toast';
 import {getString} from 'core/str';
+import ZXing from 'mod_examcheck/zxing';
 
 const DETECT_INTERVAL = 350;
 const DEDUPE_MS = 2500;
@@ -101,7 +102,7 @@ const detectFeatureSupport = () => {
         }
     }
     const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    const candecode = detector || typeof window.ZXing !== 'undefined';
+    const candecode = detector || Boolean(ZXing);
     if (!hascamera || !candecode) {
         toggle('[data-region="camerawrap"]', false);
         showStatus('cameraunsupported', 'info');
@@ -144,7 +145,7 @@ const startCamera = async() => {
  */
 const startZxing = (video) => {
     try {
-        zxingReader = new window.ZXing.BrowserMultiFormatReader();
+        zxingReader = new ZXing.BrowserMultiFormatReader();
         zxingReader.decodeFromVideoElement(video, (result) => {
             if (result && scanning) {
                 process(result.getText());
