@@ -16,10 +16,10 @@
 /**
  * Camera-based QR/barcode scanner for marking students.
  *
- * Uses the native BarcodeDetector API when available (Android Chrome, desktop
- * Chrome/Edge) and falls back to the bundled ZXing decoder elsewhere (Safari,
- * iOS, Firefox, desktop webcams). A manual entry box is always available too and
- * works with USB / Bluetooth "keyboard wedge" scanners or by typing the value.
+ * Uses the bundled ZXing decoder (decodeFromConstraints) for live camera scanning
+ * on every browser (Chrome, Safari, iOS, Firefox, desktop webcams). A manual entry
+ * box is always available too and works with USB / Bluetooth "keyboard wedge"
+ * scanners or by typing the value.
  *
  * @module     mod_examcheck/scanner
  * @copyright  2026 André Camacho
@@ -31,7 +31,6 @@ import {add as addToast} from 'core/toast';
 import {getString} from 'core/str';
 import ZXing from 'mod_examcheck/zxing';
 
-const DETECT_INTERVAL = 350;
 const DEDUPE_MS = 2500;
 
 // Resolve the ZXing library across module-interop shapes, falling back to the global the
@@ -43,10 +42,7 @@ const zxinglib = (() => {
 
 let config = {cmid: 0, groupid: 0};
 let root = null;
-let detector = null;
 let zxingReader = null;
-let stream = null;
-let detectTimer = null;
 let scanning = false;
 let pending = null; // {value} awaiting confirmation.
 let lastValue = '';
@@ -97,90 +93,69 @@ const registerControls = () => {
 /**
  * Decide whether live camera scanning is possible and adjust the UI.
  *
- * Needs a camera (getUserMedia, which requires a secure/HTTPS context) and a
- * decoder: the native BarcodeDetector, or the bundled ZXing fallback.
+ * Needs a camera (getUserMedia, which requires a secure/HTTPS context) and the
+ * bundled ZXing decoder. ZXing decodes on every target browser, so we use it
+ * everywhere rather than the native BarcodeDetector (which is non-functional on
+ * desktop Chrome for Windows/Linux and absent on Safari/Firefox).
  */
 const detectFeatureSupport = () => {
-    if ('BarcodeDetector' in window) {
-        try {
-            detector = new window.BarcodeDetector();
-        } catch (e) {
-            detector = null;
-        }
-    }
     const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-    const candecode = detector || Boolean(zxinglib);
-    if (!hascamera || !candecode) {
+    if (!hascamera || !zxinglib) {
         toggle('[data-region="camerawrap"]', false);
         showStatus('cameraunsupported', 'info');
     }
 };
 
 /**
- * Start the camera and the detection loop (native detector or ZXing fallback).
+ * Start the camera and the continuous ZXing decode loop.
+ *
+ * ZXing's decodeFromConstraints opens the camera, attaches it to the video
+ * element (with the iOS-friendly attributes it needs) and runs the decode loop.
  */
 const startCamera = async() => {
+    if (!zxinglib) {
+        return;
+    }
     const video = root.querySelector('[data-region="video"]');
     try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: {facingMode: 'environment'},
-            audio: false,
-        });
+        zxingReader = new zxinglib.BrowserMultiFormatReader();
+        await zxingReader.decodeFromConstraints(
+            {video: {facingMode: 'environment'}, audio: false},
+            video,
+            (result) => {
+                if (result) {
+                    window.console.log('[examcheck] decoded:', result.getText());
+                    if (scanning) {
+                        process(result.getText());
+                    }
+                }
+                // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
+            }
+        );
     } catch (e) {
+        window.console.log('[examcheck] camera/decoder could not start:', e);
+        if (zxingReader) {
+            try {
+                zxingReader.reset();
+            } catch (ignore) {
+                zxingReader = null;
+            }
+            zxingReader = null;
+        }
         showStatus('camerablocked', 'warning');
         return;
     }
 
-    video.srcObject = stream;
-    await video.play();
-
     toggle('[data-action="startcamera"]', false);
     toggle('[data-action="stopcamera"]', true);
     resumeScanning();
-
-    if (detector) {
-        detectTimer = window.setInterval(detectFrame, DETECT_INTERVAL);
-    } else {
-        startZxing(video);
-    }
 };
 
 /**
- * Decode continuously from the playing video element using the ZXing fallback.
- *
- * @param {HTMLVideoElement} video The live video element.
- */
-const startZxing = (video) => {
-    try {
-        zxingReader = new zxinglib.BrowserMultiFormatReader();
-        const decoding = zxingReader.decodeFromVideoElement(video, (result) => {
-            if (result) {
-                window.console.log('[examcheck] ZXing decoded:', result.getText());
-                if (scanning) {
-                    process(result.getText());
-                }
-            }
-        });
-        // decodeFromVideoElement returns a promise that rejects if it cannot start.
-        if (decoding && typeof decoding.catch === 'function') {
-            decoding.catch((e) => window.console.log('[examcheck] ZXing decode could not start:', e));
-        }
-    } catch (e) {
-        window.console.log('[examcheck] ZXing start failed:', e);
-        zxingReader = null;
-        showStatus('cameraunsupported', 'info');
-    }
-};
-
-/**
- * Stop the camera and the detection loop.
+ * Stop the camera and the decode loop.
  */
 const stopCamera = () => {
     scanning = false;
-    if (detectTimer) {
-        window.clearInterval(detectTimer);
-        detectTimer = null;
-    }
     if (zxingReader) {
         try {
             zxingReader.reset();
@@ -189,39 +164,12 @@ const stopCamera = () => {
         }
         zxingReader = null;
     }
-    if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = null;
-    }
     const video = root.querySelector('[data-region="video"]');
     if (video) {
         video.srcObject = null;
     }
     toggle('[data-action="startcamera"]', true);
     toggle('[data-action="stopcamera"]', false);
-};
-
-/**
- * Inspect the current video frame for codes.
- */
-const detectFrame = async() => {
-    if (!scanning || !detector) {
-        return;
-    }
-    const video = root.querySelector('[data-region="video"]');
-    if (!video || video.readyState < 2) {
-        return;
-    }
-    let codes;
-    try {
-        codes = await detector.detect(video);
-    } catch (e) {
-        return;
-    }
-    if (codes && codes.length) {
-        window.console.log('[examcheck] BarcodeDetector decoded:', codes[0].rawValue, codes[0].format);
-        process(codes[0].rawValue);
-    }
 };
 
 /**
@@ -358,7 +306,7 @@ const resumeScanning = () => {
     pending = null;
     toggle('[data-region="pending"]', false);
     toggle('[data-action="next"]', false);
-    scanning = Boolean(stream); // Only auto-scan when the camera is running.
+    scanning = Boolean(zxingReader); // Only auto-scan when the camera is running.
 };
 
 /**
