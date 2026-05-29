@@ -81,31 +81,23 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $checkbox = 'completionchecked' . $suffix;
         $mform->addElement('checkbox', $checkbox, '', get_string('completionchecked', 'mod_examcheck'));
 
-        // Offer the existing steps so the teacher can require a subset.
-        $options = [];
+        // "All steps" plus one option per existing step: the teacher picks
+        // whether all steps or a single step completes the activity.
+        $options = [0 => get_string('completionallsteps', 'mod_examcheck')];
         if (!empty($this->_instance)) {
             foreach (\mod_examcheck\local\steps::get_steps($this->_instance) as $step) {
                 $options[(int) $step->id] = format_string($step->name);
             }
         }
 
-        $rules = [$checkbox];
-        if (!empty($options)) {
-            $stepsel = 'completionsteps' . $suffix;
-            $select = $mform->addElement('select', $stepsel,
-                get_string('completionstepsel', 'mod_examcheck'), $options);
-            $select->setMultiple(true);
-            $mform->setType($stepsel, PARAM_INT);
-            $mform->addHelpButton($stepsel, 'completionstepsel', 'mod_examcheck');
-            $mform->hideIf($stepsel, $checkbox, 'notchecked');
-            $rules[] = $stepsel;
-        } else {
-            $note = 'completionstepsnote' . $suffix;
-            $mform->addElement('static', $note, '', get_string('completionstepsnote', 'mod_examcheck'));
-            $mform->hideIf($note, $checkbox, 'notchecked');
-        }
+        $stepsel = 'completionstep' . $suffix;
+        $mform->addElement('select', $stepsel, get_string('completionstepsel', 'mod_examcheck'), $options);
+        $mform->setType($stepsel, PARAM_INT);
+        $mform->setDefault($stepsel, 0);
+        $mform->addHelpButton($stepsel, 'completionstepsel', 'mod_examcheck');
+        $mform->hideIf($stepsel, $checkbox, 'notchecked');
 
-        return $rules;
+        return [$checkbox, $stepsel];
     }
 
     /**
@@ -117,17 +109,6 @@ class mod_examcheck_mod_form extends moodleform_mod {
     public function completion_rule_enabled($data) {
         $suffix = $this->get_suffix();
         return !empty($data['completionchecked' . $suffix]);
-    }
-
-    /**
-     * Convert the stored comma-separated steps into the multi-select default.
-     *
-     * @param array $defaultvalues Default form values, modified in place.
-     */
-    public function data_preprocessing(&$defaultvalues) {
-        if (!empty($defaultvalues['completionsteps']) && !is_array($defaultvalues['completionsteps'])) {
-            $defaultvalues['completionsteps'] = explode(',', $defaultvalues['completionsteps']);
-        }
     }
 
     /**

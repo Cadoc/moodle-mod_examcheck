@@ -98,26 +98,15 @@ function examcheck_update_instance($data, $mform = null) {
 /**
  * Normalise the completion form fields into the values stored on the instance.
  *
- * The "completionsteps" multi-select arrives as an array of step ids; an empty
- * selection means "all steps count towards completion".
+ * The "completionstep" selector is 0 when the student must be checked on all
+ * steps, or a single step id when one specific step completes the activity.
  *
  * @param stdClass $data Form data, modified in place.
  */
 function examcheck_prepare_completion_fields($data) {
     $enabled = !empty($data->completionchecked);
     $data->completionchecked = $enabled ? 1 : 0;
-
-    if (!$enabled) {
-        $data->completionsteps = '';
-        return;
-    }
-
-    $steps = $data->completionsteps ?? [];
-    if (!is_array($steps)) {
-        $steps = array_filter(array_map('trim', explode(',', (string) $steps)), 'strlen');
-    }
-    $steps = array_values(array_unique(array_map('intval', $steps)));
-    $data->completionsteps = implode(',', $steps);
+    $data->completionstep = $enabled ? (int) ($data->completionstep ?? 0) : 0;
 }
 
 /**
@@ -149,7 +138,7 @@ function examcheck_delete_instance($id) {
 function examcheck_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $fields = 'id, name, intro, introformat, completionchecked, completionsteps';
+    $fields = 'id, name, intro, introformat, completionchecked, completionstep';
     if (!$examcheck = $DB->get_record('examcheck', ['id' => $coursemodule->instance], $fields)) {
         return null;
     }
@@ -164,7 +153,7 @@ function examcheck_get_coursemodule_info($coursemodule) {
     // Populate the custom completion rules, but only for automatic completion.
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $info->customdata['customcompletionrules']['completionchecked'] = $examcheck->completionchecked;
-        $info->customdata['completionsteps'] = $examcheck->completionsteps;
+        $info->customdata['completionstep'] = $examcheck->completionstep;
     }
 
     return $info;

@@ -25,8 +25,9 @@ use mod_examcheck\local\steps;
  * Custom completion rules for the examcheck activity.
  *
  * The "completionchecked" rule completes the activity for a student once they
- * have been checked on every required step. The required steps are configured
- * on the instance ("completionsteps"); an empty configuration means all steps.
+ * have been checked as required. The instance's "completionstep" decides what
+ * is required: 0 means all steps must be checked, otherwise a single step id
+ * completes the activity on its own.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -66,20 +67,18 @@ class custom_completion extends activity_custom_completion {
      * Resolve the step ids that must be checked for completion.
      *
      * @param \stdClass $examcheck The instance record.
-     * @return int[] The required step ids.
+     * @return int[] The required step ids (all steps, or a single step).
      */
     public static function resolve_required_steps(\stdClass $examcheck): array {
         $allsteps = array_map('intval', array_keys(steps::get_steps((int) $examcheck->id)));
+        $single = (int) ($examcheck->completionstep ?? 0);
 
-        $configured = array_filter(array_map('intval',
-            array_filter(array_map('trim', explode(',', (string) ($examcheck->completionsteps ?? ''))), 'strlen')));
-
-        if (empty($configured)) {
+        if ($single === 0) {
             return $allsteps;
         }
 
-        // Only keep configured steps that still exist.
-        return array_values(array_intersect($configured, $allsteps));
+        // A specific step was chosen: require it only if it still exists.
+        return in_array($single, $allsteps, true) ? [$single] : [];
     }
 
     /**

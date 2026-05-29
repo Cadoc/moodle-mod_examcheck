@@ -121,12 +121,14 @@ $string['agoseconds'] = '{$a} seconds ago';
 $string['ago'] = '{$a} ago';
 
 // Completion.
-$string['completionchecked'] = 'Student must be checked on the required steps';
-$string['completionchecked_desc'] = 'Checked on the required steps';
-$string['completionstepsel'] = 'Steps required for completion';
-$string['completionstepsel_help'] = 'Choose which check steps a student must be marked on for this activity to be marked complete. Leave nothing selected to require all steps. Because completion is per student, you can use it as a prerequisite elsewhere — for example, requiring "Attendance" to be completed before a quiz becomes available.';
-$string['completionstepsnote'] = 'Save the activity first, then edit it to choose which steps are required. Until then, all steps are required.';
-$string['completiondetail:checked'] = 'Be checked on the required steps';
+$string['completionchecked'] = 'Student must be checked to complete the activity';
+$string['completionchecked_desc'] = 'Checked as required';
+$string['completionallsteps'] = 'All steps';
+$string['completionstepsel'] = 'Step required for completion';
+$string['completionstepsel_help'] = 'Choose what completes the activity for a student. Select "All steps" to require the student to be checked on every step, or pick a single step (for example "Attendance") to complete the activity as soon as the student is checked on just that step.
+
+Because completion is recorded per student, you can use it as a prerequisite elsewhere — for example, requiring this activity to be complete before a quiz becomes available.';
+$string['completiondetail:checked'] = 'Be checked as required';
 
 // Events.
 $string['eventusermarked'] = 'Student marked as checked';
