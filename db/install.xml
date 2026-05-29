@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="mod/examcheck/db" VERSION="20260529" COMMENT="XMLDB file for Moodle mod/examcheck"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="examcheck" COMMENT="Exam check activity instances.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="course" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="scanfield" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="idnumber" SEQUENCE="false" COMMENT="Default field key used to match scanned QR/barcode values to a user."/>
+        <FIELD NAME="requireconfirm" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the scanner shows the matched user and waits for the teacher to confirm before marking."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="course" TYPE="foreign" FIELDS="course" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+    <TABLE NAME="examcheck_steps" COMMENT="Ordered list of check moments (steps) for an examcheck instance.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-sortorder" UNIQUE="false" FIELDS="examcheckid, sortorder"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_marks" COMMENT="A single shared mark per (step, user). Records which teacher checked the student and when.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="stepid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The student being checked."/>
+        <FIELD NAME="checkedby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The teacher who recorded the mark."/>
+        <FIELD NAME="method" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="manual" SEQUENCE="false" COMMENT="How the mark was made: manual, list or scan."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+        <KEY NAME="stepid" TYPE="foreign" FIELDS="stepid" REFTABLE="examcheck_steps" REFFIELDS="id"/>
+        <KEY NAME="step-user" TYPE="unique" FIELDS="stepid, userid"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>
