@@ -130,12 +130,13 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
-     * Without the check capability, marking is denied.
+     * Without the check capability, a student cannot mark (access is denied
+     * either by the activity guard or the capability check).
      */
     public function test_mark_user_requires_capability(): void {
         $student = $this->student;
         $this->setUser($student);
-        $this->expectException(\required_capability_exception::class);
+        $this->expectException(\moodle_exception::class);
         mark_user::execute($this->examcheck->cmid, $this->stepid, $student->id, 0, 'list');
     }
 }

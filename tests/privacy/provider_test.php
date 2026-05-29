@@ -70,8 +70,8 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $studentcontexts = provider::get_contexts_for_userid($this->student->id)->get_contextids();
         $teachercontexts = provider::get_contexts_for_userid($this->teacher->id)->get_contextids();
 
-        $this->assertContains($this->context->id, $studentcontexts);
-        $this->assertContains($this->context->id, $teachercontexts);
+        $this->assertContainsEquals($this->context->id, $studentcontexts);
+        $this->assertContainsEquals($this->context->id, $teachercontexts);
     }
 
     /**

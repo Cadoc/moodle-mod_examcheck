@@ -36,8 +36,8 @@ final class scanfield_test extends \advanced_testcase {
         $user = $this->getDataGenerator()->create_user(['idnumber' => 'ABC-123']);
         $candidates = [$user->id];
 
-        $this->assertSame($user->id, scanfield::find_user('idnumber', 'ABC-123', $candidates));
-        $this->assertSame($user->id, scanfield::find_user('idnumber', '  abc-123 ', $candidates));
+        $this->assertSame((int) $user->id, scanfield::find_user('idnumber', 'ABC-123', $candidates));
+        $this->assertSame((int) $user->id, scanfield::find_user('idnumber', '  abc-123 ', $candidates));
         $this->assertSame(0, scanfield::find_user('idnumber', 'OTHER', $candidates));
     }
 
@@ -57,7 +57,7 @@ final class scanfield_test extends \advanced_testcase {
     public function test_find_by_userid(): void {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user();
-        $this->assertSame($user->id, scanfield::find_user('userid', (string) $user->id, [$user->id]));
+        $this->assertSame((int) $user->id, scanfield::find_user('userid', (string) $user->id, [$user->id]));
         $this->assertSame(0, scanfield::find_user('userid', 'notanumber', [$user->id]));
     }
 
@@ -81,7 +81,7 @@ final class scanfield_test extends \advanced_testcase {
 
         $key = scanfield::PROFILE_PREFIX . 'badge';
         $this->assertTrue(scanfield::is_valid($key));
-        $this->assertSame($user->id, scanfield::find_user($key, 'bdg9', [$user->id]));
+        $this->assertSame((int) $user->id, scanfield::find_user($key, 'bdg9', [$user->id]));
     }
 
     /**
