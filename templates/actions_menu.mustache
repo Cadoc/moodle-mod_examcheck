@@ -1,0 +1,62 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/actions_menu
+
+    "With selected students" bulk-action bar: an Export submenu plus, for users who
+    may check, a Mark/Uncheck submenu per step. The select is disabled until at
+    least one roster checkbox is ticked (core/checkbox-toggleall wires that up).
+
+    Context variables required for this template:
+    * cancheck - whether the viewer may record checks (controls the mark/uncheck groups)
+    * exports  - array of {value, label} for the export submenu (csv/excel/pdf)
+    * steps    - array of {stepid, marklabel, unmarklabel} for the per-step submenus
+
+    Example context (json):
+    {
+        "cancheck": true,
+        "exports": [{"value": "csv", "label": "Comma-separated values (.csv)"}],
+        "steps": [{"stepid": 12, "marklabel": "Check: Attendance", "unmarklabel": "Uncheck: Attendance"}]
+    }
+}}
+<div class="examcheck-withselected d-flex flex-wrap align-items-center gap-2 my-3">
+    <label for="examcheck-bulkaction" class="col-form-label">
+        {{#str}}withselectedstudents, mod_examcheck{{/str}}
+    </label>
+    <select id="examcheck-bulkaction" name="bulkaction"
+            data-action="toggle" data-togglegroup="examcheck-roster" data-toggle="action"
+            disabled>
+        <option value="">{{#str}}choosedots{{/str}}</option>
+        <optgroup label="{{#str}}exportas, mod_examcheck{{/str}}">
+            {{#exports}}
+            <option value="export:{{value}}">{{label}}</option>
+            {{/exports}}
+        </optgroup>
+        {{#cancheck}}
+        <optgroup label="{{#str}}markchecked, mod_examcheck{{/str}}">
+            {{#steps}}
+            <option value="mark:{{stepid}}">{{marklabel}}</option>
+            {{/steps}}
+        </optgroup>
+        <optgroup label="{{#str}}uncheck, mod_examcheck{{/str}}">
+            {{#steps}}
+            <option value="unmark:{{stepid}}">{{unmarklabel}}</option>
+            {{/steps}}
+        </optgroup>
+        {{/cancheck}}
+    </select>
+</div>

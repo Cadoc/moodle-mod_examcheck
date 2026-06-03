@@ -233,11 +233,16 @@ const populateCameras = async(video) => {
     const track = video.srcObject && video.srcObject.getVideoTracks ? video.srcObject.getVideoTracks()[0] : null;
     const current = (track && track.getSettings) ? (track.getSettings().deviceId || '') : '';
 
+    // Pre-fetch the "Camera" label once if at least one device has no label
+    // (common on iOS until camera permission has been granted at least once).
+    const needFallback = cameras.some((c) => !c.label);
+    const cameraWord = needFallback ? await getString('camera', 'mod_examcheck') : '';
+
     select.innerHTML = '';
     cameras.forEach((camera, index) => {
         const option = document.createElement('option');
         option.value = camera.deviceId;
-        option.textContent = camera.label || ('Camera ' + (index + 1));
+        option.textContent = camera.label || `${cameraWord} ${index + 1}`;
         if (camera.deviceId && camera.deviceId === current) {
             option.selected = true;
         }

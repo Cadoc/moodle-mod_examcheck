@@ -52,11 +52,11 @@
                     <th scope="row" class="fw-normal">{{{name}}}</th>
                     <td class="text-center"><span class="badge bg-secondary">{{marks}}</span></td>
                     <td class="text-end text-nowrap">
-                        {{^isfirst}}<a class="btn btn-sm btn-outline-secondary" href="{{upurl}}" title="{{#str}}moveup, mod_examcheck{{/str}}"><i class="fa fa-arrow-up" aria-hidden="true"></i></a>{{/isfirst}}
-                        {{^islast}}<a class="btn btn-sm btn-outline-secondary" href="{{downurl}}" title="{{#str}}movedown, mod_examcheck{{/str}}"><i class="fa fa-arrow-down" aria-hidden="true"></i></a>{{/islast}}
-                        <a class="btn btn-sm btn-outline-secondary" href="{{editurl}}" title="{{#str}}editstep, mod_examcheck{{/str}}"><i class="fa fa-pencil" aria-hidden="true"></i></a>
-                        <a class="btn btn-sm btn-outline-warning" href="{{clearurl}}" title="{{#str}}clearchecks, mod_examcheck{{/str}}"><i class="fa fa-eraser" aria-hidden="true"></i></a>
-                        {{#candelete}}<a class="btn btn-sm btn-outline-danger" href="{{deleteurl}}" title="{{#str}}deletestep, mod_examcheck{{/str}}"><i class="fa fa-trash" aria-hidden="true"></i></a>{{/candelete}}
+                        {{^isfirst}}<a class="btn btn-sm btn-outline-secondary" href="{{upurl}}" title="{{#str}}moveup, mod_examcheck{{/str}}">{{#pix}}t/up, core, {{#str}}moveup, mod_examcheck{{/str}}{{/pix}}</a>{{/isfirst}}
+                        {{^islast}}<a class="btn btn-sm btn-outline-secondary" href="{{downurl}}" title="{{#str}}movedown, mod_examcheck{{/str}}">{{#pix}}t/down, core, {{#str}}movedown, mod_examcheck{{/str}}{{/pix}}</a>{{/islast}}
+                        <a class="btn btn-sm btn-outline-secondary" href="{{editurl}}" title="{{#str}}editstep, mod_examcheck{{/str}}">{{#pix}}t/edit, core, {{#str}}editstep, mod_examcheck{{/str}}{{/pix}}</a>
+                        <a class="btn btn-sm btn-outline-warning" href="{{clearurl}}" title="{{#str}}clearchecks, mod_examcheck{{/str}}">{{#pix}}t/reset, core, {{#str}}clearchecks, mod_examcheck{{/str}}{{/pix}}</a>
+                        {{#candelete}}<a class="btn btn-sm btn-outline-danger" href="{{deleteurl}}" title="{{#str}}deletestep, mod_examcheck{{/str}}">{{#pix}}t/delete, core, {{#str}}deletestep, mod_examcheck{{/str}}{{/pix}}</a>{{/candelete}}
                     </td>
                 </tr>
                 {{/steps}}

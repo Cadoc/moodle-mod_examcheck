@@ -19,7 +19,6 @@ namespace mod_examcheck\output;
 use core\output\renderer_base;
 use core\output\renderable;
 use core\output\templatable;
-use html_writer;
 use mod_examcheck\local\steps;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
@@ -77,7 +76,7 @@ class dashboard implements renderable, templatable {
             'hassteps'     => $hassteps,
             'filter'       => $filterhtml,
             'table'        => $tablehtml,
-            'withselected' => $hassteps ? $this->build_actions_menu($context, $steps) : '',
+            'withselected' => $hassteps ? $this->render_actions_menu($output, $context, $steps) : '',
             'exporturl'    => (new moodle_url('/mod/examcheck/export.php'))->out(false),
             'sesskey'      => sesskey(),
             'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
@@ -85,53 +84,37 @@ class dashboard implements renderable, templatable {
     }
 
     /**
-     * Build the "With selected students" action dropdown (export + per-step check/uncheck).
+     * Render the "With selected students" action dropdown via a Mustache template.
      *
+     * @param renderer_base $output The renderer.
      * @param \context_module $context The module context.
      * @param \stdClass[] $steps The ordered step records.
      * @return string The rendered label + select.
      */
-    protected function build_actions_menu(\context_module $context, array $steps): string {
-        // Optgroups for html_writer::select are numerically-indexed elements whose value is
-        // a single ['Group label' => [options]] pair (it reads key()/current()).
-        // Export submenu, restricted to CSV / Excel (.xlsx) / PDF.
-        $options = [
-            [get_string('exportas', 'mod_examcheck') => [
-                'export:csv'   => get_string('dataformat', 'dataformat_csv'),
-                'export:excel' => get_string('dataformat', 'dataformat_excel'),
-                'export:pdf'   => get_string('dataformat', 'dataformat_pdf'),
-            ]],
+    protected function render_actions_menu(renderer_base $output, \context_module $context, array $steps): string {
+        $exports = [
+            ['value' => 'csv',   'label' => get_string('dataformat', 'dataformat_csv')],
+            ['value' => 'excel', 'label' => get_string('dataformat', 'dataformat_excel')],
+            ['value' => 'pdf',   'label' => get_string('dataformat', 'dataformat_pdf')],
         ];
 
-        // Per-step mark/unmark, only for users who may record checks.
-        if (has_capability('mod/examcheck:check', $context)) {
-            $check = [];
-            $uncheck = [];
+        $stepoptions = [];
+        $cancheck = has_capability('mod/examcheck:check', $context);
+        if ($cancheck) {
             foreach ($steps as $step) {
                 $name = format_string($step->name, true, ['context' => $context]);
-                $check['mark:' . (int) $step->id] = get_string('bulkcheck', 'mod_examcheck', $name);
-                $uncheck['unmark:' . (int) $step->id] = get_string('bulkuncheck', 'mod_examcheck', $name);
+                $stepoptions[] = [
+                    'stepid'      => (int) $step->id,
+                    'marklabel'   => get_string('bulkcheck', 'mod_examcheck', $name),
+                    'unmarklabel' => get_string('bulkuncheck', 'mod_examcheck', $name),
+                ];
             }
-            $options[] = [get_string('markchecked', 'mod_examcheck') => $check];
-            $options[] = [get_string('uncheck', 'mod_examcheck') => $uncheck];
         }
 
-        // Disabled until at least one row is selected (core/checkbox-toggleall enables it).
-        $attributes = [
-            'id'               => 'examcheck-bulkaction',
-            'data-action'      => 'toggle',
-            'data-togglegroup' => 'examcheck-roster',
-            'data-toggle'      => 'action',
-            'disabled'         => 'disabled',
-        ];
-        $select = html_writer::select($options, 'bulkaction', '', ['' => get_string('choosedots')], $attributes);
-        $label = html_writer::tag('label', get_string('withselectedstudents', 'mod_examcheck'), [
-            'for'   => 'examcheck-bulkaction',
-            'class' => 'col-form-label',
-        ]);
-
-        return html_writer::tag('div', $label . ' ' . $select, [
-            'class' => 'examcheck-withselected d-flex flex-wrap align-items-center gap-2 my-3',
+        return $output->render_from_template('mod_examcheck/actions_menu', [
+            'cancheck' => $cancheck,
+            'exports'  => $exports,
+            'steps'    => $stepoptions,
         ]);
     }
 }
