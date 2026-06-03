@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_examcheck\local\checker;
+use mod_examcheck\local\outcome;
 
 /**
  * Web service: mark a student as checked for a step.

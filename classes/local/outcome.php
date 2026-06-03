@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace mod_examcheck\external;
+namespace mod_examcheck\local;
 
 use core_external\external_single_structure;
 use core_external\external_value;
@@ -25,6 +25,10 @@ use core_external\external_value;
  * Every marking, unmarking and scanning web service returns the same shape so
  * the JavaScript can handle them uniformly: a machine readable status, a
  * ready-to-display localised message, and the involved user details.
+ *
+ * This helper is in classes/local/ rather than classes/external/ so the
+ * external/ directory holds only the classes registered as web service
+ * entry points (mark_user, unmark_user, bulk_action, scan_lookup, get_marks).
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho

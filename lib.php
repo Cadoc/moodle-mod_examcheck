@@ -251,6 +251,10 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
 /**
  * Human-readable descriptions of the active custom completion rules.
  *
+ * Drives the rule list from {@see \mod_examcheck\completion\custom_completion::get_defined_custom_rules()}
+ * so adding a new completion rule only requires updating one class and one lang string;
+ * the lib.php hook is kept for legacy callers that still go through the global function.
+ *
  * @param cm_info|stdClass $cm Course module with completion customdata.
  * @return string[] Rule descriptions.
  */
@@ -262,11 +266,13 @@ function mod_examcheck_get_completion_active_rule_descriptions($cm) {
         return [];
     }
 
-    $descriptions = [];
-    foreach ($cm->customdata['customcompletionrules'] as $key => $val) {
-        if ($key === 'completionchecked' && !empty($val)) {
-            $descriptions[] = get_string('completionchecked_desc', 'mod_examcheck');
+    $rules = $cm->customdata['customcompletionrules'];
+    $out = [];
+    foreach (\mod_examcheck\completion\custom_completion::get_defined_custom_rules() as $key) {
+        if (!empty($rules[$key])) {
+            // Convention: each rule has a "<key>_desc" lang string.
+            $out[] = get_string($key . '_desc', 'mod_examcheck');
         }
     }
-    return $descriptions;
+    return $out;
 }
