@@ -93,15 +93,14 @@ the result into a completion condition you can use to gate other activities.
 
 ## Installation
 
-1. Copy the plugin into your Moodle so it lives at `mod/examcheck`
-   (in a `public/` layout that is `public/mod/examcheck`):
-
-   ```bash
-   git clone <repo> mod/examcheck
-   ```
+1. **Download** the latest release ZIP from this repository (or `git clone` it),
+   then install it like any Moodle plugin — **Site administration → Plugins →
+   Install plugins** and upload the ZIP, or extract the folder so it lives at
+   `mod/examcheck/` inside your Moodle (the `public/mod/examcheck/` path on a
+   "public layout" install).
 
 2. Log in as an administrator and visit **Site administration → Notifications**
-   to run the install, **or** run the CLI upgrade:
+   to run the upgrade, **or** from the CLI:
 
    ```bash
    php admin/cli/upgrade.php
@@ -150,12 +149,14 @@ before marking, then **Start camera** and point it at the student's QR/barcode.
 
 No camera? Type or wedge‑scan the value into the **manual entry** box.
 
-> **Browser & HTTPS note.** Live camera scanning uses the native
-> [`BarcodeDetector`](https://developer.mozilla.org/docs/Web/API/Barcode_Detection_API)
-> API (Android Chrome, desktop Chrome/Edge) and requires the page to be served
-> over **HTTPS** (or `localhost`). On browsers without the API (e.g. iOS Safari
-> at the time of writing) the camera button is hidden and the manual‑entry box —
-> which works with hardware scanners — remains fully functional.
+> **Browser & HTTPS note.** Live camera scanning uses the device camera via the
+> standard `getUserMedia` API and decodes barcodes / QR codes with the bundled
+> [ZXing‑js](https://github.com/zxing-js/library) library, so it works the same
+> on every modern browser (Chrome / Edge on desktop and Android, Firefox,
+> Safari on iOS and macOS). `getUserMedia` requires the page to be served over
+> **HTTPS** (or `localhost`). No camera, no permission, or HTTPS unavailable?
+> Use the **manual entry** box — it works with USB / Bluetooth keyboard‑wedge
+> scanners too.
 
 ### Completion to gate a quiz
 

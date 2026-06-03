@@ -32,6 +32,12 @@ import {add as addToast} from 'core/toast';
 import Notification from 'core/notification';
 import * as DynamicTable from 'core_table/dynamic';
 
+// Cache the previous poll's mark key set so we can detect changes affecting
+// rows that aren't currently in the DOM (e.g. a now-unmarked student whose
+// row was filtered out by the check-status chip and so has no toggle button
+// to compare against). Null until the first poll completes.
+let lastMarkKeySet = null;
+
 /**
  * Initialise the dashboard behaviour.
  *
@@ -193,25 +199,35 @@ const refresh = (root, cmid) => {
     return Ajax.call([{methodname: 'mod_examcheck_get_marks', args: {cmid, groupid}}])[0]
         .then((data) => {
             const marks = new Map();
+            const currentKeys = new Set();
             data.marks.forEach((m) => {
-                marks.set(`${m.stepid}:${m.userid}`, m);
+                const key = `${m.stepid}:${m.userid}`;
+                marks.set(key, m);
+                currentKeys.add(key);
             });
 
-            let anyChanged = false;
+            // Patch any visible toggle whose state drifted from the server.
+            let visibleChanged = false;
             root.querySelectorAll('[data-action="examcheck-toggle"]').forEach((button) => {
                 if (button.disabled) {
                     return;
                 }
-                const ischecked = Boolean(marks.get(`${button.dataset.stepid}:${button.dataset.userid}`));
-                const wasChecked = button.dataset.checked === '1';
-                if (ischecked !== wasChecked) {
-                    anyChanged = true;
+                const key = `${button.dataset.stepid}:${button.dataset.userid}`;
+                const mark = marks.get(key);
+                const ischecked = Boolean(mark);
+                if (ischecked !== (button.dataset.checked === '1')) {
+                    visibleChanged = true;
                 }
-                const mark = marks.get(`${button.dataset.stepid}:${button.dataset.userid}`);
                 setCellChecked(button, ischecked, mark ? mark.ago : '');
             });
 
-            if (anyChanged && isCheckStatusFilterActive(root)) {
+            // Detect set-level deltas independent of the DOM. This catches the case
+            // where a row is currently filtered out (no toggle to compare against)
+            // but a mark elsewhere changed and the filtered view should redraw.
+            const setChanged = lastMarkKeySet !== null && hasSetDelta(lastMarkKeySet, currentKeys);
+            lastMarkKeySet = currentKeys;
+
+            if ((visibleChanged || setChanged) && isCheckStatusFilterActive(root)) {
                 refreshTable(cmid);
             }
             return data;
@@ -219,6 +235,25 @@ const refresh = (root, cmid) => {
         .catch(() => {
             // Stay quiet on transient refresh failures; the next tick will retry.
         });
+};
+
+/**
+ * Whether two Sets of mark keys differ (added, removed, or swapped entries).
+ *
+ * @param {Set<String>} previous The previous poll's keys.
+ * @param {Set<String>} current The current poll's keys.
+ * @returns {Boolean}
+ */
+const hasSetDelta = (previous, current) => {
+    if (previous.size !== current.size) {
+        return true;
+    }
+    for (const key of current) {
+        if (!previous.has(key)) {
+            return true;
+        }
+    }
+    return false;
 };
 
 /**
