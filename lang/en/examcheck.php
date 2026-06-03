@@ -26,6 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['addeditstep'] = 'Add a step';
 $string['addstep'] = 'Add step';
+$string['backtomanagesteps'] = 'Back to manage steps';
 $string['ago'] = '{$a} ago';
 $string['agoseconds'] = '{$a} seconds ago';
 $string['allparticipants'] = 'All participants';
@@ -75,6 +76,7 @@ $string['defaultshowcameraswitcher_desc'] = 'Whether the scanner shows a camera/
 $string['defaultstepname'] = 'Attendance';
 $string['deletestep'] = 'Delete step';
 $string['editstep'] = 'Edit step';
+$string['editstepfor'] = 'Edit step: {$a}';
 $string['enablescanner'] = 'Enable scanner';
 $string['enablescanner_help'] = 'When enabled, teachers can open the camera/barcode scanner from the activity to check students. When disabled, the scanner is hidden and cannot be opened; the list and bulk actions on the dashboard still work.';
 $string['error_alreadychecked'] = 'This student has already been checked for this step.';

@@ -108,7 +108,8 @@ if ($action === 'resetall') {
     exit;
 }
 
-// Add / rename form.
+// Add / rename form. The same form is used on the management page (add mode) and on
+// the dedicated edit page (edit mode); the branch below switches between them.
 $mform = new step_form($baseurl, ['courseid' => $course->id]);
 if ($mform->is_cancelled()) {
     redirect($baseurl);
@@ -143,6 +144,21 @@ if ($action === 'edit' && $stepid) {
     ]);
 } else {
     $mform->set_data(['id' => $cm->id, 'action' => 'add']);
+}
+
+// Editing a step has its own dedicated page so it's obvious what the form is for,
+// instead of silently switching the footer "Add a step" form into edit mode.
+if ($editing) {
+    $stepname = format_string($editing->name, true, ['context' => $context]);
+    $PAGE->set_title(get_string('editstepfor', 'mod_examcheck', $stepname));
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('editstepfor', 'mod_examcheck', $stepname));
+    echo $OUTPUT->render_from_template('mod_examcheck/editstep', [
+        'backurl' => $baseurl->out(false),
+    ]);
+    $mform->display();
+    echo $OUTPUT->footer();
+    exit;
 }
 
 // Build the steps list with per-step mark counts and action URLs.
