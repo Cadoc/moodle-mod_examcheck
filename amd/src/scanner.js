@@ -105,9 +105,9 @@ const registerControls = () => {
  * Decide whether live camera scanning is possible and adjust the UI.
  *
  * Needs a camera (getUserMedia, which requires a secure/HTTPS context) and the
- * bundled ZXing decoder. ZXing decodes on every target browser, so we use it
- * everywhere rather than the native BarcodeDetector (which is non-functional on
- * desktop Chrome for Windows/Linux and absent on Safari/Firefox).
+ * bundled ZXing decoder. ZXing reads QR codes and common 1D barcodes from the
+ * camera in JavaScript, so the same scanning path works on every browser the
+ * plugin targets.
  */
 const detectFeatureSupport = () => {
     const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);

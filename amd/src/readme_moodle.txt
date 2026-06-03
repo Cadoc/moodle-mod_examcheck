@@ -1,6 +1,6 @@
-ZXing-js (@zxing/library) — bundled barcode/QR decoder used by the scanner on
-every browser (the native BarcodeDetector API is missing on Safari/Firefox and
-non-functional on desktop Chrome for Windows/Linux).
+ZXing-js (@zxing/library) — bundled JavaScript decoder used by the scanner to
+read QR codes and common 1D barcodes from the device camera. Works on every
+desktop and mobile browser the plugin targets.
 
 Upstream: https://github.com/zxing-js/library  (npm: @zxing/library)
 Version:  0.21.3
