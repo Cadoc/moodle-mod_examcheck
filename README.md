@@ -63,6 +63,12 @@ the result into a completion condition you can use to gate other activities.
   they're checked on **all steps** *or* on **one specific step**. Because
   completion is per student, you can require it elsewhere — e.g. *“Attendance
   must be complete before the quiz opens.”*
+- **Quiz‑attempt gate per step.** A step can require the student to have
+  submitted at least one attempt to a chosen course quiz (and have no attempt
+  left in progress) before they can be marked. Useful for an *Exam copy
+  submitted* step backed by a real Moodle quiz: the dashboard, the scanner and
+  the bulk check action all refuse to tick the student off until their quiz
+  attempt is actually `finished`, and show a clear red message instead.
 - **Search & filter.** Filter the roster by name / ID number and show only
   not‑yet‑checked students.
 - **Export.** Download the roster with every step's status, who checked each
@@ -73,11 +79,17 @@ the result into a completion condition you can use to gate other activities.
 
 ## Screenshots
 
-> Add screenshots to `pix/screenshots/` and reference them here:
->
-> - `dashboard.png` – the checking dashboard
-> - `scanner.png` – the camera scanner
-> - `steps.png` – managing steps
+| Roster | Scanner | Manage steps |
+|---|---|---|
+| ![Roster](pix/screenshots/roster.png) | ![Scanner](pix/screenshots/scanner.png) | ![Manage steps](pix/screenshots/steps.png) |
+
+- **Roster** – tick students through every check step from any teacher's phone.
+  Live polling keeps every invigilator's screen in sync.
+- **Scanner** – read a QR/barcode from the student card with the camera.
+  Manual entry works for keyboard‑wedge scanners too.
+- **Manage steps** – add, rename and reorder steps; optionally make a step
+  require a submitted attempt on a course quiz before the student can be
+  checked.
 
 ## Installation
 
@@ -111,6 +123,13 @@ The activity is created with a single **Attendance** step.
 
 From the dashboard choose **Manage steps** (needs `mod/examcheck:managesteps`)
 to add, rename, reorder or delete steps, and to clear recorded checks.
+
+When editing a step you can optionally tick **Require a submitted quiz
+attempt** and pick a course quiz. With that on, every mark path — the
+dashboard toggle, the scanner (camera and manual entry) and the bulk‑check
+action — will refuse to mark a student who hasn't actually submitted an
+attempt yet, or who still has one in progress. The teacher sees a clear red
+message; the cell stays untouched.
 
 ### Check students (dashboard)
 

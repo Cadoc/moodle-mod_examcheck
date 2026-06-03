@@ -74,5 +74,20 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026053003, 'examcheck');
     }
 
+    if ($oldversion < 2026060301) {
+        // Per-step "requires a submitted quiz attempt" gate, plus the chosen quiz cmid.
+        $table = new xmldb_table('examcheck_steps');
+        $require = new xmldb_field('requirequizattempt', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'name');
+        if (!$dbman->field_exists($table, $require)) {
+            $dbman->add_field($table, $require);
+        }
+        $quizcmid = new xmldb_field('quizcmid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'requirequizattempt');
+        if (!$dbman->field_exists($table, $quizcmid)) {
+            $dbman->add_field($table, $quizcmid);
+        }
+
+        upgrade_mod_savepoint(true, 2026060301, 'examcheck');
+    }
+
     return true;
 }

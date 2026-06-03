@@ -139,6 +139,10 @@ const applyOutcome = (button, outcome) => {
         case 'notinroster':
             addToast(outcome.message, {type: 'danger'});
             break;
+        case 'attemptmissing':
+            // Step's quiz-attempt gate refused: keep the cell untouched and warn.
+            addToast(outcome.message, {type: 'danger'});
+            break;
         default:
             if (outcome.message) {
                 addToast(outcome.message, {type: 'info'});

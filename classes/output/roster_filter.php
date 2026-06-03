@@ -147,7 +147,9 @@ class roster_filter extends \core\output\datafilter {
             get_string('checkstatus', 'mod_examcheck'),
             false,
             true,
-            null,
+            // The default JS filter type runs parseInt on every value, which would mangle
+            // our "stepid:status" tokens; our module skips that cast.
+            'mod_examcheck/datafilter/filtertypes/checkstatus',
             $options
         );
     }

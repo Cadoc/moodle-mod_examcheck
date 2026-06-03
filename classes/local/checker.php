@@ -258,6 +258,12 @@ class checker {
             return $this->conflict_result($existing, $userid);
         }
 
+        // Per-step "submitted quiz attempt" gate. Returns null when the step has
+        // no gate configured; otherwise an attemptmissing result describing why.
+        if ($failure = $this->validate_quiz_attempt($step, $userid)) {
+            return $failure;
+        }
+
         $mark = (object) [
             'examcheckid' => $this->examcheck->id,
             'stepid'      => $stepid,
@@ -340,7 +346,7 @@ class checker {
         int $groupid = 0,
         string $regex = ''
     ): array {
-        $this->require_step($stepid);
+        $step = $this->require_step($stepid);
 
         // Optionally extract the part of the scanned code to match (e.g. a
         // student number embedded in a longer barcode payload).
@@ -359,6 +365,13 @@ class checker {
         // Already checked? Report the conflict regardless of the confirm setting.
         if ($existing = $this->get_mark($stepid, $userid)) {
             return $this->conflict_result($existing, $userid);
+        }
+
+        // Fail fast on the gate so the teacher never sees a "Confirm" prompt for a
+        // student who will be refused. Same check fires again inside mark_user as a
+        // belt-and-braces — they're idempotent.
+        if ($failure = $this->validate_quiz_attempt($step, $userid)) {
+            return $failure;
         }
 
         // Pause for the teacher to confirm the student before marking.
@@ -419,6 +432,83 @@ class checker {
         if ($completion->is_enabled($cm) == COMPLETION_TRACKING_AUTOMATIC && !empty($this->examcheck->completionchecked)) {
             $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
         }
+    }
+
+    /**
+     * Enforce the optional "submitted quiz attempt" gate on a step.
+     *
+     * Returns null when the step has no gate configured, or an attemptmissing
+     * result array describing why the student does not qualify yet. The reason
+     * code drives the localised message in {@see outcome::format()}:
+     *
+     * - misconfigured: gate enabled but no quiz picked.
+     * - missingquiz:   the configured quiz cmid no longer resolves (deleted).
+     * - inprogress:    the student still has an attempt in progress / overdue.
+     * - nosubmission:  no finished (submitted) attempt for the student.
+     *
+     * @param stdClass $step The step record (must include requirequizattempt and quizcmid).
+     * @param int $userid The student user id.
+     * @return array|null Attemptmissing result, or null when the gate passes / is off.
+     */
+    protected function validate_quiz_attempt(stdClass $step, int $userid): ?array {
+        global $DB;
+
+        if (empty($step->requirequizattempt)) {
+            return null;
+        }
+        if (empty($step->quizcmid)) {
+            return [
+                'status' => 'attemptmissing',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        $cm = get_coursemodule_from_id('quiz', (int) $step->quizcmid, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            return [
+                'status' => 'attemptmissing',
+                'reason' => 'missingquiz',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        // Count real (non-preview) attempts by state.
+        $states = $DB->get_records_menu(
+            'quiz_attempts',
+            ['quiz' => (int) $cm->instance, 'userid' => $userid, 'preview' => 0],
+            '',
+            'id, state'
+        );
+        $inprogress = 0;
+        $submitted  = 0;
+        foreach ($states as $state) {
+            if ($state === 'inprogress' || $state === 'overdue') {
+                $inprogress++;
+            } else if ($state === 'finished') {
+                $submitted++;
+            }
+            // Abandoned attempts intentionally count for neither bucket.
+        }
+
+        $quizname = format_string($cm->name, true, ['context' => $this->context]);
+        if ($inprogress > 0) {
+            return [
+                'status' => 'attemptmissing',
+                'reason' => 'inprogress',
+                'user'   => self::user_label($userid),
+                'quiz'   => $quizname,
+            ];
+        }
+        if ($submitted === 0) {
+            return [
+                'status' => 'attemptmissing',
+                'reason' => 'nosubmission',
+                'user'   => self::user_label($userid),
+                'quiz'   => $quizname,
+            ];
+        }
+        return null;
     }
 
     /**

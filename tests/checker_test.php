@@ -281,6 +281,186 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Marking passes when the step's quiz gate is satisfied by a finished attempt.
+     */
+    public function test_mark_passes_when_quiz_attempt_submitted(): void {
+        $quiz = $this->configure_quiz_gate();
+        $this->insert_quiz_attempt($quiz, $this->students[1]->id, 'finished');
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+        $this->assertEquals(1, $this->countmarks());
+    }
+
+    /**
+     * Marking is blocked while the student still has an attempt in progress.
+     */
+    public function test_mark_blocked_when_attempt_inprogress(): void {
+        $quiz = $this->configure_quiz_gate();
+        $this->insert_quiz_attempt($quiz, $this->students[1]->id, 'finished');
+        $this->insert_quiz_attempt($quiz, $this->students[1]->id, 'inprogress');
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('inprogress', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking is blocked when no attempt has been submitted at all.
+     */
+    public function test_mark_blocked_when_no_submitted_attempt(): void {
+        $this->configure_quiz_gate();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('nosubmission', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking is blocked when the linked quiz no longer exists.
+     */
+    public function test_mark_blocked_when_quiz_deleted(): void {
+        $this->configure_quiz_gate();
+        // Point the step at a cmid that does not exist.
+        global $DB;
+        $DB->set_field('examcheck_steps', 'quizcmid', 99999999, ['id' => $this->stepid]);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('missingquiz', $result['reason']);
+    }
+
+    /**
+     * Marking is blocked when the gate is on but no quiz was picked.
+     */
+    public function test_mark_blocked_when_misconfigured(): void {
+        $this->configure_quiz_gate();
+        global $DB;
+        $DB->set_field('examcheck_steps', 'quizcmid', null, ['id' => $this->stepid]);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('misconfigured', $result['reason']);
+    }
+
+    /**
+     * Preview attempts must not satisfy the gate (they're never real submissions).
+     */
+    public function test_mark_ignores_preview_attempts(): void {
+        $quiz = $this->configure_quiz_gate();
+        $this->insert_quiz_attempt($quiz, $this->students[1]->id, 'finished', preview: 1);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('nosubmission', $result['reason']);
+    }
+
+    /**
+     * The scanner fails fast before "needs confirm" when the gate refuses, so
+     * the teacher never sees a confirm prompt for a student who will be blocked.
+     */
+    public function test_scan_fails_fast_before_needsconfirm(): void {
+        $this->configure_quiz_gate(); // No attempt for student 1.
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->scan($this->stepid, 'idnumber', 'S1', false, true, $this->teacher->id);
+
+        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Removing a mark must always work, even when the step has the gate on
+     * (mistakes happen and unmarking should never be blocked by the gate).
+     */
+    public function test_unmark_unaffected_by_gate(): void {
+        $quiz = $this->configure_quiz_gate();
+        $this->insert_quiz_attempt($quiz, $this->students[1]->id, 'finished');
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $this->assertEquals(1, $this->countmarks());
+
+        // Now delete the submitted attempt so the gate would refuse a new mark…
+        global $DB;
+        $DB->delete_records('quiz_attempts', ['quiz' => $quiz->instance, 'userid' => $this->students[1]->id]);
+
+        // …but unmarking still works.
+        $result = $checker->unmark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $this->assertSame('unmarked', $result['status']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Create a quiz in the course and wire the seeded step to require an attempt on it.
+     *
+     * @return \stdClass The quiz course-module record (with ->instance = quiz id, ->id = cmid).
+     */
+    protected function configure_quiz_gate(): \stdClass {
+        $gen = $this->getDataGenerator();
+        $quiz = $gen->create_module('quiz', ['course' => $this->course->id]);
+
+        global $DB;
+        $DB->update_record('examcheck_steps', (object) [
+            'id'                 => $this->stepid,
+            'requirequizattempt' => 1,
+            'quizcmid'           => (int) $quiz->cmid,
+            'timemodified'       => time(),
+        ]);
+
+        return (object) ['id' => (int) $quiz->cmid, 'instance' => (int) $quiz->id];
+    }
+
+    /**
+     * Insert a quiz_attempts row directly. The plugin only reads (state, preview) so a
+     * minimal record is enough — we don't need to drive the quiz attempt state machine.
+     *
+     * @param \stdClass $quiz The result of configure_quiz_gate().
+     * @param int $userid The student.
+     * @param string $state One of 'finished', 'inprogress', 'overdue', 'abandoned'.
+     * @param int $preview 0 for a real attempt, 1 for a teacher preview.
+     */
+    protected function insert_quiz_attempt(\stdClass $quiz, int $userid, string $state, int $preview = 0): void {
+        global $DB;
+
+        $now = time();
+        // attempt is unique per (quiz, userid); uniqueid is unique across the whole table.
+        $attemptno = $DB->count_records('quiz_attempts', ['quiz' => $quiz->instance, 'userid' => $userid]) + 1;
+        $uniqueid = $DB->count_records('quiz_attempts') + 1;
+        $DB->insert_record('quiz_attempts', (object) [
+            'quiz'                => $quiz->instance,
+            'userid'              => $userid,
+            'attempt'             => $attemptno,
+            'uniqueid'            => $uniqueid,
+            'layout'              => '',
+            'currentpage'         => 0,
+            'preview'             => $preview,
+            'state'               => $state,
+            'timestart'           => $now - 60,
+            'timefinish'          => $state === 'finished' ? $now : 0,
+            'timemodified'        => $now,
+            'timemodifiedoffline' => 0,
+            'timecheckstate'      => null,
+            'sumgrades'           => null,
+            'gradednotificationsenttime' => null,
+        ]);
+    }
+
+    /**
      * Count rows in examcheck_marks for the instance.
      *
      * @return int

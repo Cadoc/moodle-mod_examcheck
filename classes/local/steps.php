@@ -96,6 +96,27 @@ class steps {
     }
 
     /**
+     * Persist a step's "requires a submitted quiz attempt" configuration.
+     *
+     * When the gate is off, the quiz cmid is forced to null so we never carry
+     * a stale link that would surface as a "missing quiz" misconfiguration.
+     *
+     * @param int $stepid The step id.
+     * @param bool $require Whether marking the step requires a quiz attempt.
+     * @param int|null $quizcmid The course module id of the quiz to validate against.
+     */
+    public static function save_step_quiz_requirement(int $stepid, bool $require, ?int $quizcmid): void {
+        global $DB;
+
+        $DB->update_record('examcheck_steps', (object) [
+            'id'                 => $stepid,
+            'requirequizattempt' => $require ? 1 : 0,
+            'quizcmid'           => $require ? $quizcmid : null,
+            'timemodified'       => time(),
+        ]);
+    }
+
+    /**
      * Delete a step and every mark recorded against it.
      *
      * An instance must always keep at least one step, so deleting the last

@@ -39,7 +39,7 @@ class outcome {
     public static function structure(): external_single_structure {
         return new external_single_structure([
             'status'      => new external_value(PARAM_ALPHA, 'Outcome: marked, conflict, notinroster, unmarked, '
-                . 'notchecked, notfound or needsconfirm.'),
+                . 'notchecked, notfound, needsconfirm or attemptmissing.'),
             'message'     => new external_value(PARAM_TEXT, 'Localised message ready to show to the teacher.'),
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
@@ -119,6 +119,23 @@ class outcome {
             case 'needsconfirm':
                 $response['userid'] = (int) $result['userid'];
                 $response['message'] = get_string('result_needsconfirm', 'mod_examcheck', $userlabel);
+                break;
+
+            case 'attemptmissing':
+                $reason = $result['reason'] ?? 'misconfigured';
+                if ($reason === 'misconfigured' || $reason === 'missingquiz') {
+                    $response['message'] = get_string('result_attemptmissing_misconfigured', 'mod_examcheck');
+                    break;
+                }
+                $args = (object) [
+                    'user' => $userlabel,
+                    'quiz' => $result['quiz'] ?? '',
+                ];
+                if ($reason === 'inprogress') {
+                    $response['message'] = get_string('result_attemptmissing_inprogress', 'mod_examcheck', $args);
+                } else {
+                    $response['message'] = get_string('result_attemptmissing_nosubmission', 'mod_examcheck', $args);
+                }
                 break;
         }
 

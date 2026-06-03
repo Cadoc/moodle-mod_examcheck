@@ -72,7 +72,7 @@ class bulk_action extends external_api {
         $checker->require_group_access($params['groupid']);
 
         $domark = $params['action'] !== 'unmark';
-        $done = $conflicts = $skipped = $notinroster = 0;
+        $done = $conflicts = $skipped = $notinroster = $failed = 0;
 
         foreach ($params['userids'] as $userid) {
             if ($domark) {
@@ -83,6 +83,9 @@ class bulk_action extends external_api {
                         break;
                     case 'conflict':
                         $conflicts++;
+                        break;
+                    case 'attemptmissing':
+                        $failed++;
                         break;
                     default:
                         $notinroster++;
@@ -103,15 +106,19 @@ class bulk_action extends external_api {
         }
 
         $total = count($params['userids']);
+        // Pick the shorter or richer message depending on whether the gate fired.
+        $messagekey = $failed > 0 ? 'bulkresultwithfailed' : 'bulkresult';
         return [
             'done'        => $done,
             'conflicts'   => $conflicts,
             'skipped'     => $skipped,
             'notinroster' => $notinroster,
+            'failed'      => $failed,
             'total'       => $total,
-            'message'     => get_string('bulkresult', 'mod_examcheck', (object) [
+            'message'     => get_string($messagekey, 'mod_examcheck', (object) [
                 'done'    => $done,
                 'skipped' => $conflicts + $skipped + $notinroster,
+                'failed'  => $failed,
             ]),
         ];
     }
@@ -127,6 +134,7 @@ class bulk_action extends external_api {
             'conflicts'   => new external_value(PARAM_INT, 'Already checked by someone else (mark only)'),
             'skipped'     => new external_value(PARAM_INT, 'Skipped (e.g. not checked, or override denied)'),
             'notinroster' => new external_value(PARAM_INT, 'Not on the roster for this group'),
+            'failed'      => new external_value(PARAM_INT, 'Blocked by per-step requirements (e.g. quiz attempt gate)'),
             'total'       => new external_value(PARAM_INT, 'Number of students requested'),
             'message'     => new external_value(PARAM_TEXT, 'Localised summary message'),
         ]);
