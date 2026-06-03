@@ -41,7 +41,7 @@ if ($ADMIN->fulltree) {
         get_string('defaultscanregex', 'mod_examcheck'),
         get_string('defaultscanregex_desc', 'mod_examcheck'),
         '',
-        PARAM_RAW
+        PARAM_RAW_TRIMMED
     ));
 
     // Default "require manual confirmation" for new instances.

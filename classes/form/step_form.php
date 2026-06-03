@@ -18,9 +18,8 @@ namespace mod_examcheck\form;
 
 use moodleform;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($GLOBALS['CFG']->libdir . '/formslib.php');
+global $CFG;
+require_once($CFG->libdir . '/formslib.php');
 
 /**
  * Add or rename a check step, with the optional "requires submitted quiz attempt" gate.
@@ -79,7 +78,10 @@ class step_form extends moodleform {
     }
 
     /**
-     * Server-side validation: when the gate is on, a real quiz must be picked.
+     * Server-side validation: when the gate is on, a real quiz must be picked, and
+     * the submitted cmid must belong to the current course. Without that check the
+     * form would accept any cmid; the gate is harmless in practice but it shouldn't
+     * silently store a cross-course reference.
      *
      * @param array $data Submitted values.
      * @param array $files Submitted files (unused).
@@ -87,8 +89,17 @@ class step_form extends moodleform {
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        if (!empty($data['requirequizattempt']) && empty($data['quizcmid'])) {
+        if (empty($data['requirequizattempt'])) {
+            return $errors;
+        }
+        $quizcmid = (int) ($data['quizcmid'] ?? 0);
+        if ($quizcmid <= 0) {
             $errors['quizcmid'] = get_string('required');
+            return $errors;
+        }
+        $allowed = self::list_course_quizzes((int) ($this->_customdata['courseid'] ?? 0));
+        if (!isset($allowed[$quizcmid])) {
+            $errors['quizcmid'] = get_string('invalidcoursemodule', 'error');
         }
         return $errors;
     }

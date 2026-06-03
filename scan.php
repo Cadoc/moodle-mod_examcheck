@@ -53,7 +53,11 @@ if (empty($steps)) {
     redirect($dashboardurl, get_string('error_nosteps', 'mod_examcheck'), null, \core\output\notification::NOTIFY_ERROR);
 }
 
-$PAGE->set_url('/mod/examcheck/scan.php', ['id' => $cm->id, 'group' => $groupid]);
+$pageparams = ['id' => $cm->id];
+if ($groupid) {
+    $pageparams['group'] = $groupid;
+}
+$PAGE->set_url('/mod/examcheck/scan.php', $pageparams);
 $PAGE->set_title(get_string('scannerfor', 'mod_examcheck', format_string($examcheck->name)));
 $PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);

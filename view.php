@@ -57,8 +57,9 @@ $PAGE->activityheader->set_attrs(['hidecompletion' => false]);
 
 echo $OUTPUT->header();
 
-if (trim(strip_tags($examcheck->intro ?? '')) !== '') {
-    echo $OUTPUT->box(format_module_intro('examcheck', $examcheck, $cm->id), 'generalbox', 'intro');
+$introhtml = format_module_intro('examcheck', $examcheck, $cm->id);
+if ($introhtml !== '') {
+    echo $OUTPUT->box($introhtml, 'generalbox', 'intro');
 }
 
 // The roster table enforces the separate-groups restriction itself (see roster::resolve_group),

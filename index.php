@@ -48,9 +48,12 @@ if (empty($instances)) {
     notice(get_string('noinstances', 'mod_examcheck'), new moodle_url('/course/view.php', ['id' => $course->id]));
 }
 
+$usesections = course_format_uses_sections($course->format);
 $table = new html_table();
-$table->head = [get_string('name'), get_string('sectionname', 'format_' . $course->format)];
-$table->align = ['left', 'left'];
+$table->head = $usesections
+    ? [get_string('name'), get_string('sectionname', 'format_' . $course->format)]
+    : [get_string('name')];
+$table->align = $usesections ? ['left', 'left'] : ['left'];
 
 foreach ($instances as $instance) {
     $url = new moodle_url('/mod/examcheck/view.php', ['id' => $instance->coursemodule]);
@@ -58,10 +61,11 @@ foreach ($instances as $instance) {
     if (!$instance->visible) {
         $name = html_writer::span($name, 'dimmed');
     }
-    $table->data[] = [
-        html_writer::link($url, $name),
-        get_section_name($course, $instance->section),
-    ];
+    $row = [html_writer::link($url, $name)];
+    if ($usesections) {
+        $row[] = get_section_name($course, $instance->section);
+    }
+    $table->data[] = $row;
 }
 
 echo html_writer::table($table);

@@ -464,7 +464,17 @@ class checker {
             ];
         }
 
-        $cm = get_coursemodule_from_id('quiz', (int) $step->quizcmid, 0, false, IGNORE_MISSING);
+        // Resolve only quizzes that belong to this examcheck's course. A cross-course cmid
+        // saved via a tampered form submission would otherwise be honoured; here we treat
+        // it as "missing" so the gate reports a misconfiguration rather than silently
+        // depending on a quiz from another course.
+        $cm = get_coursemodule_from_id(
+            'quiz',
+            (int) $step->quizcmid,
+            (int) $this->examcheck->course,
+            false,
+            IGNORE_MISSING
+        );
         if (!$cm) {
             return [
                 'status' => 'attemptmissing',

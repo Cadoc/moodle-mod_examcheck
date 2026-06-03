@@ -30,8 +30,6 @@ use mod_examcheck\local\steps;
 use moodle_url;
 use stdClass;
 
-defined('MOODLE_INTERNAL') || die();
-
 global $CFG;
 require_once($CFG->libdir . '/tablelib.php');
 
@@ -84,13 +82,22 @@ class roster extends \table_sql implements dynamic_table {
     /**
      * Constructor: derive the course module id from the unique id.
      *
+     * The cmid travels via the unique id rather than the filterset because the
+     * dynamic-table AJAX endpoint instantiates the table from the unique id
+     * alone, before the filterset has been deserialised. The strict regex below
+     * makes the format explicit and fails fast on misuse.
+     *
      * @param string $uniqueid Of the form "examcheck-roster-{cmid}".
+     * @throws \coding_exception When the unique id does not encode a cmid.
      */
     public function __construct(string $uniqueid) {
         parent::__construct($uniqueid);
-        if (preg_match('/(\d+)$/', $uniqueid, $matches)) {
-            $this->cmid = (int) $matches[1];
+        if (!preg_match('/^examcheck-roster-(\d+)$/', $uniqueid, $matches)) {
+            throw new \coding_exception(
+                "mod_examcheck\\table\\roster unique id must match 'examcheck-roster-<cmid>', got: '$uniqueid'"
+            );
         }
+        $this->cmid = (int) $matches[1];
     }
 
     /**
@@ -476,6 +483,9 @@ class roster extends \table_sql implements dynamic_table {
             $sr = get_string('notchecked', 'mod_examcheck');
         }
 
+        // FA classes are toggled directly by checker.js setCellChecked on click;
+        // routing through pix_icon would force a core/templates round-trip per click
+        // (or a dual-icon swap), which is too much weight for a glyph change.
         $icon = html_writer::tag('i', '', [
             'class' => 'fa ' . ($checked ? 'fa-check' : 'fa-square-o'),
             'aria-hidden' => 'true',
