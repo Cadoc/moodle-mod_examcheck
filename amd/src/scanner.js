@@ -16,10 +16,11 @@
 /**
  * Camera-based QR/barcode scanner for marking students.
  *
- * Uses the bundled ZXing decoder (decodeFromConstraints) for live camera scanning
- * on every browser (Chrome, Safari, iOS, Firefox, desktop webcams). A manual entry
- * box is always available too and works with USB / Bluetooth "keyboard wedge"
- * scanners or by typing the value.
+ * Uses the bundled zxing-wasm decoder (a WebAssembly build of the upstream
+ * zxing-cpp library) for live camera scanning on every browser the plugin
+ * targets — Chrome, Edge, Firefox, Safari on iOS and macOS, and Chromium-based
+ * mobile browsers. A manual entry box is always available too and works with
+ * USB / Bluetooth "keyboard wedge" scanners or by typing the value.
  *
  * @module     mod_examcheck/scanner
  * @copyright  2026 André Camacho
@@ -29,21 +30,65 @@
 import Ajax from 'core/ajax';
 import {add as addToast} from 'core/toast';
 import {getString} from 'core/str';
-import ZXing from 'mod_examcheck/zxing';
+import ZXingWASM from 'mod_examcheck/zxingwasm';
 
 const DEDUPE_MS = 2500;
 const CAMERA_STORAGE_KEY = 'examcheck_scanner_camera';
 
-// Resolve the ZXing library across module-interop shapes, falling back to the global the
-// vendored UMD also sets. Returns the object exposing BrowserMultiFormatReader, or null.
+// How often the decode loop hands a fresh frame to zxing-wasm. ~10 fps is fast
+// enough to feel instant on a card scan and leaves plenty of CPU for the rest
+// of the page (the decoder typically runs in 20–80 ms per frame on a phone).
+const DECODE_INTERVAL_MS = 100;
+
+// Maximum frame dimension fed to the decoder. The video may be 1920×1080 to
+// help small/distant codes, but a 1280-wide ImageData decodes ~2× faster and
+// is still ample for a printed student card. zxing-cpp also tries internal
+// downscales (tryDownscale below), so this is just a sane upper bound.
+const DECODE_MAX_DIMENSION = 1280;
+
+// Symbologies we ask the decoder to look for. Covers every QR variant plus the
+// common 2D and 1D codes printed on student / library cards. zxing-wasm
+// supports more (Telepen, DXFilmEdge, GS1 DataBar Stacked, …) but enabling
+// rarely-used formats just slows the decoder down without changing outcomes.
+const READER_OPTIONS = {
+    formats: [
+        'QRCode', 'MicroQRCode', 'RMQRCode',
+        'DataMatrix', 'Aztec', 'PDF417', 'MaxiCode',
+        'Code128', 'Code39', 'Code93', 'Codabar', 'ITF', 'ITF14',
+        'EAN13', 'EAN8', 'UPCA', 'UPCE',
+        'DataBar', 'DataBarExp',
+    ],
+    tryHarder: true,
+    tryRotate: true,
+    tryInvert: true,
+    tryDownscale: true,
+    maxNumberOfSymbols: 1,
+};
+
+// Resolve the zxing-wasm library across module-interop shapes, falling back to the
+// global the vendored IIFE also sets. Returns the object exposing readBarcodes, or null.
 const zxinglib = (() => {
-    const candidates = [ZXing, ZXing && ZXing.default, window.ZXing];
-    return candidates.find((c) => c && c.BrowserMultiFormatReader) || null;
+    const candidates = [ZXingWASM, ZXingWASM && ZXingWASM.default, window.ZXingWASM];
+    return candidates.find((c) => c && typeof c.readBarcodes === 'function') || null;
+})();
+
+// Resolve the URL of the sibling WebAssembly binary. The plugin ships it at
+// /mod/examcheck/wasm/zxing_reader.wasm so the web server serves it as a
+// regular static file (with the application/wasm MIME type).
+const wasmUrl = (() => {
+    const root = (window.M && window.M.cfg && window.M.cfg.wwwroot) ? window.M.cfg.wwwroot : '';
+    return root + '/mod/examcheck/wasm/zxing_reader.wasm';
 })();
 
 let config = {cmid: 0, groupid: 0};
 let root = null;
-let zxingReader = null;
+let mediaStream = null; // The currently open MediaStream, or null when the camera is off.
+let rafHandle = 0; // Active requestAnimationFrame handle for the decode loop.
+let lastDecodeTime = 0; // Throttle marker for DECODE_INTERVAL_MS.
+let decodeBusy = false; // True while a readBarcodes call is in flight.
+let decodeCanvas = null; // Reusable canvas for frame capture.
+let decodeCtx = null;
+let zxingConfigured = false; // True once setZXingModuleOverrides has run.
 let scanning = false;
 let pending = null; // {value} awaiting confirmation.
 let lastValue = '';
@@ -105,9 +150,9 @@ const registerControls = () => {
  * Decide whether live camera scanning is possible and adjust the UI.
  *
  * Needs a camera (getUserMedia, which requires a secure/HTTPS context) and the
- * bundled ZXing decoder. ZXing reads QR codes and common 1D barcodes from the
- * camera in JavaScript, so the same scanning path works on every browser the
- * plugin targets.
+ * bundled zxing-wasm decoder. zxing-wasm is a WebAssembly build of zxing-cpp;
+ * it reads QR codes and common 1D/2D barcodes from the camera, so the same
+ * scanning path works on every browser the plugin targets.
  */
 const detectFeatureSupport = () => {
     const hascamera = Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -134,29 +179,42 @@ const buildConstraints = () => {
 };
 
 /**
- * Open the camera and run the continuous ZXing decode loop on the given reader.
- *
- * @param {HTMLVideoElement} video The live video element.
- * @returns {Promise} Resolves once decoding has started.
+ * Tell zxing-wasm where to fetch the .wasm binary from. Called once, lazily,
+ * the first time the camera is started so the WebAssembly download doesn't
+ * happen on pages that never use the scanner.
  */
-const runDecode = (video) => zxingReader.decodeFromConstraints(buildConstraints(), video, (result) => {
-    if (result && scanning) {
-        process(result.getText());
+const configureDecoder = () => {
+    if (zxingConfigured || !zxinglib) {
+        return;
     }
-    // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
-});
+    zxinglib.setZXingModuleOverrides({
+        locateFile: (path, prefix) => (path.endsWith('.wasm') ? wasmUrl : prefix + path),
+    });
+    zxingConfigured = true;
+};
 
 /**
- * Reset and drop the current ZXing reader (also stops its camera stream).
+ * Open the camera, attach it to the video element, and start playing.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ * @returns {Promise} Resolves once the stream is playing.
  */
-const stopReader = () => {
-    if (zxingReader) {
-        try {
-            zxingReader.reset();
-        } catch (e) {
-            // Reader already stopped; ignore.
-        }
-        zxingReader = null;
+const openStream = async(video) => {
+    const stream = await navigator.mediaDevices.getUserMedia(buildConstraints());
+    mediaStream = stream;
+    video.srcObject = stream;
+    // play() can reject on some browsers if the tab loses focus mid-start; we
+    // already gate startCamera behind a user-gesture click so this is rare.
+    await video.play();
+};
+
+/**
+ * Stop the active stream's tracks (releases the camera light) and drop refs.
+ */
+const stopStream = () => {
+    if (mediaStream) {
+        mediaStream.getTracks().forEach((t) => t.stop());
+        mediaStream = null;
     }
 };
 
@@ -164,30 +222,28 @@ const stopReader = () => {
  * Report that the camera could not be started.
  */
 const failStart = () => {
-    stopReader();
+    cancelDecodeLoop();
+    stopStream();
     showStatus('camerablocked', 'warning');
 };
 
 /**
- * Start the camera and the continuous ZXing decode loop, then offer the camera picker.
- *
- * ZXing's decodeFromConstraints opens the camera, attaches it to the video element (with
- * the iOS-friendly attributes it needs) and runs the decode loop.
+ * Start the camera and the continuous zxing-wasm decode loop, then offer the camera picker.
  */
 const startCamera = async() => {
     if (!zxinglib) {
         return;
     }
+    configureDecoder();
     const video = root.querySelector('[data-region="video"]');
-    zxingReader = new zxinglib.BrowserMultiFormatReader();
     try {
-        await runDecode(video);
+        await openStream(video);
     } catch (e) {
         // A remembered camera may no longer exist on this device: drop it and retry.
         if (selectedDeviceId) {
             selectedDeviceId = null;
             try {
-                await runDecode(video);
+                await openStream(video);
             } catch (retryerror) {
                 failStart();
                 return;
@@ -202,6 +258,7 @@ const startCamera = async() => {
     toggle('[data-action="stopcamera"]', true);
     resumeScanning();
     populateCameras(video);
+    startDecodeLoop(video);
 };
 
 /**
@@ -268,12 +325,13 @@ const switchCamera = async(deviceId) => {
     }
 
     scanning = false;
-    stopReader();
+    cancelDecodeLoop();
+    stopStream();
     const video = root.querySelector('[data-region="video"]');
-    zxingReader = new zxinglib.BrowserMultiFormatReader();
     try {
-        await runDecode(video);
+        await openStream(video);
         resumeScanning();
+        startDecodeLoop(video);
     } catch (e) {
         failStart();
     }
@@ -284,7 +342,8 @@ const switchCamera = async(deviceId) => {
  */
 const stopCamera = () => {
     scanning = false;
-    stopReader();
+    cancelDecodeLoop();
+    stopStream();
     const video = root.querySelector('[data-region="video"]');
     if (video) {
         video.srcObject = null;
@@ -292,6 +351,93 @@ const stopCamera = () => {
     toggle('[data-region="cameraselectwrap"]', false);
     toggle('[data-action="startcamera"]', true);
     toggle('[data-action="stopcamera"]', false);
+};
+
+/**
+ * Grab the current video frame as ImageData, downscaling if it exceeds
+ * DECODE_MAX_DIMENSION on its longest side.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ * @returns {ImageData} The captured frame.
+ */
+const grabFrame = (video) => {
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    let w = vw;
+    let h = vh;
+    const longest = Math.max(vw, vh);
+    if (longest > DECODE_MAX_DIMENSION) {
+        const scale = DECODE_MAX_DIMENSION / longest;
+        w = Math.round(vw * scale);
+        h = Math.round(vh * scale);
+    }
+    if (!decodeCanvas) {
+        decodeCanvas = document.createElement('canvas');
+        decodeCtx = decodeCanvas.getContext('2d', {willReadFrequently: true});
+    }
+    if (decodeCanvas.width !== w) {
+        decodeCanvas.width = w;
+    }
+    if (decodeCanvas.height !== h) {
+        decodeCanvas.height = h;
+    }
+    decodeCtx.drawImage(video, 0, 0, w, h);
+    return decodeCtx.getImageData(0, 0, w, h);
+};
+
+/**
+ * Run the decode loop on the given video element. Self-throttled to
+ * DECODE_INTERVAL_MS so a single slow decode doesn't pile up frames.
+ *
+ * @param {HTMLVideoElement} video The live video element.
+ */
+const startDecodeLoop = (video) => {
+    cancelDecodeLoop();
+    const tick = async() => {
+        // Camera was stopped: end the loop.
+        if (!mediaStream) {
+            rafHandle = 0;
+            return;
+        }
+        rafHandle = requestAnimationFrame(tick);
+        // Paused (post-mark, awaiting confirm, or in-flight AJAX): skip decode.
+        if (!scanning || decodeBusy) {
+            return;
+        }
+        const now = performance.now();
+        if (now - lastDecodeTime < DECODE_INTERVAL_MS) {
+            return;
+        }
+        // Video not yet producing frames.
+        if (video.readyState < 2 || !video.videoWidth) {
+            return;
+        }
+        lastDecodeTime = now;
+        decodeBusy = true;
+        try {
+            const imageData = grabFrame(video);
+            const results = await zxinglib.readBarcodes(imageData, READER_OPTIONS);
+            if (results && results.length && scanning) {
+                process(results[0].text);
+            }
+        } catch (e) {
+            // Transient decoder errors (eg. first-call WASM fetch failure): skip frame.
+        } finally {
+            decodeBusy = false;
+        }
+    };
+    rafHandle = requestAnimationFrame(tick);
+};
+
+/**
+ * Cancel the running decode loop.
+ */
+const cancelDecodeLoop = () => {
+    if (rafHandle) {
+        cancelAnimationFrame(rafHandle);
+        rafHandle = 0;
+    }
+    decodeBusy = false;
 };
 
 /**
@@ -430,7 +576,7 @@ const resumeScanning = () => {
     pending = null;
     toggle('[data-region="pending"]', false);
     toggle('[data-action="next"]', false);
-    scanning = Boolean(zxingReader); // Only auto-scan when the camera is running.
+    scanning = Boolean(mediaStream); // Only auto-scan when the camera is running.
 };
 
 /**

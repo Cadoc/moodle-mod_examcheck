@@ -5,6 +5,37 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-06-03
+
+### Changed
+- **Scanner decoder swapped from ZXing-js (`@zxing/library`) to
+  [zxing-wasm](https://github.com/Sec-ant/zxing-wasm).** The previous library
+  is in upstream-declared maintenance mode; zxing-wasm is an actively
+  maintained WebAssembly build of the upstream `zxing-cpp` C++ library, with
+  wider symbology support and a faster decoder. The scanner's external
+  behaviour, AJAX surface and language strings are unchanged.
+- Scanner now decodes a broader set of symbologies out of the box: QR Code
+  (including Micro QR and Rectangular Micro QR), Data Matrix, Aztec, PDF417,
+  MaxiCode, Code 128 / 39 / 93, Codabar, Interleaved 2 of 5 (ITF, ITF-14),
+  EAN-13 / EAN-8, UPC-A / UPC-E, and GS1 DataBar.
+- The decoder runs at ~10 fps and downscales high-resolution frames to a max
+  longest edge of 1280 px before decoding, so a 1080p webcam stream no longer
+  burns CPU drawing oversized canvases.
+- Vendored files moved:
+  - `amd/src/zxing.js` removed.
+  - `amd/src/zxingwasm.js` added (JavaScript glue, ~38 KB).
+  - `wasm/zxing_reader.wasm` added (~1 MB WebAssembly binary, fetched at
+    runtime by the JS glue the first time the camera is started).
+
+### Notes for site administrators
+- The `.wasm` file is served by the web server as a regular static asset.
+  Apache and nginx defaults on any reasonably current distribution already
+  serve `.wasm` as `application/wasm` — **no extra configuration is needed.**
+  Hardened/minimal server configs that strip unknown MIME types should map
+  `application/wasm` to `.wasm` (see `amd/src/readme_moodle.txt`); even
+  without that mapping, the scanner falls back gracefully and keeps working.
+- No database changes. The Moodle plugin upgrade runs as a version bump only.
+
 ## [1.0.5] - 2026-06-03
 
 ### Fixed

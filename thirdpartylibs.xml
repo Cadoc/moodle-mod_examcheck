@@ -1,10 +1,21 @@
 <?xml version="1.0"?>
 <libraries>
     <library>
-        <location>amd/src/zxing.js</location>
-        <name>ZXing-js (@zxing/library)</name>
-        <description>TypeScript port of the ZXing barcode library: decodes QR codes and common 1D barcodes from a device camera, in JavaScript, on every browser the plugin targets. See amd/src/readme_moodle.txt for the local changes.</description>
-        <version>0.21.3</version>
-        <license>MIT</license>
+        <location>amd/src/zxingwasm.js</location>
+        <name>zxing-wasm (reader IIFE build)</name>
+        <description>JavaScript loader/glue for the zxing-wasm decoder — a WebAssembly build of the upstream zxing-cpp barcode library. Decodes QR codes and common 1D/2D barcodes from a device camera, on every browser the plugin targets. See amd/src/readme_moodle.txt for the local changes and for the sibling .wasm binary.</description>
+        <version>3.1.0</version>
+        <license>Apache</license>
+        <licenseversion>2.0</licenseversion>
+        <repository>https://github.com/Sec-ant/zxing-wasm</repository>
+    </library>
+    <library>
+        <location>wasm/zxing_reader.wasm</location>
+        <name>zxing-wasm (reader WebAssembly binary)</name>
+        <description>WebAssembly binary that does the actual decoding for zxing-wasm. Loaded at runtime by amd/src/zxingwasm.js via fetch(). Built from upstream zxing-cpp; the binary itself includes BSD-3-Clause code from that project under the project's umbrella Apache-2.0 distribution.</description>
+        <version>3.1.0</version>
+        <license>Apache</license>
+        <licenseversion>2.0</licenseversion>
+        <repository>https://github.com/Sec-ant/zxing-wasm</repository>
     </library>
 </libraries>

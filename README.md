@@ -151,12 +151,27 @@ No camera? Type or wedge‑scan the value into the **manual entry** box.
 
 > **Browser & HTTPS note.** Live camera scanning uses the device camera via the
 > standard `getUserMedia` API and decodes barcodes / QR codes with the bundled
-> [ZXing‑js](https://github.com/zxing-js/library) library, so it works the same
-> on every modern browser (Chrome / Edge on desktop and Android, Firefox,
-> Safari on iOS and macOS). `getUserMedia` requires the page to be served over
-> **HTTPS** (or `localhost`). No camera, no permission, or HTTPS unavailable?
-> Use the **manual entry** box — it works with USB / Bluetooth keyboard‑wedge
-> scanners too.
+> [zxing‑wasm](https://github.com/Sec-ant/zxing-wasm) library — a WebAssembly
+> build of the upstream `zxing‑cpp` C++ library — so it works the same on every
+> modern browser (Chrome / Edge on desktop and Android, Firefox, Safari on iOS
+> and macOS). `getUserMedia` requires the page to be served over **HTTPS** (or
+> `localhost`). No camera, no permission, or HTTPS unavailable? Use the
+> **manual entry** box — it works with USB / Bluetooth keyboard‑wedge scanners
+> too.
+>
+> **Supported code formats.** The scanner recognises QR Code (including Micro
+> QR and Rectangular Micro QR), Data Matrix, Aztec, PDF417, MaxiCode, Code 128,
+> Code 39, Code 93, Codabar, Interleaved 2 of 5 (ITF, ITF‑14), EAN‑13, EAN‑8,
+> UPC‑A, UPC‑E and GS1 DataBar.
+>
+> **Web‑server MIME note.** The decoder ships as a ~1 MB `.wasm` file at
+> `mod/examcheck/wasm/zxing_reader.wasm`, served as a regular static asset.
+> Apache and nginx on any reasonably current distribution already serve `.wasm`
+> as `application/wasm` and **need no extra configuration**. The scanner falls
+> back gracefully even if the MIME type is wrong, so on hardened/minimal server
+> configs it still works; if you want the optimal path, add the mapping
+> explicitly: `AddType application/wasm .wasm` (Apache) or
+> `types { application/wasm wasm; }` (nginx).
 
 ### Completion to gate a quiz
 
@@ -227,6 +242,8 @@ code triggers none.
 ```
 mod/examcheck/
 ├── amd/{src,build}/{checker,scanner}.js     AMD modules (source + built)
+├── amd/{src,build}/zxingwasm.js             bundled zxing-wasm JS loader/glue
+├── wasm/zxing_reader.wasm                   bundled zxing-wasm WebAssembly binary
 ├── backup/moodle2/                          backup & restore
 ├── classes/
 │   ├── completion/custom_completion.php     completion rule
