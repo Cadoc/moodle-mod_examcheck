@@ -72,6 +72,19 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
         $oldid = $data->id;
         $data->examcheckid = $this->get_new_parentid('examcheck');
 
+        // Remap the quiz cmid to its restored counterpart. Clear the gate when the
+        // target quiz is not part of this restore so we never carry a dangling cmid.
+        if (!empty($data->requirequizattempt) && !empty($data->quizcmid)) {
+            $newcmid = $this->get_mappingid('course_module', (int) $data->quizcmid);
+            $data->quizcmid = $newcmid ?: null;
+            if (empty($data->quizcmid)) {
+                $data->requirequizattempt = 0;
+            }
+        } else {
+            $data->quizcmid = $data->quizcmid ?? null;
+            $data->requirequizattempt = $data->requirequizattempt ?? 0;
+        }
+
         $newitemid = $DB->insert_record('examcheck_steps', $data);
         $this->set_mapping('examcheck_step', $oldid, $newitemid);
     }

@@ -72,6 +72,7 @@ class bulk_action extends external_api {
         $checker->require_group_access($params['groupid']);
 
         $domark = $params['action'] !== 'unmark';
+        $canoverride = has_capability('mod/examcheck:override', $checker->get_context());
         $done = $conflicts = $skipped = $notinroster = $failed = 0;
 
         foreach ($params['userids'] as $userid) {
@@ -87,19 +88,38 @@ class bulk_action extends external_api {
                     case 'attemptmissing':
                         $failed++;
                         break;
+                    case 'notinroster':
                     default:
                         $notinroster++;
                 }
             } else {
+                // Pre-check separate-groups access for this specific student: mirrors
+                // unmark_user.php's require_user_access so cross-group attempts cannot
+                // touch marks even when the caller also holds the override capability.
                 try {
-                    $result = $checker->unmark_user($params['stepid'], $userid, (int) $USER->id);
-                    if ($result['status'] === 'unmarked') {
-                        $done++;
-                    } else {
-                        $skipped++;
-                    }
-                } catch (\moodle_exception $e) {
-                    // Removing another teacher's mark without the override capability lands here.
+                    $checker->require_user_access($userid);
+                } catch (\required_capability_exception $e) {
+                    $notinroster++;
+                    continue;
+                }
+
+                // Pre-check ownership / override instead of catching the moodle_exception
+                // that unmark_user would otherwise raise: turns the permission check into
+                // explicit control flow rather than relying on exceptions.
+                $existing = $checker->get_mark($params['stepid'], $userid);
+                if (!$existing) {
+                    $skipped++;
+                    continue;
+                }
+                if ((int) $existing->checkedby !== (int) $USER->id && !$canoverride) {
+                    $skipped++;
+                    continue;
+                }
+
+                $result = $checker->unmark_user($params['stepid'], $userid, (int) $USER->id);
+                if ($result['status'] === 'unmarked') {
+                    $done++;
+                } else {
                     $skipped++;
                 }
             }

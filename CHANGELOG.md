@@ -5,6 +5,27 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-06-03
+
+### Fixed
+- Backup/restore now preserves every per-activity scanner toggle
+  (`enablescanner`, `showcameraswitcher`) and every per-step quiz-attempt gate
+  (`requirequizattempt`, `quizcmid`). Previous releases silently dropped these
+  fields from the backup XML, so restoring a course rolled scanner settings
+  back to the XMLDB defaults and lost every step's quiz gate.
+- Step `quizcmid` is now declared as a `course_module` reference and remapped
+  on restore via the standard backup id mapping. If the gated quiz is not part
+  of the same restore the gate is cleared rather than carrying a dangling cmid.
+- Bulk unmark from the dashboard now enforces the per-student separate-groups
+  gate (matching the single `unmark_user` web service), and replaces the
+  exception-flow-based override check with an explicit capability test before
+  touching a mark. A teacher restricted to one group can no longer reach marks
+  in another group even when they hold `mod/examcheck:override`.
+- Stripped five `console.log('[examcheck] …')` debug calls from the scanner
+  AMD module so production browsers no longer log scanned values to devtools.
+- Dropped the long-deprecated `$plugin->cron = 0;` line from `version.php`
+  (superseded by scheduled tasks since Moodle 2.3).
+
 ## [1.0.0] - 2026-05-29
 
 ### Added

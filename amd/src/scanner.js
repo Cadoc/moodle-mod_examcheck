@@ -140,11 +140,8 @@ const buildConstraints = () => {
  * @returns {Promise} Resolves once decoding has started.
  */
 const runDecode = (video) => zxingReader.decodeFromConstraints(buildConstraints(), video, (result) => {
-    if (result) {
-        window.console.log('[examcheck] decoded:', result.getText());
-        if (scanning) {
-            process(result.getText());
-        }
+    if (result && scanning) {
+        process(result.getText());
     }
     // Between frames ZXing reports a NotFoundException in the error arg: ignore it.
 });
@@ -165,11 +162,8 @@ const stopReader = () => {
 
 /**
  * Report that the camera could not be started.
- *
- * @param {*} e The error.
  */
-const failStart = (e) => {
-    window.console.log('[examcheck] camera/decoder could not start:', e);
+const failStart = () => {
     stopReader();
     showStatus('camerablocked', 'warning');
 };
@@ -191,16 +185,15 @@ const startCamera = async() => {
     } catch (e) {
         // A remembered camera may no longer exist on this device: drop it and retry.
         if (selectedDeviceId) {
-            window.console.log('[examcheck] selected camera unavailable, using default:', e);
             selectedDeviceId = null;
             try {
                 await runDecode(video);
             } catch (retryerror) {
-                failStart(retryerror);
+                failStart();
                 return;
             }
         } else {
-            failStart(e);
+            failStart();
             return;
         }
     }
@@ -277,7 +270,7 @@ const switchCamera = async(deviceId) => {
         await runDecode(video);
         resumeScanning();
     } catch (e) {
-        failStart(e);
+        failStart();
     }
 };
 
@@ -341,9 +334,6 @@ const process = (value) => {
  * @param {Boolean} requireConfirm Whether confirmation is required this session.
  */
 const handleOutcome = (outcome, value, requireConfirm) => {
-    window.console.log('[examcheck] scan outcome:', outcome.status, '| value:', value,
-        '| student:', outcome.userlabel || '(none)', '| message:', outcome.message);
-
     switch (outcome.status) {
         case 'needsconfirm':
             addToast(outcome.message, {type: 'info'});
