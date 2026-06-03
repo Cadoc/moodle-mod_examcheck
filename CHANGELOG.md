@@ -5,6 +5,51 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-06-03
+
+### Fixed
+- Step form now validates server-side that the submitted quiz cmid
+  belongs to the activity's course. The dropdown already lists only the
+  current course's quizzes, but a tampered submission could previously
+  store a cross-course cmid; the gate would then silently never pass.
+- `checker::validate_quiz_attempt` resolves the quiz cmid against the
+  examcheck instance's course, so a stale cross-course reference is
+  reported as a misconfiguration rather than honoured.
+- Roster table constructor now throws a `coding_exception` when the
+  unique id doesn't match `examcheck-roster-<cmid>`, making the contract
+  explicit instead of silently producing a blank table on misuse.
+- View page no longer strip-tags the intro to test emptiness;
+  `format_module_intro` already returns the empty string in that case.
+- Scan page omits `group=0` from its canonical URL so the page url
+  matches the no-group case (cleaner logs, no cache fragmentation).
+- Index page guards the `format_<courseformat>` sectionname lookup so
+  it doesn't blow up on formats that don't ship that string.
+- Scanner template uses escaped `{{name}}` inside `<option>` text
+  (defence in depth — options can't render HTML anyway).
+- Scanner AMD module pulls the "Camera" label from the plugin's lang
+  file via `core/str` instead of hardcoding English when a device has
+  no label (common on iOS before camera permission is granted).
+
+### Changed
+- Settings: scan-extraction regex setting uses `PARAM_RAW_TRIMMED` so
+  leading/trailing whitespace cannot silently change the saved pattern.
+- `outcome` helper moved from `classes/external/` to `classes/local/`.
+  `classes/external/` now contains only registered web service entry
+  points (mark_user, unmark_user, bulk_action, scan_lookup, get_marks).
+- Manage-steps page swaps the hand-rolled `<i class="fa fa-…">` icons
+  for the `{{#pix}}` helper so themes can swap artwork without touching
+  this template.
+- "With selected students" action menu rendered from a new
+  `mod_examcheck/actions_menu` Mustache template instead of being
+  assembled with `html_writer::select` in PHP.
+- `mod_examcheck_get_completion_active_rule_descriptions` in `lib.php`
+  drives its rule list from `custom_completion::get_defined_custom_rules()`
+  rather than duplicating the rule key in two places.
+- `MOODLE_INTERNAL` guards removed from autoloaded class files
+  (`classes/form/step_form.php`, `classes/table/roster.php`).
+- `step_form.php` uses `global $CFG;` instead of reaching into
+  `$GLOBALS['CFG']`.
+
 ## [1.0.4] - 2026-06-03
 
 ### Fixed
