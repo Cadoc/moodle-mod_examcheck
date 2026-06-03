@@ -162,10 +162,9 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('managesteps', 'mod_examcheck'));
 
 echo $OUTPUT->render_from_template('mod_examcheck/manage', [
-    'steps'        => $rows,
-    'dashboardurl' => (new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]))->out(false),
-    'resetallurl'  => (new moodle_url($baseurl, ['action' => 'resetall']))->out(false),
-    'hasmarks'     => $DB->record_exists('examcheck_marks', ['examcheckid' => $examcheck->id]),
+    'steps'       => $rows,
+    'resetallurl' => (new moodle_url($baseurl, ['action' => 'resetall']))->out(false),
+    'hasmarks'    => $DB->record_exists('examcheck_marks', ['examcheckid' => $examcheck->id]),
 ]);
 
 $mform->display();

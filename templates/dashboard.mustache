@@ -43,11 +43,6 @@
     {{/hassteps}}
 
     {{#hassteps}}
-        <div class="form-check form-switch mb-2">
-            <input class="form-check-input" type="checkbox" role="switch" id="examcheck-onlyunchecked" data-action="onlyunchecked">
-            <label class="form-check-label" for="examcheck-onlyunchecked">{{#str}}showonlyunchecked, mod_examcheck{{/str}}</label>
-        </div>
-
         {{{filter}}}
 
         <form id="examcheck-rosterform" method="post" action="{{exporturl}}">

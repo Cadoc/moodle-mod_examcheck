@@ -17,6 +17,7 @@
 namespace mod_examcheck\output;
 
 use context;
+use mod_examcheck\local\steps;
 use renderer_base;
 use stdClass;
 
@@ -56,6 +57,9 @@ class roster_filter extends \core\output\datafilter {
         $filtertypes = [$this->get_keyword_filter()];
         if ($groupfilter = $this->get_groups_filter()) {
             $filtertypes[] = $groupfilter;
+        }
+        if ($statusfilter = $this->get_checkstatus_filter()) {
+            $filtertypes[] = $statusfilter;
         }
         return $filtertypes;
     }
@@ -107,6 +111,44 @@ class roster_filter extends \core\output\datafilter {
                     'title' => format_string($group->name, true, ['context' => $this->context]),
                 ];
             }, array_values($groups))
+        );
+    }
+
+    /**
+     * The "check status" filter: one option per step + status (checked / not checked).
+     *
+     * Multiple chips can be selected at once and are AND-ed in {@see roster::query_db()}.
+     * Returns null when the activity has no steps yet (nothing to filter on).
+     *
+     * @return stdClass|null
+     */
+    protected function get_checkstatus_filter(): ?stdClass {
+        $cm = get_coursemodule_from_id('examcheck', $this->cmid, 0, false, MUST_EXIST);
+        $steps = steps::get_steps((int) $cm->instance);
+        if (empty($steps)) {
+            return null;
+        }
+
+        $options = [];
+        foreach ($steps as $step) {
+            $name = format_string($step->name, true, ['context' => $this->context]);
+            $options[] = (object) [
+                'value' => $step->id . ':notchecked',
+                'title' => get_string('checkstatus_optionnotchecked', 'mod_examcheck', $name),
+            ];
+            $options[] = (object) [
+                'value' => $step->id . ':checked',
+                'title' => get_string('checkstatus_optionchecked', 'mod_examcheck', $name),
+            ];
+        }
+
+        return $this->get_filter_object(
+            'checkstatus',
+            get_string('checkstatus', 'mod_examcheck'),
+            false,
+            true,
+            null,
+            $options
         );
     }
 

@@ -87,7 +87,6 @@ $templatecontext = [
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
     'showcameraswitcher' => (bool) $examcheck->showcameraswitcher,
-    'dashboardurl'   => $dashboardurl->out(false),
 ];
 
 echo $OUTPUT->header();

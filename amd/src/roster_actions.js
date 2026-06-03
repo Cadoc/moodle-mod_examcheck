@@ -82,7 +82,7 @@ const handle = async (root, form, select, cmid) => {
     // Otherwise a "mark:<stepid>" or "unmark:<stepid>" bulk action.
     const [action, stepidStr] = value.split(':');
     const stepid = parseInt(stepidStr, 10);
-    const first = root.querySelector('[data-action="toggle"]');
+    const first = root.querySelector('[data-action="examcheck-toggle"]');
     const groupid = first ? parseInt(first.dataset.groupid || '0', 10) : 0;
 
     select.disabled = true;

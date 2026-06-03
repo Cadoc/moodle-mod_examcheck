@@ -211,9 +211,6 @@ class roster extends \table_sql implements dynamic_table {
 
         $this->sortable(true, 'fullname');
         $this->no_sorting('select');
-        foreach ($this->extrafields as $field) {
-            $this->no_sorting($field);
-        }
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $this->no_sorting($key);
@@ -262,6 +259,10 @@ class roster extends \table_sql implements dynamic_table {
             }
         }
 
+        $this->apply_checkstatus_filter($users);
+
+        // Single-column sort. The roster is already in memory (capped at 1000) so we
+        // sort the array in place; fullname keeps its DB order or array_reverse.
         $sortcolumns = $this->get_sort_columns();
         if (isset($sortcolumns['matchfield'])) {
             $dir = (int) $sortcolumns['matchfield'] === SORT_DESC ? -1 : 1;
@@ -269,12 +270,70 @@ class roster extends \table_sql implements dynamic_table {
                 $this->matchvalues[$a->id] ?? '',
                 $this->matchvalues[$b->id] ?? ''
             ));
-        } else if (isset($sortcolumns['fullname']) && (int) $sortcolumns['fullname'] === SORT_DESC) {
-            $users = array_reverse($users, true);
+        } else {
+            foreach ($sortcolumns as $col => $dir) {
+                if (in_array($col, $this->extrafields, true)) {
+                    $sign = (int) $dir === SORT_DESC ? -1 : 1;
+                    uasort($users, fn($a, $b) => $sign * strnatcasecmp(
+                        (string) ($a->{$col} ?? ''),
+                        (string) ($b->{$col} ?? '')
+                    ));
+                    break;
+                }
+            }
+            if (isset($sortcolumns['fullname']) && (int) $sortcolumns['fullname'] === SORT_DESC) {
+                $users = array_reverse($users, true);
+            }
         }
 
         $this->rawdata = $users;
         $this->totalrows = count($users);
+    }
+
+    /**
+     * Drop users from $users that don't match every selected check-status chip.
+     *
+     * Each chip is "{stepid}:{checked|notchecked}". Several chips are AND-ed, so
+     * picking "Attendance: not checked" + "ID: not checked" shows only students
+     * still missing both. Reuses the already-loaded marks map — no extra DB.
+     *
+     * @param stdClass[] $users Roster keyed by user id. Modified in place.
+     */
+    protected function apply_checkstatus_filter(array &$users): void {
+        $filterset = $this->get_filterset();
+        if (!$filterset->has_filter('checkstatus')) {
+            return;
+        }
+        $values = $filterset->get_filter('checkstatus')->get_filter_values();
+        if (empty($values)) {
+            return;
+        }
+
+        $conditions = [];
+        foreach ($values as $value) {
+            if (!is_string($value) || strpos($value, ':') === false) {
+                continue;
+            }
+            [$stepid, $status] = explode(':', $value, 2);
+            $stepid = (int) $stepid;
+            if ($stepid <= 0 || !isset($this->stepnames[$stepid])) {
+                continue;
+            }
+            $conditions[] = [$stepid, $status === 'checked'];
+        }
+        if (empty($conditions)) {
+            return;
+        }
+
+        foreach ($users as $id => $user) {
+            foreach ($conditions as [$stepid, $mustbechecked]) {
+                $ischecked = isset($this->marks[$stepid][$id]);
+                if ($ischecked !== $mustbechecked) {
+                    unset($users[$id]);
+                    continue 2;
+                }
+            }
+        }
     }
 
     /**
@@ -426,7 +485,7 @@ class roster extends \table_sql implements dynamic_table {
         return html_writer::tag('button', $icon . $srtext, [
             'type' => 'button',
             'class' => 'btn examcheck-cell ' . ($checked ? 'btn-success' : 'btn-outline-secondary'),
-            'data-action' => 'toggle',
+            'data-action' => 'examcheck-toggle',
             'data-stepid' => $stepid,
             'data-userid' => $userid,
             'data-checked' => $checked ? '1' : '0',

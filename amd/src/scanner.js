@@ -328,7 +328,7 @@ const process = (value) => {
         handleOutcome(outcome, value, requireConfirm);
         return outcome;
     }).catch((err) => {
-        showMessage(err.message || String(err), 'danger');
+        addToast(err.message || String(err), {type: 'danger'});
         resumeScanning();
     });
 };
@@ -352,23 +352,19 @@ const handleOutcome = (outcome, value, requireConfirm) => {
             break;
         case 'marked':
             addToast(outcome.message, {type: 'success'});
-            showMessage(outcome.message, 'success');
             afterDefinitive(requireConfirm);
             break;
         case 'conflict':
             addToast(outcome.message, {type: 'warning'});
-            showMessage(outcome.message, 'warning');
             afterDefinitive(requireConfirm);
             break;
         case 'notfound':
-            // Surface the value that was read so a mis-scan is obvious.
+            // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.
             addToast(outcome.message, {type: 'warning'});
-            showMessage(outcome.message, 'warning');
             resumeScanning();
             break;
         default:
             addToast(outcome.message, {type: 'info'});
-            showMessage(outcome.message, 'info');
             resumeScanning();
     }
 };
@@ -395,11 +391,11 @@ const confirmPending = () => {
         },
     }])[0].then((outcome) => {
         if (outcome.status === 'marked') {
-            showMessage(outcome.message, 'success');
+            addToast(outcome.message, {type: 'success'});
         } else if (outcome.status === 'conflict') {
-            showMessage(outcome.message, 'warning');
+            addToast(outcome.message, {type: 'warning'});
         } else {
-            showMessage(outcome.message, 'info');
+            addToast(outcome.message, {type: 'info'});
         }
         // In confirm mode we always wait for an explicit "scan next".
         showNext();

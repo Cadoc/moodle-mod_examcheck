@@ -14,11 +14,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Checking dashboard: inline toggle marking, live polling and the "only unchecked" view.
+ * Checking dashboard: inline toggle marking and live polling.
  *
- * The roster is a core dynamic table whose body is replaced over AJAX on filter, sort
- * and column hide. All handlers are delegated on the (stable) dashboard region so they
- * survive those refreshes, and the "only unchecked" view is re-applied afterwards.
+ * The roster is a core dynamic table whose body is replaced over AJAX on filter,
+ * sort and column hide. All handlers are delegated on the (stable) dashboard
+ * region so they survive those refreshes. When the live poll detects a state
+ * change AND the server-side check-status filter is active, we trigger a table
+ * refresh so rows that no longer match the filter drop out (or reappear).
  *
  * @module     mod_examcheck/checker
  * @copyright  2026 André Camacho
@@ -43,10 +45,6 @@ export const init = (cmid, pollInterval) => {
     }
 
     registerToggles(root, cmid);
-    registerOnlyUnchecked(root);
-
-    // The dynamic table replaces its body on filter/sort/column-hide; re-apply our view.
-    root.addEventListener(DynamicTable.Events.tableContentRefreshed, () => applyOnlyUnchecked(root));
 
     if (pollInterval > 0) {
         window.setInterval(() => refresh(root, cmid), pollInterval * 1000);
@@ -61,7 +59,9 @@ export const init = (cmid, pollInterval) => {
  */
 const registerToggles = (root, cmid) => {
     root.addEventListener('click', (e) => {
-        const button = e.target.closest('[data-action="toggle"]');
+        // Plugin-namespaced action: avoids clashing with core checkbox-toggleall,
+        // which also emits data-action="toggle" on its master/slave checkboxes.
+        const button = e.target.closest('[data-action="examcheck-toggle"]');
         if (!button || button.disabled) {
             return;
         }
@@ -83,6 +83,12 @@ const toggle = async (root, button, cmid) => {
     const userid = parseInt(button.dataset.userid, 10);
     const groupid = parseInt(button.dataset.groupid || '0', 10);
 
+    // Belt-and-braces: a button without a valid stepid/userid would serialise NaN as
+    // null over the wire and trip the typed PHP signature. Skip silently.
+    if (!Number.isFinite(stepid) || !Number.isFinite(userid)) {
+        return;
+    }
+
     const methodname = wasChecked ? 'mod_examcheck_unmark_user' : 'mod_examcheck_mark_user';
     const args = wasChecked
         ? {cmid, stepid, userid}
@@ -92,8 +98,11 @@ const toggle = async (root, button, cmid) => {
     button.disabled = true;
     try {
         const outcome = await Ajax.call([{methodname, args}])[0];
-        applyOutcome(button, outcome);
-        applyOnlyUnchecked(root);
+        const changed = applyOutcome(button, outcome);
+        if (changed && isCheckStatusFilterActive(root)) {
+            // The row may no longer satisfy the active filter — re-query server-side.
+            refreshTable(cmid);
+        }
     } catch (err) {
         Notification.exception(err);
     } finally {
@@ -106,19 +115,25 @@ const toggle = async (root, button, cmid) => {
  *
  * @param {HTMLElement} button The toggle button acted on.
  * @param {Object} outcome The web service outcome.
+ * @returns {Boolean} Whether the cell's checked state actually changed.
  */
 const applyOutcome = (button, outcome) => {
+    const before = button.dataset.checked === '1';
+    let after = before;
     switch (outcome.status) {
         case 'marked':
+            after = true;
             setCellChecked(button, true, outcome.message);
             break;
         case 'conflict':
             // Someone else already checked this student: reflect reality and warn.
+            after = true;
             setCellChecked(button, true, outcome.message);
             addToast(outcome.message, {type: 'warning'});
             break;
         case 'unmarked':
         case 'notchecked':
+            after = false;
             setCellChecked(button, false, '');
             break;
         case 'notinroster':
@@ -129,6 +144,7 @@ const applyOutcome = (button, outcome) => {
                 addToast(outcome.message, {type: 'info'});
             }
     }
+    return before !== after;
 };
 
 /**
@@ -156,14 +172,15 @@ const setCellChecked = (button, checked, title) => {
 };
 
 /**
- * Poll the server so marks made by other teachers appear, then re-apply the view.
+ * Poll the server so marks made by other teachers appear. If the active filter
+ * may now exclude (or include) some rows, follow up with a full table refresh.
  *
  * @param {HTMLElement} root The dashboard region.
  * @param {Number} cmid Course module id.
  * @returns {Promise} Resolves when the refresh completes.
  */
 const refresh = (root, cmid) => {
-    const first = root.querySelector('[data-action="toggle"]');
+    const first = root.querySelector('[data-action="examcheck-toggle"]');
     if (!first) {
         return Promise.resolve();
     }
@@ -176,15 +193,23 @@ const refresh = (root, cmid) => {
                 marks.set(`${m.stepid}:${m.userid}`, m);
             });
 
-            root.querySelectorAll('[data-action="toggle"]').forEach((button) => {
+            let anyChanged = false;
+            root.querySelectorAll('[data-action="examcheck-toggle"]').forEach((button) => {
                 if (button.disabled) {
                     return;
                 }
+                const ischecked = Boolean(marks.get(`${button.dataset.stepid}:${button.dataset.userid}`));
+                const wasChecked = button.dataset.checked === '1';
+                if (ischecked !== wasChecked) {
+                    anyChanged = true;
+                }
                 const mark = marks.get(`${button.dataset.stepid}:${button.dataset.userid}`);
-                setCellChecked(button, Boolean(mark), mark ? mark.ago : '');
+                setCellChecked(button, ischecked, mark ? mark.ago : '');
             });
 
-            applyOnlyUnchecked(root);
+            if (anyChanged && isCheckStatusFilterActive(root)) {
+                refreshTable(cmid);
+            }
             return data;
         })
         .catch(() => {
@@ -193,35 +218,29 @@ const refresh = (root, cmid) => {
 };
 
 /**
- * Wire the "only not-yet-checked" switch.
+ * Whether the server-side "check status" datafilter currently has any chip selected.
+ *
+ * Reads the rendered datafilter UI rather than parsing the filterset, because the
+ * filter chips live on the page and there's no public JS hook to inspect the
+ * filterset directly.
  *
  * @param {HTMLElement} root The dashboard region.
+ * @returns {Boolean}
  */
-const registerOnlyUnchecked = (root) => {
-    const onlyUnchecked = root.querySelector('[data-action="onlyunchecked"]');
-    if (onlyUnchecked) {
-        onlyUnchecked.addEventListener('change', () => applyOnlyUnchecked(root));
-    }
+const isCheckStatusFilterActive = (root) => {
+    return Boolean(root.querySelector('[data-filterregion="filter"][data-filter-type="checkstatus"]'));
 };
 
 /**
- * Hide rows that are fully checked across the visible columns, when the switch is on.
+ * Re-query the roster dynamic table over AJAX so the server-side filterset is reapplied.
  *
- * Hidden (collapsed) columns render no toggle button, so they are naturally ignored.
- *
- * @param {HTMLElement} root The dashboard region.
+ * @param {Number} cmid Course module id.
  */
-const applyOnlyUnchecked = (root) => {
-    const onlyUnchecked = root.querySelector('[data-action="onlyunchecked"]');
-    const active = onlyUnchecked ? onlyUnchecked.checked : false;
-
-    root.querySelectorAll('table.examcheck-roster tbody tr').forEach((row) => {
-        if (!active) {
-            row.classList.remove('d-none');
-            return;
-        }
-        const cells = row.querySelectorAll('[data-action="toggle"]');
-        const hasUnchecked = Array.from(cells).some((c) => c.dataset.checked !== '1');
-        row.classList.toggle('d-none', cells.length > 0 && !hasUnchecked);
-    });
+const refreshTable = (cmid) => {
+    const table = DynamicTable.getTableFromId(`examcheck-roster-${cmid}`);
+    if (table) {
+        DynamicTable.refreshTableContent(table).catch(() => {
+            // The next poll tick or user action will retry.
+        });
+    }
 };

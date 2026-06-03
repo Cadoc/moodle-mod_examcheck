@@ -27,21 +27,16 @@
     * fields - array of {value, name, selected}
     * requireconfirm - boolean default for the confirm toggle
     * showcameraswitcher - whether to offer the manual camera picker
-    * dashboardurl - link back to the dashboard
 
     Example context (json):
     {
         "cmid": 12, "groupid": 0, "name": "Final exam",
         "steps": [{"value": 1, "name": "Attendance", "selected": true}],
         "fields": [{"value": "idnumber", "name": "ID number", "selected": true}],
-        "requireconfirm": false, "showcameraswitcher": true, "dashboardurl": "#"
+        "requireconfirm": false, "showcameraswitcher": true
     }
 }}
 <div class="mod_examcheck-scanner" data-region="examcheck-scanner" data-cmid="{{cmid}}" data-groupid="{{groupid}}">
-
-    <div class="mb-3">
-        <a href="{{dashboardurl}}">{{#str}}backtodashboard, mod_examcheck{{/str}}</a>
-    </div>
 
     <div class="row">
         <div class="col-md-5">

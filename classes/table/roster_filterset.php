@@ -49,8 +49,11 @@ class roster_filterset extends filterset {
      */
     public function get_optional_filters(): array {
         return [
-            'keywords' => string_filter::class,
-            'groups'   => integer_filter::class,
+            'keywords'    => string_filter::class,
+            'groups'      => integer_filter::class,
+            // Values like "12:checked" / "12:notchecked" — stepid + status, paired so we can
+            // mix them within one filter (e.g. "Attendance: not checked" AND "ID: not checked").
+            'checkstatus' => string_filter::class,
         ];
     }
 }
