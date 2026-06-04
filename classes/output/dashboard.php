@@ -71,6 +71,10 @@ class dashboard implements renderable, templatable {
         $filter = new roster_filter($context, $table->uniqueid, $this->cmid);
         $filterhtml = $output->render_from_template('mod_examcheck/roster_filter', $filter->export_for_template($output));
 
+        // Note get_config() returns false (not null) when the key is unset, so fall
+        // back to the admin default explicitly rather than relying on null coalescing.
+        $poll = get_config('mod_examcheck', 'pollinterval');
+
         return [
             'cmid'         => $this->cmid,
             'hassteps'     => $hassteps,
@@ -79,7 +83,7 @@ class dashboard implements renderable, templatable {
             'withselected' => $hassteps ? $this->render_actions_menu($output, $context, $steps) : '',
             'exporturl'    => (new moodle_url('/mod/examcheck/export.php'))->out(false),
             'sesskey'      => sesskey(),
-            'pollinterval' => (int) (get_config('mod_examcheck', 'pollinterval') ?? 5),
+            'pollinterval' => $poll === false ? 5 : (int) $poll,
         ];
     }
 
@@ -93,9 +97,9 @@ class dashboard implements renderable, templatable {
      */
     protected function render_actions_menu(renderer_base $output, \context_module $context, array $steps): string {
         $exports = [
-            ['value' => 'csv',   'label' => get_string('dataformat', 'dataformat_csv')],
+            ['value' => 'csv', 'label' => get_string('dataformat', 'dataformat_csv')],
             ['value' => 'excel', 'label' => get_string('dataformat', 'dataformat_excel')],
-            ['value' => 'pdf',   'label' => get_string('dataformat', 'dataformat_pdf')],
+            ['value' => 'pdf', 'label' => get_string('dataformat', 'dataformat_pdf')],
         ];
 
         $stepoptions = [];

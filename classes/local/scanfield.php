@@ -95,7 +95,7 @@ class scanfield {
         }
 
         $pattern = '~' . str_replace('~', '\~', $regex) . '~';
-        // @-suppress: pattern is validated on save; at runtime we already act on false.
+        // Suppressed (@): pattern is validated on save; at runtime we already act on false.
         $result = @preg_match($pattern, $value, $matches);
         if ($result === false || $result === 0) {
             // Invalid pattern or no match: nothing to compare against.
