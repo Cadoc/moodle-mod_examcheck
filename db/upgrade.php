@@ -89,5 +89,17 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060301, 'examcheck');
     }
 
+    if ($oldversion < 2026060306) {
+        // Align the intro column with the standard Moodle module schema (NOT NULL).
+        // Backfill any legacy NULL intros to '' first, since the conversion fails otherwise.
+        $DB->execute("UPDATE {examcheck} SET intro = '' WHERE intro IS NULL");
+
+        $table = new xmldb_table('examcheck');
+        $field = new xmldb_field('intro', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null, 'name');
+        $dbman->change_field_notnull($table, $field);
+
+        upgrade_mod_savepoint(true, 2026060306, 'examcheck');
+    }
+
     return true;
 }
