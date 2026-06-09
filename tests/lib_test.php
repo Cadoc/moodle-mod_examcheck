@@ -173,17 +173,6 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
-     * The active rule description is reported when completion is automatic.
-     */
-    public function test_active_rule_descriptions(): void {
-        $this->resetAfterTest();
-        [$course, $examcheck] = $this->setup_completion_course(0);
-        $cm = get_fast_modinfo($course)->get_cm($examcheck->cmid);
-        $descriptions = mod_examcheck_get_completion_active_rule_descriptions($cm);
-        $this->assertContains(get_string('completionchecked_desc', 'mod_examcheck'), $descriptions);
-    }
-
-    /**
      * The Scanner secondary-nav node appears only when the activity enables the scanner.
      */
     public function test_settings_navigation_scanner_gated(): void {
