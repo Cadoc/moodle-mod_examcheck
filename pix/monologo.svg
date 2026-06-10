@@ -1,6 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
-  <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5z"/>
-  <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        d="m8 12 2.8 2.8L16 9.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path fill="#000000" fill-rule="evenodd" d="M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm.5 1.5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-11a1 1 0 0 0-1-1z"/>
+  <path fill="#000000" d="M10.5 3h3a1 1 0 0 1 1 1v1.2a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+  <circle fill="#000000" cx="9.15" cy="9.05" r="0.95"/>
+  <path fill="#000000" d="M7.1 12.2a2.05 2.1 0 0 1 4.1 0z"/>
+  <path fill="#000000" d="M12.8 10.6 14.3 12.2 16.9 8.88 15.83 8.1 14.21 10.17 13.8 9.73z"/>
+  <circle fill="#000000" cx="9.15" cy="14.75" r="0.95"/>
+  <path fill="#000000" d="M7.1 17.9a2.05 2.1 0 0 1 4.1 0z"/>
+  <path fill="#000000" d="M12.8 14.65 13.65 13.8 16.9 17.05 16.05 17.9z"/>
+  <path fill="#000000" d="M13.65 17.9 12.8 17.05 16.05 13.8 16.9 14.65z"/>
 </svg>
