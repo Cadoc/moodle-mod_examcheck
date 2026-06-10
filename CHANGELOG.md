@@ -2,110 +2,14 @@
 
 All notable changes to **mod_examcheck** are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
 
-## [1.0.6] - 2026-06-03
+## [5.1-r1] - 2026-06-10
 
-### Changed
-- **Scanner decoder swapped from ZXing-js (`@zxing/library`) to
-  [zxing-wasm](https://github.com/Sec-ant/zxing-wasm).** The previous library
-  is in upstream-declared maintenance mode; zxing-wasm is an actively
-  maintained WebAssembly build of the upstream `zxing-cpp` C++ library, with
-  wider symbology support and a faster decoder. The scanner's external
-  behaviour, AJAX surface and language strings are unchanged.
-- Scanner now decodes a broader set of symbologies out of the box: QR Code
-  (including Micro QR and Rectangular Micro QR), Data Matrix, Aztec, PDF417,
-  MaxiCode, Code 128 / 39 / 93, Codabar, Interleaved 2 of 5 (ITF, ITF-14),
-  EAN-13 / EAN-8, UPC-A / UPC-E, and GS1 DataBar.
-- The decoder runs at ~10 fps and downscales high-resolution frames to a max
-  longest edge of 1280 px before decoding, so a 1080p webcam stream no longer
-  burns CPU drawing oversized canvases.
-- Vendored files moved:
-  - `amd/src/zxing.js` removed.
-  - `amd/src/zxingwasm.js` added (JavaScript glue, ~38 KB).
-  - `wasm/zxing_reader.wasm` added (~1 MB WebAssembly binary, fetched at
-    runtime by the JS glue the first time the camera is started).
-
-### Notes for site administrators
-- The `.wasm` file is served by the web server as a regular static asset.
-  Apache and nginx defaults on any reasonably current distribution already
-  serve `.wasm` as `application/wasm` — **no extra configuration is needed.**
-  Hardened/minimal server configs that strip unknown MIME types should map
-  `application/wasm` to `.wasm` (see `amd/src/readme_moodle.txt`); even
-  without that mapping, the scanner falls back gracefully and keeps working.
-- No database changes. The Moodle plugin upgrade runs as a version bump only.
-
-## [1.0.5] - 2026-06-03
-
-### Fixed
-- Step form now validates server-side that the submitted quiz cmid
-  belongs to the activity's course. The dropdown already lists only the
-  current course's quizzes, but a tampered submission could previously
-  store a cross-course cmid; the gate would then silently never pass.
-- `checker::validate_quiz_attempt` resolves the quiz cmid against the
-  examcheck instance's course, so a stale cross-course reference is
-  reported as a misconfiguration rather than honoured.
-- Roster table constructor now throws a `coding_exception` when the
-  unique id doesn't match `examcheck-roster-<cmid>`, making the contract
-  explicit instead of silently producing a blank table on misuse.
-- View page no longer strip-tags the intro to test emptiness;
-  `format_module_intro` already returns the empty string in that case.
-- Scan page omits `group=0` from its canonical URL so the page url
-  matches the no-group case (cleaner logs, no cache fragmentation).
-- Index page guards the `format_<courseformat>` sectionname lookup so
-  it doesn't blow up on formats that don't ship that string.
-- Scanner template uses escaped `{{name}}` inside `<option>` text
-  (defence in depth — options can't render HTML anyway).
-- Scanner AMD module pulls the "Camera" label from the plugin's lang
-  file via `core/str` instead of hardcoding English when a device has
-  no label (common on iOS before camera permission is granted).
-
-### Changed
-- Settings: scan-extraction regex setting uses `PARAM_RAW_TRIMMED` so
-  leading/trailing whitespace cannot silently change the saved pattern.
-- `outcome` helper moved from `classes/external/` to `classes/local/`.
-  `classes/external/` now contains only registered web service entry
-  points (mark_user, unmark_user, bulk_action, scan_lookup, get_marks).
-- Manage-steps page swaps the hand-rolled `<i class="fa fa-…">` icons
-  for the `{{#pix}}` helper so themes can swap artwork without touching
-  this template.
-- "With selected students" action menu rendered from a new
-  `mod_examcheck/actions_menu` Mustache template instead of being
-  assembled with `html_writer::select` in PHP.
-- `mod_examcheck_get_completion_active_rule_descriptions` in `lib.php`
-  drives its rule list from `custom_completion::get_defined_custom_rules()`
-  rather than duplicating the rule key in two places.
-- `MOODLE_INTERNAL` guards removed from autoloaded class files
-  (`classes/form/step_form.php`, `classes/table/roster.php`).
-- `step_form.php` uses `global $CFG;` instead of reaching into
-  `$GLOBALS['CFG']`.
-
-## [1.0.4] - 2026-06-03
-
-### Fixed
-- Backup/restore now preserves every per-activity scanner toggle
-  (`enablescanner`, `showcameraswitcher`) and every per-step quiz-attempt gate
-  (`requirequizattempt`, `quizcmid`). Previous releases silently dropped these
-  fields from the backup XML, so restoring a course rolled scanner settings
-  back to the XMLDB defaults and lost every step's quiz gate.
-- Step `quizcmid` is now declared as a `course_module` reference and remapped
-  on restore via the standard backup id mapping. If the gated quiz is not part
-  of the same restore the gate is cleared rather than carrying a dangling cmid.
-- Bulk unmark from the dashboard now enforces the per-student separate-groups
-  gate (matching the single `unmark_user` web service), and replaces the
-  exception-flow-based override check with an explicit capability test before
-  touching a mark. A teacher restricted to one group can no longer reach marks
-  in another group even when they hold `mod/examcheck:override`.
-- Stripped five `console.log('[examcheck] …')` debug calls from the scanner
-  AMD module so production browsers no longer log scanned values to devtools.
-- Dropped the long-deprecated `$plugin->cron = 0;` line from `version.php`
-  (superseded by scheduled tasks since Moodle 2.3).
-
-## [1.0.0] - 2026-05-29
+First public release for Moodle 5.1.
 
 ### Added
-- Initial release for Moodle 5.1.
 - Checking dashboard: roster grid with one toggle per check step, live
   multi-teacher refresh, client-side search and a "show only not-yet-checked"
   filter, and group selection.
@@ -113,17 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "access all groups" sees only their own group's students on the dashboard,
   scanner and export. Request-supplied group/user ids are validated server-side.
 - Custom, ordered check steps per activity (seeded with one *Attendance* step);
-  add, rename, reorder and delete steps.
+  add, rename, reorder and delete steps. A step can optionally require a
+  submitted attempt on a course quiz before a student can be checked.
 - Shared single-mark semantics with conflict reporting: a student can be checked
   only once per step, and a second teacher sees who checked them and when.
-- QR / barcode scanner page using the native `BarcodeDetector` API, with a
-  manual-entry fallback for hardware (keyboard-wedge) scanners. Match against ID
-  number, internal user id, or any custom profile field. Optional
-  confirm-before-marking mode.
+- QR / barcode scanner page powered by [zxing-wasm](https://github.com/Sec-ant/zxing-wasm),
+  a WebAssembly build of upstream `zxing-cpp`, with a manual-entry fallback for
+  hardware (keyboard-wedge) scanners. Decodes a broad set of symbologies out of
+  the box (QR, Data Matrix, Aztec, PDF417, MaxiCode, Code 128 / 39 / 93, Codabar,
+  ITF, EAN-13 / EAN-8, UPC-A / UPC-E, GS1 DataBar). Match against ID number,
+  internal user id, or any custom profile field. Optional confirm-before-marking
+  mode and a per-activity camera switcher.
 - Optional scan extraction pattern (regex) to pull the value to match (e.g. a
   student number) out of a longer encoded barcode payload; configurable per
   activity with a site default and a per-session override.
-- AJAX web services: `mark_user`, `unmark_user`, `scan_lookup`, `get_marks`.
+- AJAX web services: `mark_user`, `unmark_user`, `bulk_action`, `scan_lookup`,
+  `get_marks`.
 - Custom completion: complete when checked on **all steps** or on a single
   chosen step; usable as a prerequisite for other activities.
 - Export of the roster check status via Moodle data formats (CSV/Excel/ODS).

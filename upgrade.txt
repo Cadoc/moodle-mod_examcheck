@@ -1,23 +1,9 @@
 This file describes API changes in the examcheck activity module.
 Information provided here is intended especially for developers.
 
-=== 1.0.6 ===
+=== 5.1-r1 ===
 
-* Scanner decoder swapped from ZXing-js (@zxing/library, upstream "maintenance
-  mode") to zxing-wasm — a WebAssembly build of upstream zxing-cpp, actively
-  maintained. The scanner's external behaviour and AJAX surface are unchanged.
-* Vendored files renamed accordingly:
-  - amd/src/zxing.js          ->  amd/src/zxingwasm.js  (JS loader/glue)
-  - (new)                     ->  wasm/zxing_reader.wasm (~1 MB WebAssembly
-                                  binary, fetched at runtime by the JS loader)
-  The .wasm sits outside amd/ so grunt amd never processes it; it is served by
-  the web server as a regular static file. No PHP plumbing — the JS module
-  resolves the .wasm URL from M.cfg.wwwroot.
-* No DB changes, no language string changes, no web service surface changes.
-
-=== 1.0.0 ===
-
-* First release. Public API:
+* First public release. Public API:
   - \mod_examcheck\local\checker — roster, marking (with conflict detection),
     unmarking, scan resolution (with optional extraction regex) and per-step
     progress.
@@ -25,4 +11,9 @@ Information provided here is intended especially for developers.
   - \mod_examcheck\local\scanfield — scan field menu, user lookup and the
     apply_regex() / is_valid_regex() extraction helpers.
   - Web services: mod_examcheck_mark_user, mod_examcheck_unmark_user,
-    mod_examcheck_scan_lookup, mod_examcheck_get_marks.
+    mod_examcheck_bulk_action, mod_examcheck_scan_lookup,
+    mod_examcheck_get_marks.
+* Scanner decodes via zxing-wasm (a WebAssembly build of upstream zxing-cpp).
+  The vendored JS loader lives at amd/src/zxingwasm.js and the WebAssembly
+  binary at wasm/zxing_reader.wasm (fetched at runtime; served as a regular
+  static file, outside amd/ so grunt amd never processes it).
