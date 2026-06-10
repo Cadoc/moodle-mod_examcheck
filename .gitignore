@@ -1,2 +1,5 @@
 # Project-local Claude Code configuration and notes. Personal, not shared.
 .claude/
+
+# OS Specific files
+.DS_Store
