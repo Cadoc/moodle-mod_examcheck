@@ -225,14 +225,14 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->collapsible(true);
-        $this->pageable(false);
+        $this->pageable(true);
         $this->set_attribute('class', 'generaltable examcheck-roster align-middle');
     }
 
     /**
      * Load the roster (honouring the group constraint and keyword search) into rawdata.
      *
-     * @param int $pagesize Unused: the whole roster is shown.
+     * @param int $pagesize Rows per page.
      * @param bool $useinitialsbar Unused.
      */
     public function query_db($pagesize, $useinitialsbar = true): void {
@@ -268,8 +268,8 @@ class roster extends \table_sql implements dynamic_table {
 
         $this->apply_checkstatus_filter($users);
 
-        // Single-column sort. The roster is already in memory (capped at 1000) so we
-        // sort the array in place; fullname keeps its DB order or array_reverse.
+        // Single-column sort. The roster is already in memory so we sort the array
+        // in place; fullname keeps its DB order or array_reverse.
         $sortcolumns = $this->get_sort_columns();
         if (isset($sortcolumns['matchfield'])) {
             $dir = (int) $sortcolumns['matchfield'] === SORT_DESC ? -1 : 1;
@@ -293,8 +293,8 @@ class roster extends \table_sql implements dynamic_table {
             }
         }
 
-        $this->rawdata = $users;
         $this->totalrows = count($users);
+        $this->rawdata = array_slice($users, $this->get_page_start(), $this->get_page_size(), true);
     }
 
     /**

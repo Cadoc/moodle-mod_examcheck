@@ -64,7 +64,7 @@ class dashboard implements renderable, templatable {
         $table = new roster("examcheck-roster-{$this->cmid}");
         $table->set_filterset(new roster_filterset());
         ob_start();
-        $table->out(1000, false);
+        $table->out(50, false);
         $tablehtml = ob_get_clean();
 
         // Render the datafilter (keyword + group) bar bound to that table.
