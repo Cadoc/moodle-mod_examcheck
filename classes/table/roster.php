@@ -79,6 +79,15 @@ class roster extends \table_sql implements dynamic_table {
     /** @var int Effective group constraint: 0 = all, -1 = none, otherwise a group id. */
     protected int $effectivegroup = 0;
 
+    /** @var int Grouping id restricting which groups belong to this activity (0 = all course groups). */
+    protected int $groupingid = 0;
+
+    /** @var array<int, stdClass> All groups for this activity, keyed by group id. */
+    protected array $activitygroups = [];
+
+    /** @var array<int, string[]> User id => group names for the current page, populated when groups exist. */
+    protected array $usergroups = [];
+
     /**
      * Constructor: derive the course module id from the unique id.
      *
@@ -129,6 +138,8 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
+        $this->groupingid = (int) $cm->groupingid;
+        $this->activitygroups = groups_get_all_groups($course->id, 0, $this->groupingid);
         $this->guess_base_url();
 
         parent::set_filterset($filterset);
@@ -205,6 +216,11 @@ class roster extends \table_sql implements dynamic_table {
             $headers[] = \core_user\fields::get_display_name($field);
         }
 
+        if (!empty($this->activitygroups)) {
+            $columns[] = 'groups';
+            $headers[] = get_string('groups');
+        }
+
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $columns[] = $key;
@@ -218,6 +234,9 @@ class roster extends \table_sql implements dynamic_table {
 
         $this->sortable(true, 'fullname');
         $this->no_sorting('select');
+        if (!empty($this->activitygroups)) {
+            $this->no_sorting('groups');
+        }
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $this->no_sorting($key);
@@ -267,6 +286,10 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->apply_checkstatus_filter($users);
+
+        if (!empty($this->activitygroups)) {
+            $this->usergroups = $this->load_user_groups($users);
+        }
 
         // Single-column sort. The roster is already in memory so we sort the array
         // in place; fullname keeps its DB order or array_reverse.
@@ -391,6 +414,41 @@ class roster extends \table_sql implements dynamic_table {
     }
 
     /**
+     * Build a map of user id => sorted group name list for the given users.
+     *
+     * Only groups that belong to this activity's grouping (or all course groups
+     * when no grouping is set) are included, matching the access logic used elsewhere.
+     *
+     * @param stdClass[] $users Roster users keyed by id.
+     * @return array<int, string[]>
+     */
+    protected function load_user_groups(array $users): array {
+        global $DB;
+
+        if (empty($users) || empty($this->activitygroups)) {
+            return [];
+        }
+
+        [$groupsql, $groupparams] = $DB->get_in_or_equal(array_keys($this->activitygroups), SQL_PARAMS_NAMED, 'g');
+        [$usersql, $userparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'u');
+
+        $records = $DB->get_records_sql(
+            "SELECT gm.userid, g.name
+               FROM {groups_members} gm
+               JOIN {groups} g ON g.id = gm.groupid
+              WHERE gm.groupid $groupsql AND gm.userid $usersql
+              ORDER BY g.name ASC",
+            array_merge($groupparams, $userparams)
+        );
+
+        $map = array_fill_keys(array_keys($users), []);
+        foreach ($records as $record) {
+            $map[(int) $record->userid][] = $record->name;
+        }
+        return $map;
+    }
+
+    /**
      * The row-selection checkbox.
      *
      * @param stdClass $row The user record.
@@ -439,6 +497,17 @@ class roster extends \table_sql implements dynamic_table {
      */
     public function col_matchfield($row): string {
         return s($this->matchvalues[(int) $row->id] ?? '');
+    }
+
+    /**
+     * The groups column: comma-separated list of the student's groups.
+     *
+     * @param stdClass $row The user record.
+     * @return string
+     */
+    public function col_groups($row): string {
+        $names = $this->usergroups[(int) $row->id] ?? [];
+        return s(implode(', ', $names));
     }
 
     /**
