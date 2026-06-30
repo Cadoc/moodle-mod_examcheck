@@ -269,6 +269,10 @@ Issues and pull requests are welcome. Please keep code compliant with the
 and include tests for new behaviour. See [CHANGELOG.md](CHANGELOG.md) for the
 release history.
 
+## AI assistance
+
+Parts of this plugin were drafted with the help of AI coding assistants — Claude by Anthropic, Gemini by Google, and Codex by OpenAI. Every generated snippet — PHP, JavaScript, templates, and tests — was read, understood, and validated by the author before being committed. Design decisions, architecture, and test coverage remain the responsibility of the human author.
+
 ## Licence
 
 © 2026 André Camacho. Licensed under the
