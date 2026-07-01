@@ -28,6 +28,7 @@
  */
 
 import Ajax from 'core/ajax';
+import {show as showUncheckDialog} from 'mod_examcheck/uncheck_dialog';
 import {add as addToast} from 'core/toast';
 import Notification from 'core/notification';
 import * as DynamicTable from 'core_table/dynamic';
@@ -95,9 +96,30 @@ const toggle = async (root, button, cmid) => {
         return;
     }
 
+    // When unchecking, check whether this step requires or offers reason documentation.
+    let reasonkey = '';
+    let reasontext = '';
+    if (wasChecked) {
+        const uncheckmode = parseInt(button.dataset.uncheckmode || '0', 10);
+        if (uncheckmode > 0) {
+            const dashboardRoot = button.closest('[data-region="examcheck-dashboard"]');
+            const reasons = JSON.parse(dashboardRoot?.dataset.uncheckreasons || '[]');
+            const allowFreetext = button.dataset.uncheckfreetext === '1';
+            const mandatory = uncheckmode === 2;
+            try {
+                const result = await showUncheckDialog(reasons, allowFreetext, mandatory);
+                reasonkey = result.reasonkey;
+                reasontext = result.reasontext;
+            } catch {
+                // User cancelled the dialog — abort the uncheck.
+                return;
+            }
+        }
+    }
+
     const methodname = wasChecked ? 'mod_examcheck_unmark_user' : 'mod_examcheck_mark_user';
     const args = wasChecked
-        ? {cmid, stepid, userid}
+        ? {cmid, stepid, userid, reasonkey, reasontext}
         : {cmid, stepid, userid, groupid, method: 'list'};
 
     // core/ajax returns jQuery promises (no .finally), so re-enable from try/finally.
