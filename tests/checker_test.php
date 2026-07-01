@@ -19,6 +19,11 @@ namespace mod_examcheck;
 use mod_examcheck\local\checker;
 use mod_examcheck\local\steps;
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->libdir . '/completionlib.php');
+
 /**
  * Tests for the checker business logic.
  *
@@ -305,7 +310,7 @@ final class checker_test extends \advanced_testcase {
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('requirementnotmet', $result['status']);
         $this->assertSame('inprogress', $result['reason']);
         $this->assertEquals(0, $this->countmarks());
     }
@@ -319,7 +324,7 @@ final class checker_test extends \advanced_testcase {
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('requirementnotmet', $result['status']);
         $this->assertSame('nosubmission', $result['reason']);
         $this->assertEquals(0, $this->countmarks());
     }
@@ -331,13 +336,13 @@ final class checker_test extends \advanced_testcase {
         $this->configure_quiz_gate();
         // Point the step at a cmid that does not exist.
         global $DB;
-        $DB->set_field('examcheck_steps', 'quizcmid', 99999999, ['id' => $this->stepid]);
+        $DB->set_field('examcheck_steps', 'requirementcmid', 99999999, ['id' => $this->stepid]);
 
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
-        $this->assertSame('missingquiz', $result['reason']);
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('missingactivity', $result['reason']);
     }
 
     /**
@@ -346,12 +351,12 @@ final class checker_test extends \advanced_testcase {
     public function test_mark_blocked_when_misconfigured(): void {
         $this->configure_quiz_gate();
         global $DB;
-        $DB->set_field('examcheck_steps', 'quizcmid', null, ['id' => $this->stepid]);
+        $DB->set_field('examcheck_steps', 'requirementcmid', null, ['id' => $this->stepid]);
 
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('requirementnotmet', $result['status']);
         $this->assertSame('misconfigured', $result['reason']);
     }
 
@@ -365,7 +370,7 @@ final class checker_test extends \advanced_testcase {
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('requirementnotmet', $result['status']);
         $this->assertSame('nosubmission', $result['reason']);
     }
 
@@ -379,7 +384,7 @@ final class checker_test extends \advanced_testcase {
         $checker = new checker($this->examcheck, $this->context);
         $result = $checker->scan($this->stepid, 'idnumber', 'S1', false, true, $this->teacher->id);
 
-        $this->assertSame('attemptmissing', $result['status']);
+        $this->assertSame('requirementnotmet', $result['status']);
         $this->assertEquals(0, $this->countmarks());
     }
 
@@ -406,6 +411,195 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Marking passes once the target student has completion recorded on the
+     * chosen activity.
+     */
+    public function test_mark_passes_when_activity_complete(): void {
+        $page = $this->configure_completion_gate();
+        $this->set_activity_completion($page, $this->students[1]->id, COMPLETION_COMPLETE);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+        $this->assertEquals(1, $this->countmarks());
+    }
+
+    /**
+     * Marking is blocked while the target student has not completed the activity.
+     */
+    public function test_mark_blocked_when_activity_incomplete(): void {
+        $this->configure_completion_gate();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('incomplete', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking is blocked when the linked activity no longer exists.
+     */
+    public function test_mark_blocked_when_completion_activity_deleted(): void {
+        $this->configure_completion_gate();
+        global $DB;
+        $DB->set_field('examcheck_steps', 'requirementcmid', 99999999, ['id' => $this->stepid]);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('missingactivity', $result['reason']);
+    }
+
+    /**
+     * Marking is blocked when the linked activity no longer tracks completion.
+     */
+    public function test_mark_blocked_when_completion_not_tracked(): void {
+        $page = $this->configure_completion_gate();
+        global $DB;
+        $DB->set_field('course_modules', 'completion', COMPLETION_TRACKING_NONE, ['id' => $page->id]);
+        rebuild_course_cache($this->course->id, true);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('nocompletion', $result['reason']);
+    }
+
+    /**
+     * The activity-completion gate must check the STUDENT being marked, never the
+     * invigilator performing the check. completion_info::get_data() silently falls
+     * back to the current $USER when no userid is passed, so this guards against
+     * that mistake creeping back in: the checking teacher "completed" the target
+     * activity, the student did not, and the mark must still be refused.
+     */
+    public function test_completion_checks_student_not_invigilator(): void {
+        $page = $this->configure_completion_gate();
+        $this->set_activity_completion($page, $this->teacher->id, COMPLETION_COMPLETE);
+        $this->setUser($this->teacher);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('incomplete', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking a later step is blocked while the immediately preceding step has
+     * not been checked for that student, when step-by-step completion is required.
+     */
+    public function test_mark_blocked_when_previous_step_not_checked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('sequential', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking a later step succeeds once the immediately preceding step is checked.
+     */
+    public function test_mark_passes_when_previous_step_checked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+        $this->assertEquals(2, $this->countmarks());
+    }
+
+    /**
+     * The very first step has no predecessor, so it is never blocked by sequencing.
+     */
+    public function test_first_step_never_blocked_by_sequential(): void {
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+    }
+
+    /**
+     * With the setting off (the default), steps can still be checked in any order.
+     */
+    public function test_sequential_off_allows_any_order(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+    }
+
+    /**
+     * When both the sequential gate and the step's own custom requirement are
+     * unmet at once, the sequential failure takes priority: custom requirements
+     * build on top of sequencing, not the other way round.
+     */
+    public function test_sequential_checked_before_custom_requirement(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+        global $DB;
+        $gen = $this->getDataGenerator();
+        $quiz = $gen->create_module('quiz', ['course' => $this->course->id]);
+        $DB->update_record('examcheck_steps', (object) [
+            'id'              => $second,
+            'requirementtype' => 'quiz',
+            'requirementcmid' => (int) $quiz->cmid,
+            'timemodified'    => time(),
+        ]);
+        // Neither the previous step nor the quiz requirement are satisfied.
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('sequential', $result['reason']);
+    }
+
+    /**
+     * Unmarking an earlier step does not retroactively revoke a later step's
+     * existing mark: the gate only blocks future marking attempts.
+     */
+    public function test_unmark_previous_step_does_not_revoke_later_mark(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+        $this->assertEquals(2, $this->countmarks());
+
+        $checker->unmark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertNotFalse($checker->get_mark($second, $this->students[1]->id));
+        $this->assertEquals(1, $this->countmarks());
+    }
+
+    /**
+     * Enable "require step-by-step completion" on the instance under test.
+     */
+    protected function enable_sequential(): void {
+        global $DB;
+        $DB->set_field('examcheck', 'requiresequential', 1, ['id' => $this->examcheck->id]);
+        $this->examcheck->requiresequential = 1;
+    }
+
+    /**
      * Create a quiz in the course and wire the seeded step to require an attempt on it.
      *
      * @return \stdClass The quiz course-module record (with ->instance = quiz id, ->id = cmid).
@@ -416,13 +610,55 @@ final class checker_test extends \advanced_testcase {
 
         global $DB;
         $DB->update_record('examcheck_steps', (object) [
-            'id'                 => $this->stepid,
-            'requirequizattempt' => 1,
-            'quizcmid'           => (int) $quiz->cmid,
-            'timemodified'       => time(),
+            'id'              => $this->stepid,
+            'requirementtype' => 'quiz',
+            'requirementcmid' => (int) $quiz->cmid,
+            'timemodified'    => time(),
         ]);
 
         return (object) ['id' => (int) $quiz->cmid, 'instance' => (int) $quiz->id];
+    }
+
+    /**
+     * Create a manually-completable page in the course and wire the seeded step to
+     * require its completion.
+     *
+     * @return \cm_info The page course module.
+     */
+    protected function configure_completion_gate(): \cm_info {
+        global $DB;
+        $DB->set_field('course', 'enablecompletion', 1, ['id' => $this->course->id]);
+        // Refresh the in-memory course used by completion_info elsewhere in this test.
+        $this->course = $DB->get_record('course', ['id' => $this->course->id], '*', MUST_EXIST);
+
+        $gen = $this->getDataGenerator();
+        $page = $gen->create_module('page', [
+            'course' => $this->course->id,
+            'completion' => COMPLETION_TRACKING_MANUAL,
+        ]);
+
+        $DB->update_record('examcheck_steps', (object) [
+            'id'              => $this->stepid,
+            'requirementtype' => 'completion',
+            'requirementcmid' => (int) $page->cmid,
+            'timemodified'    => time(),
+        ]);
+
+        rebuild_course_cache($this->course->id, true);
+
+        return get_fast_modinfo($this->course->id)->get_cm($page->cmid);
+    }
+
+    /**
+     * Set a specific student's completion state for a course module.
+     *
+     * @param \cm_info $cm The course module.
+     * @param int $userid The user whose completion state to set.
+     * @param int $state One of the COMPLETION_* constants.
+     */
+    protected function set_activity_completion(\cm_info $cm, int $userid, int $state): void {
+        $completion = new \completion_info($this->course);
+        $completion->update_state($cm, $state, $userid);
     }
 
     /**

@@ -43,7 +43,7 @@ class outcome {
     public static function structure(): external_single_structure {
         return new external_single_structure([
             'status'      => new external_value(PARAM_ALPHA, 'Outcome: marked, conflict, notinroster, unmarked, '
-                . 'notchecked, notfound, needsconfirm or attemptmissing.'),
+                . 'notchecked, notfound, needsconfirm or requirementnotmet.'),
             'message'     => new external_value(PARAM_TEXT, 'Localised message ready to show to the teacher.'),
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
@@ -125,10 +125,24 @@ class outcome {
                 $response['message'] = get_string('result_needsconfirm', 'mod_examcheck', $userlabel);
                 break;
 
-            case 'attemptmissing':
+            case 'requirementnotmet':
                 $reason = $result['reason'] ?? 'misconfigured';
-                if ($reason === 'misconfigured' || $reason === 'missingquiz') {
-                    $response['message'] = get_string('result_attemptmissing_misconfigured', 'mod_examcheck');
+                if (in_array($reason, ['misconfigured', 'missingactivity', 'nocompletion'], true)) {
+                    $response['message'] = get_string('result_requirementnotmet_misconfigured', 'mod_examcheck');
+                    break;
+                }
+                if ($reason === 'incomplete') {
+                    $response['message'] = get_string('result_requirementnotmet_incomplete', 'mod_examcheck', (object) [
+                        'user'     => $userlabel,
+                        'activity' => $result['activity'] ?? '',
+                    ]);
+                    break;
+                }
+                if ($reason === 'sequential') {
+                    $response['message'] = get_string('result_requirementnotmet_sequential', 'mod_examcheck', (object) [
+                        'user'         => $userlabel,
+                        'previousstep' => $result['previousstep'] ?? '',
+                    ]);
                     break;
                 }
                 $args = (object) [
@@ -136,9 +150,9 @@ class outcome {
                     'quiz' => $result['quiz'] ?? '',
                 ];
                 if ($reason === 'inprogress') {
-                    $response['message'] = get_string('result_attemptmissing_inprogress', 'mod_examcheck', $args);
+                    $response['message'] = get_string('result_requirementnotmet_inprogress', 'mod_examcheck', $args);
                 } else {
-                    $response['message'] = get_string('result_attemptmissing_nosubmission', 'mod_examcheck', $args);
+                    $response['message'] = get_string('result_requirementnotmet_nosubmission', 'mod_examcheck', $args);
                 }
                 break;
         }

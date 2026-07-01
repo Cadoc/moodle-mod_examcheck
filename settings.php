@@ -52,6 +52,14 @@ if ($ADMIN->fulltree) {
         0
     ));
 
+    // Default "require step-by-step completion" for new instances.
+    $settings->add(new admin_setting_configcheckbox(
+        'mod_examcheck/defaultrequiresequential',
+        get_string('defaultrequiresequential', 'mod_examcheck'),
+        get_string('defaultrequiresequential_desc', 'mod_examcheck'),
+        0
+    ));
+
     // Default "enable scanner" for new instances.
     $settings->add(new admin_setting_configcheckbox(
         'mod_examcheck/defaultenablescanner',
