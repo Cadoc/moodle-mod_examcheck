@@ -15,7 +15,7 @@
     along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 }}
 {{!
-    @template 'mod_examcheck/confirm_modal';
+    @template 'mod_examcheck/info_modal';
 
     Template purpose and description.
 
@@ -30,19 +30,25 @@
 
     Example context (json):
     {
-        "user_picture": "<img>...</img>",
-        "user_fullname": "Jane Doe",
-        "scan_field_name": "User id (internal)",
-        "scan_value": "6",
-        "roster_link": "https://tbd.example.org"
     }
 }}
 
-<div class="d-flex flex-row align-items-center">
-    <div class="mr-3">{{{ user_picture }}}</div>
-    <div class="d-flex flex-column">
-        <div class="font-bold">{{ user_fullname }}</div>
-        <small class="text-muted">{{ scan_field_name }}: {{ scan_value }}</small>
-        <a href="{{ roster_link }}"><small class="text-muted link-underline">{{#str}} view_in_roster, mod_examcheck {{/str}}</small></a>
-    </div>
-</div>
+{{< core/modal }}
+    {{$classes}} {{classes}} modal-fullscreen-sm-down {{/classes}}
+    {{$title}}{{#str}} participant_status, mod_examcheck {{/str}}{{/title}}
+    {{$body}}
+        {{> mod_examcheck/scan_result_modal/user_info }}
+
+        {{#message}}
+            <div class="d-flex flex-row align-items-center {{#message_is_warning}} text-warning {{/message_is_warning}}">
+                {{#pix}} i/circleinfo {{/pix}}
+                <div>{{.}}</div>
+            </div>
+        {{/message}}
+    {{/body}}
+    {{$footer}}
+        <button type="button" class="btn btn-secondary flex-grow-1 flex-sm-grow-0" data-action="hide">
+            {{#str}}closebuttontitle{{/str}}
+        </button>
+    {{/footer}}
+{{/ core/modal }}

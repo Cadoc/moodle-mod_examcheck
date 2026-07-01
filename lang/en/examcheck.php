@@ -124,6 +124,7 @@ $string['nostudents'] = 'There are no students to check in the selected group.';
 $string['nostudentsatall'] = 'No students are enrolled on this course yet.';
 $string['notchecked'] = 'Not checked';
 $string['opascanner'] = 'Open scanner';
+$string['participant_status'] = 'Participant status';
 $string['pluginadministration'] = 'Exam check administration';
 $string['pluginname'] = 'Exam check';
 $string['pollinterval'] = 'Live refresh interval';

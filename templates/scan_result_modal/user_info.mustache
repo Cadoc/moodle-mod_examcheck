@@ -38,18 +38,11 @@
     }
 }}
 
-{{< core/modal }}
-    {{$classes}} {{classes}} modal-fullscreen-sm-down {{/classes}}
-    {{$title}}{{#str}} confirm_step, mod_examcheck, {{step_name}} {{/str}}{{/title}}
-    {{$body}}
-        {{> mod_examcheck/scan_result_modal/user_info }}
-    {{/body}}
-    {{$footer}}
-        <button type="button" class="btn btn-secondary flex-grow-1 flex-sm-grow-0" data-action="hide">
-            {{#str}} cancel {{/str}}
-        </button>
-        <button type="button" class="btn btn-primary flex-grow-1 flex-sm-grow-0" data-action="confirm">
-            {{#str}} confirm {{/str}}
-        </button>
-    {{/footer}}
-{{/ core/modal }}
+<div class="mb-3 d-flex flex-row align-items-center">
+    <div class="mr-3">{{{ user_picture }}}</div>
+    <div class="d-flex flex-column">
+        <div class="font-bold">{{ user_fullname }}</div>
+        <small class="text-muted">{{ scan_field_name }}: {{ scan_value }}</small>
+        <a href="{{ roster_link }}"><small class="text-muted link-underline">{{#str}} view_in_roster, mod_examcheck {{/str}}</small></a>
+    </div>
+</div>
