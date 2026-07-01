@@ -51,6 +51,12 @@ class scan_lookup extends external_api {
                 false
             ),
             'groupid'        => new external_value(PARAM_INT, 'Group context (0 for all)', VALUE_DEFAULT, 0),
+            'mode'           => new external_value(
+                PARAM_ALPHA,
+                '"scanning" marks the student on the step; "reading" only looks them up',
+                VALUE_DEFAULT,
+                'scanning'
+            ),
         ]);
     }
 
@@ -64,6 +70,7 @@ class scan_lookup extends external_api {
      * @param bool $confirm Whether the teacher confirmed the match.
      * @param bool $requireconfirm Whether confirmation is required this session.
      * @param int $groupid Group context.
+     * @param string $mode "scanning" marks the student; "reading" only looks them up.
      * @return array Outcome (see {@see outcome::structure()}).
      */
     public static function execute(
@@ -73,13 +80,14 @@ class scan_lookup extends external_api {
         string $value,
         bool $confirm = false,
         bool $requireconfirm = false,
-        int $groupid = 0
+        int $groupid = 0,
+        string $mode = 'scanning'
     ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid' => $cmid, 'stepid' => $stepid, 'scanfield' => $scanfield, 'value' => $value,
-            'confirm' => $confirm, 'requireconfirm' => $requireconfirm, 'groupid' => $groupid,
+            'confirm' => $confirm, 'requireconfirm' => $requireconfirm, 'groupid' => $groupid, 'mode' => $mode,
         ]);
 
         $checker = checker::from_cmid($params['cmid']);
@@ -95,16 +103,21 @@ class scan_lookup extends external_api {
         // The extraction pattern is a single site-wide admin setting, applied server-side.
         $regex = (string) get_config('mod_examcheck', 'defaultscanregex');
 
-        $result = $checker->scan(
-            $params['stepid'],
-            $fieldkey,
-            $params['value'],
-            (bool) $params['confirm'],
-            (bool) $params['requireconfirm'],
-            (int) $USER->id,
-            $params['groupid'],
-            (string) $regex
-        );
+        if ($params['mode'] === 'reading') {
+            // Reading mode: look the student up but never mark them.
+            $result = $checker->lookup($fieldkey, $params['value'], $params['groupid'], (string) $regex);
+        } else {
+            $result = $checker->scan(
+                $params['stepid'],
+                $fieldkey,
+                $params['value'],
+                (bool) $params['confirm'],
+                (bool) $params['requireconfirm'],
+                (int) $USER->id,
+                $params['groupid'],
+                (string) $regex
+            );
+        }
 
         return outcome::format($result, $params['stepid']);
     }

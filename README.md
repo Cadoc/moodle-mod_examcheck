@@ -57,9 +57,15 @@ the result into a completion condition you can use to gate other activities.
   card scanning as `U=12345678;LIB=987`, the pattern `(\d{8})` extracts
   `12345678` before comparing it to the chosen field. Configurable per activity
   and overridable per scanning session.
-- **Two scanning modes.** *Mark immediately* (scan → checked → next student
-  automatically) or *confirm first* (scan → the student's name is shown → the
-  teacher presses **Confirm and mark**, then **Scan next**).
+- **Scanner mode: Scanning vs Reading.** A session-only toggle on the scanner
+  page (with a site-wide admin default; it always resets to that default on
+  page load). *Scanning* behaves as below. *Reading* only looks the scanned
+  student up — a toast shows their name and their check status on every step
+  — without marking anything, handy for a quick roster check mid‑exam.
+- **Mark now or confirm first (Scanning mode).** *Mark immediately* (scan →
+  checked → next student automatically) or *confirm first* (scan → the
+  student's name is shown → the teacher presses **Confirm and mark**, then
+  **Scan next**).
 - **Manual entry fallback.** A text box accepts typed values and works with USB
   / Bluetooth “keyboard‑wedge” barcode scanners — handy when the camera API
   isn't available.
@@ -114,8 +120,8 @@ the result into a completion condition you can use to gate other activities.
    ```
 
 3. (Optional) Review **Site administration → Plugins → Activity modules → Exam
-   check** for site defaults (default scan field, confirm‑before‑marking, live
-   refresh interval).
+   check** for site defaults (default scan field, default scanner mode,
+   confirm‑before‑marking, live refresh interval).
 
 ## Usage
 
@@ -155,13 +161,19 @@ focus. Pick a group from the group menu if the activity uses groups.
 
 ### Scan (camera)
 
-Choose **Open scanner**. Select the step, the match field and whether to confirm
-before marking, then **Start camera** and point it at the student's QR/barcode.
+Choose **Open scanner**. The collapsible **Scanning session settings** box
+lists the match field first, then the **Scanner mode**:
 
-- **Confirm off:** a scan marks the student and the scanner immediately looks for
-  the next one.
-- **Confirm on:** the matched student's name is shown; press **Confirm and mark**,
-  then **Scan next** to continue.
+- **Scanning mode:** also pick the step, code type and whether to confirm
+  before marking, then **Start camera** and point it at the student's
+  QR/barcode.
+  - **Confirm off:** a scan marks the student and the scanner immediately
+    looks for the next one.
+  - **Confirm on:** the matched student's name is shown; press **Confirm and
+    mark**, then **Scan next** to continue.
+- **Reading mode:** the step/code type/confirm controls are hidden. A scan
+  looks the student up and shows a toast with their name and their check
+  status on every step — nothing is marked.
 
 No camera? Type or wedge‑scan the value into the **manual entry** box.
 
@@ -242,11 +254,12 @@ vendor/bin/phpunit public/mod/examcheck/tests/checker_test.php
 ```
 
 Tests cover the roster and conflict logic, steps, scan‑field matching
-(including the extraction regex), the separate‑groups access guard, completion
-(all‑steps and single‑step), the web services, events and the privacy provider.
+(including the extraction regex), reading‑mode lookups, the separate‑groups
+access guard, completion (all‑steps and single‑step), the web services, events
+and the privacy provider.
 A data generator is provided at `tests/generator/lib.php`.
 
-**Status:** the suite passes — **46 tests, 94 assertions, 0 failures** (verified
+**Status:** the suite passes — **76 tests, 185 assertions, 0 failures** (verified
 on Moodle 5.1.4+ with PostgreSQL 16). On PHP 8.2–8.4 it is green by default. On
 PHP 8.5 (newer than Moodle 5.1 officially supports) core code emits PHP 8.5
 deprecations, so add `--do-not-fail-on-deprecation` to avoid Moodle's

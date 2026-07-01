@@ -114,6 +114,31 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
+     * scan_lookup in "reading" mode resolves the student but does not mark them.
+     */
+    public function test_scan_lookup_reading_mode(): void {
+        $result = scan_lookup::execute(
+            $this->examcheck->cmid,
+            $this->stepid,
+            'idnumber',
+            'EX1',
+            false,
+            false,
+            0,
+            'reading'
+        );
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+
+        $this->assertSame('found', $result['status']);
+        $this->assertSame((int) $this->student->id, $result['userid']);
+        $this->assertStringContainsString('not checked', $result['message']);
+
+        $marks = get_marks::execute($this->examcheck->cmid, 0);
+        $marks = external_api::clean_returnvalue(get_marks::execute_returns(), $marks);
+        $this->assertCount(0, $marks['marks']);
+    }
+
+    /**
      * get_marks returns the current state and progress.
      */
     public function test_get_marks(): void {

@@ -151,6 +151,8 @@ const registerControls = () => {
     root.querySelector('[data-region="codetype"]')?.addEventListener('change', (e) => {
         allowedFormats = formatsForCodeType(e.target.value);
     });
+    root.querySelector('[data-region="scannermode"]')?.addEventListener('change', applyModeVisibility);
+    applyModeVisibility();
 
     const form = root.querySelector('[data-region="manualform"]');
     form?.addEventListener('submit', (e) => {
@@ -437,7 +439,9 @@ const startDecodeLoop = (video) => {
         decodeBusy = true;
         try {
             const imageData = grabFrame(video);
-            const results = await zxinglib.readBarcodes(imageData, {...READER_OPTIONS, formats: allowedFormats});
+            // The code type picker is hidden in reading mode, so it looks for every format.
+            const formats = currentMode() === 'reading' ? FORMATS_ALL : allowedFormats;
+            const results = await zxinglib.readBarcodes(imageData, {...READER_OPTIONS, formats});
             if (results && results.length && scanning) {
                 process(results[0].text);
             }
@@ -475,7 +479,9 @@ const process = (value) => {
     lastValue = value;
     lastValueTime = now;
 
-    const requireConfirm = isConfirmRequired();
+    const mode = currentMode();
+    // Reading mode never marks, so the confirm step doesn't apply.
+    const requireConfirm = mode === 'scanning' && isConfirmRequired();
     scanning = false; // Pause while we resolve this value.
 
     Ajax.call([{
@@ -488,6 +494,7 @@ const process = (value) => {
             confirm: false,
             requireconfirm: requireConfirm,
             groupid: config.groupid,
+            mode: mode,
         },
     }])[0].then((outcome) => {
         handleOutcome(outcome, value, requireConfirm);
@@ -507,6 +514,11 @@ const process = (value) => {
  */
 const handleOutcome = (outcome, value, requireConfirm) => {
     switch (outcome.status) {
+        case 'found':
+            // Reading mode: name + per-step check status, no marking.
+            addToast(outcome.message, {type: 'info'});
+            resumeScanning();
+            break;
         case 'needsconfirm':
             addToast(outcome.message, {type: 'info'});
             pending = {value};
@@ -676,6 +688,21 @@ const currentStep = () => parseInt(root.querySelector('[data-region="step"]').va
  * @returns {String} The currently selected scan field key.
  */
 const currentField = () => root.querySelector('[data-region="scanfield"]').value;
+
+/**
+ * @returns {String} The current scanner mode, "scanning" or "reading".
+ */
+const currentMode = () => {
+    const el = root.querySelector('[data-region="scannermode"]');
+    return el ? el.value : 'scanning';
+};
+
+/**
+ * Show the step / code type / confirm controls only in "scanning" mode.
+ */
+const applyModeVisibility = () => {
+    toggle('[data-region="scanningonly"]', currentMode() !== 'reading');
+};
 
 /**
  * @returns {Boolean} Whether the session requires confirmation before marking.
