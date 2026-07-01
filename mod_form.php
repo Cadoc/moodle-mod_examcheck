@@ -84,6 +84,21 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $mform->addHelpButton('showcameraswitcher', 'showcameraswitcher', 'mod_examcheck');
         $mform->hideIf('showcameraswitcher', 'enablescanner', 'eq', 0);
 
+
+        // Uncheck documentation section.
+        $mform->addElement('header', 'uncheckheader', get_string('unchecksettings', 'mod_examcheck'));
+
+        $reasonoptions = \mod_examcheck\local\uncheck_reason::get_default_menu();
+        $mform->addElement(
+            'select',
+            'uncheckreasons',
+            get_string('uncheckreasons', 'mod_examcheck'),
+            $reasonoptions,
+            ['multiple' => true, 'size' => 7]
+        );
+        $mform->setType('uncheckreasons', PARAM_TEXT);
+        $mform->addHelpButton('uncheckreasons', 'uncheckreasons', 'mod_examcheck');
+
         // Standard course module elements (visibility, groups, etc.).
         $this->standard_coursemodule_elements();
 

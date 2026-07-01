@@ -110,6 +110,23 @@ class step_form extends moodleform {
             $mform->disabledIf('completioncmid', 'requirementtype', 'neq', 'completion');
         }
 
+
+        // Uncheck documentation mode for this step.
+        $mform->addElement('select', 'uncheckmode', get_string('uncheckmode', 'mod_examcheck'), [
+            0 => get_string('uncheckmode_none',      'mod_examcheck'),
+            1 => get_string('uncheckmode_optional',  'mod_examcheck'),
+            2 => get_string('uncheckmode_mandatory', 'mod_examcheck'),
+        ]);
+        $mform->setType('uncheckmode', PARAM_INT);
+        $mform->setDefault('uncheckmode', 0);
+        $mform->addHelpButton('uncheckmode', 'uncheckmode', 'mod_examcheck');
+
+        $mform->addElement('selectyesno', 'uncheckfreetext', get_string('uncheckfreetext', 'mod_examcheck'));
+        $mform->setType('uncheckfreetext', PARAM_INT);
+        $mform->setDefault('uncheckfreetext', 1);
+        $mform->addHelpButton('uncheckfreetext', 'uncheckfreetext', 'mod_examcheck');
+        $mform->hideIf('uncheckfreetext', 'uncheckmode', 'eq', 0);
+
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'stepid');
