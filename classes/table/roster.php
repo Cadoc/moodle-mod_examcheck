@@ -234,12 +234,8 @@ class roster extends \table_sql implements dynamic_table {
 
         $this->sortable(true, 'fullname');
         $this->no_sorting('select');
-        if (!empty($this->activitygroups)) {
-            $this->no_sorting('groups');
-        }
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
-            $this->no_sorting($key);
             $this->column_class($key, 'text-center examcheck-stepcol');
         }
 
@@ -302,13 +298,30 @@ class roster extends \table_sql implements dynamic_table {
             ));
         } else {
             foreach ($sortcolumns as $col => $dir) {
+                $sign = (int) $dir === SORT_DESC ? -1 : 1;
                 if (in_array($col, $this->extrafields, true)) {
-                    $sign = (int) $dir === SORT_DESC ? -1 : 1;
                     uasort($users, fn($a, $b) => $sign * strnatcasecmp(
                         (string) ($a->{$col} ?? ''),
                         (string) ($b->{$col} ?? '')
                     ));
                     break;
+                }
+                if ($col === 'groups') {
+                    uasort($users, fn($a, $b) => $sign * strnatcasecmp(
+                        implode(', ', $this->usergroups[(int) $a->id] ?? []),
+                        implode(', ', $this->usergroups[(int) $b->id] ?? [])
+                    ));
+                    break;
+                }
+                if (str_starts_with($col, 'step_')) {
+                    $stepid = (int) substr($col, 5);
+                    if (isset($this->stepnames[$stepid])) {
+                        uasort($users, fn($a, $b) => $sign * (
+                            (isset($this->marks[$stepid][(int) $a->id]) ? 1 : 0) -
+                            (isset($this->marks[$stepid][(int) $b->id]) ? 1 : 0)
+                        ));
+                        break;
+                    }
                 }
             }
             if (isset($sortcolumns['fullname']) && (int) $sortcolumns['fullname'] === SORT_DESC) {
