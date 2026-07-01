@@ -17,6 +17,9 @@
 namespace mod_examcheck\local;
 
 use context_module;
+use mod_examcheck\local\exemption_manager;
+use mod_examcheck\local\flag_manager;
+use mod_examcheck\local\uncheck_reason;
 use moodle_exception;
 use stdClass;
 
@@ -296,18 +299,27 @@ class checker {
     }
 
     /**
-     * Remove a check for a student against a step.
+     * Remove a check for a student against a step, optionally documenting the reason.
      *
      * Removing a mark recorded by a different teacher requires the
-     * mod/examcheck:override capability.
+     * mod/examcheck:override capability. When the step requires documentation
+     * (uncheckmode = 2), a reason key or free-text must be supplied.
      *
-     * @param int $stepid The step id.
-     * @param int $userid The student user id.
-     * @param int $actingby The teacher removing the mark.
-     * @return array Result with a "status" key (unmarked|notchecked).
-     * @throws moodle_exception When override permission is missing.
+     * @param int    $stepid     The step id.
+     * @param int    $userid     The student user id.
+     * @param int    $actingby   The teacher removing the mark.
+     * @param string $reasonkey  Optional predefined reason key.
+     * @param string $reasontext Optional free-text reason (requires mod/examcheck:uncheckfreetext).
+     * @return array Result with a "status" key (unmarked|notchecked|reasonrequired).
+     * @throws moodle_exception When override or free-text permission is missing.
      */
-    public function unmark_user(int $stepid, int $userid, int $actingby): array {
+    public function unmark_user(
+        int $stepid,
+        int $userid,
+        int $actingby,
+        string $reasonkey = '',
+        string $reasontext = ''
+    ): array {
         global $DB;
 
         $step = $this->require_step($stepid);
@@ -316,16 +328,126 @@ class checker {
             return ['status' => 'notchecked', 'user' => self::user_label($userid)];
         }
 
+        // Override check: own marks can always be removed; others' marks require :override.
         if ((int) $mark->checkedby !== $actingby && !has_capability('mod/examcheck:override', $this->context)) {
             throw new moodle_exception('error_overridedenied', 'mod_examcheck');
         }
 
+        // Free-text capability gate.
+        if ($reasontext !== '' && !has_capability('mod/examcheck:uncheckfreetext', $this->context)) {
+            $reasontext = '';
+        }
+
+        // Validate reason key.
+        if ($reasonkey !== '' && !\mod_examcheck\local\uncheck_reason::is_valid_key($reasonkey)) {
+            $reasonkey = '';
+        }
+
+        // Mandatory reason check: when uncheckmode = 2, at least one form of reason is required.
+        $uncheckmode = (int) ($step->uncheckmode ?? 0);
+        if ($uncheckmode === 2 && $reasonkey === '' && $reasontext === '') {
+            return ['status' => 'reasonrequired', 'user' => self::user_label($userid)];
+        }
+
         $DB->delete_records('examcheck_marks', ['id' => $mark->id]);
+
+        // Persist the audit event whenever any reason is present, or whenever the
+        // step requires documentation (so "no reason supplied" cases are also logged).
+        if ($uncheckmode > 0 || $reasonkey !== '' || $reasontext !== '') {
+            $DB->insert_record('examcheck_uncheck_events', (object) [
+                'examcheckid' => $this->examcheck->id,
+                'stepid'      => $stepid,
+                'userid'      => $userid,
+                'actingby'    => $actingby,
+                'reasonkey'   => $reasonkey !== '' ? $reasonkey : null,
+                'reasontext'  => $reasontext !== '' ? $reasontext : null,
+                'timecreated' => time(),
+            ]);
+        }
 
         \mod_examcheck\event\user_unmarked::create_from_mark($this->context, $mark, $step)->trigger();
         $this->update_completion_for_user($userid);
 
         return ['status' => 'unmarked', 'user' => self::user_label($userid)];
+    }
+
+    /**
+     * Grant a step exemption for a student.
+     *
+     * Requires mod/examcheck:exempt capability.
+     *
+     * @param int    $stepid     The step id.
+     * @param int    $userid     The student user id.
+     * @param string $reason     Optional free-text reason for the exemption.
+     * @param int    $exemptedby The teacher granting the exemption.
+     * @return array Result with a "status" key (exempted|alreadyexempt).
+     */
+    public function grant_exemption(int $stepid, int $userid, string $reason, int $exemptedby): array {
+        require_capability('mod/examcheck:exempt', $this->context);
+        $this->require_step($stepid);
+
+        $record = \mod_examcheck\local\exemption_manager::grant_exemption(
+            $this->examcheck->id, $stepid, $userid, $reason, $exemptedby
+        );
+
+        $status = $record->timecreated === time() ? 'exempted' : 'alreadyexempt';
+        return ['status' => $status, 'user' => self::user_label($userid)];
+    }
+
+    /**
+     * Revoke a step exemption for a student.
+     *
+     * Requires mod/examcheck:exempt capability.
+     *
+     * @param int $stepid The step id.
+     * @param int $userid The student user id.
+     * @return array Result with a "status" key (revoked|notexempt).
+     */
+    public function revoke_exemption(int $stepid, int $userid): array {
+        require_capability('mod/examcheck:exempt', $this->context);
+        $this->require_step($stepid);
+
+        $deleted = \mod_examcheck\local\exemption_manager::revoke_exemption($stepid, $userid);
+        return ['status' => $deleted ? 'revoked' : 'notexempt', 'user' => self::user_label($userid)];
+    }
+
+    /**
+     * Add a flag for a student (suspected malpractice, exclusion, etc.).
+     *
+     * Requires mod/examcheck:flag capability.
+     *
+     * @param int    $userid   The student user id.
+     * @param string $flagtype One of the flag_manager TYPE_* constants.
+     * @param string $note     Optional free-text note.
+     * @param int    $flaggedby The teacher raising the flag.
+     * @return array Result with a "status" key (flagged) and the flag record.
+     */
+    public function add_flag(int $userid, string $flagtype, string $note, int $flaggedby): array {
+        require_capability('mod/examcheck:flag', $this->context);
+
+        if (!\mod_examcheck\local\flag_manager::is_valid_type($flagtype)) {
+            throw new moodle_exception('error_invalidflagtype', 'mod_examcheck');
+        }
+
+        $flag = \mod_examcheck\local\flag_manager::add_flag(
+            $this->examcheck->id, $userid, $flagtype, $note, $flaggedby
+        );
+
+        return ['status' => 'flagged', 'flag' => $flag, 'user' => self::user_label($userid)];
+    }
+
+    /**
+     * Remove a student flag.
+     *
+     * Requires mod/examcheck:flag capability.
+     *
+     * @param int $flagid The flag record id.
+     * @return array Result with a "status" key (removed|notfound).
+     */
+    public function remove_flag(int $flagid): array {
+        require_capability('mod/examcheck:flag', $this->context);
+        $deleted = \mod_examcheck\local\flag_manager::remove_flag($flagid, $this->examcheck->id);
+        return ['status' => $deleted ? 'removed' : 'notfound'];
     }
 
     /**
@@ -340,7 +462,7 @@ class checker {
      * @param int $checkedby The teacher recording the mark.
      * @param int $groupid Group context used to validate roster membership.
      * @param string $regex Optional regex (no delimiters) to extract the value to match.
-     * @return array Result: notfound|notenrolled|needsconfirm|marked|conflict, plus user data.
+     * @return array Result: notfound|needsconfirm|marked|conflict, plus user data.
      */
     public function scan(
         int $stepid,
@@ -365,9 +487,6 @@ class checker {
         $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
 
         if (!$userid) {
-            if (scanfield::find_user($fieldkey, $needle, null)) {
-                return ['status' => 'notenrolled', 'value' => trim($value)];
-            }
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
@@ -396,51 +515,6 @@ class checker {
         }
 
         return $this->mark_user($stepid, $userid, $checkedby, 'scan', $groupid);
-    }
-
-    /**
-     * Resolve a scanned value to a student without marking anything.
-     *
-     * Used by the scanner's "reading" mode: look the student up the same way
-     * {@see self::scan()} does, but return their name and checked status on
-     * every step instead of recording a mark.
-     *
-     * @param string $fieldkey The scan field key (see {@see scanfield}).
-     * @param string $value The raw scanned value.
-     * @param int $groupid Group context used to validate roster membership.
-     * @param string $regex Optional regex (no delimiters) to extract the value to match.
-     * @return array Result: notfound|notenrolled|found, plus user and per-step status data.
-     */
-    public function lookup(string $fieldkey, string $value, int $groupid = 0, string $regex = ''): array {
-        $needle = scanfield::apply_regex($regex, $value);
-        if ($needle === null || $needle === '') {
-            return ['status' => 'notfound', 'value' => trim($value)];
-        }
-
-        $rosterids = $this->get_roster_ids($groupid);
-        $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
-        if (!$userid) {
-            if (scanfield::find_user($fieldkey, $needle, null)) {
-                return ['status' => 'notenrolled', 'value' => trim($value)];
-            }
-            return ['status' => 'notfound', 'value' => trim($value)];
-        }
-
-        $marks = $this->get_marks();
-        $steps = [];
-        foreach (steps::get_steps($this->examcheck->id) as $step) {
-            $steps[] = [
-                'name'    => format_string($step->name, true, ['context' => $this->context]),
-                'checked' => isset($marks[(int) $step->id][$userid]),
-            ];
-        }
-
-        return [
-            'status' => 'found',
-            'userid' => $userid,
-            'user'   => self::user_label($userid),
-            'steps'  => $steps,
-        ];
     }
 
     /**
@@ -710,7 +784,6 @@ class checker {
         return [
             'status'    => 'conflict',
             'mark'      => $mark,
-            'userid'    => $userid,
             'user'      => self::user_label($userid),
             'by'        => self::user_label((int) $mark->checkedby),
             'ago'       => self::relative_time((int) $mark->timecreated),

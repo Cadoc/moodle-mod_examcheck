@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/examcheck/db" VERSION="20260702" COMMENT="XMLDB file for Moodle mod/examcheck"
+<XMLDB PATH="mod/examcheck/db" VERSION="20260703" COMMENT="XMLDB file for Moodle mod/examcheck"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -13,11 +13,12 @@
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="scanfield" TYPE="char" LENGTH="255" NOTNULL="true" DEFAULT="idnumber" SEQUENCE="false" COMMENT="Default field key used to match scanned QR/barcode values to a user."/>
         <FIELD NAME="requireconfirm" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the scanner shows the matched user and waits for the teacher to confirm before marking."/>
-        <FIELD NAME="enablescanner" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 0, the camera/barcode scanner is disabled for this activity (no tab, scan.php blocked)."/>
+        <FIELD NAME="enablescanner" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 0, the camera/barcode scanner is disabled for this activity."/>
         <FIELD NAME="showcameraswitcher" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 1, the scanner offers a camera/lens picker dropdown."/>
         <FIELD NAME="completionchecked" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the student completes the activity once they are checked as required."/>
         <FIELD NAME="completionstep" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = student must be checked on ALL steps; otherwise the single step id that completes the activity."/>
-        <FIELD NAME="requiresequential" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, a student can only be checked on a step once they are already checked on the immediately preceding step."/>
+        <FIELD NAME="requiresequential" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, a student can only be checked on a step once the immediately preceding step is checked."/>
+        <FIELD NAME="uncheckreasons" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Comma-separated list of predefined uncheck reason keys to show. Empty means all plugin defaults are shown."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
@@ -31,8 +32,10 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="requirementtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="Requirement gating checks on this step: none, quiz (submitted quiz attempt) or completion (activity completion)."/>
-        <FIELD NAME="requirementcmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Course module id the requirement checks against: the quiz (requirementtype=quiz) or the activity (requirementtype=completion)."/>
+        <FIELD NAME="requirementtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="Requirement gating checks on this step: none, quiz or completion."/>
+        <FIELD NAME="requirementcmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Course module id the requirement checks against."/>
+        <FIELD NAME="uncheckmode" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0=no confirmation; 1=confirmation with optional reason; 2=confirmation with mandatory reason."/>
+        <FIELD NAME="uncheckfreetext" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 1, free-text entry is offered in addition to predefined reasons (subject to mod/examcheck:uncheckfreetext capability)."/>
         <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -60,6 +63,63 @@
         <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
         <KEY NAME="stepid" TYPE="foreign" FIELDS="stepid" REFTABLE="examcheck_steps" REFFIELDS="id"/>
         <KEY NAME="step-user" TYPE="unique" FIELDS="stepid, userid"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_uncheck_events" COMMENT="Audit trail of unmark actions with the reason documented by the invigilator.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="stepid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The student whose mark was removed."/>
+        <FIELD NAME="actingby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The teacher who removed the mark."/>
+        <FIELD NAME="reasonkey" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="The key of the selected predefined reason, if any."/>
+        <FIELD NAME="reasontext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional free-text reason entered by the invigilator."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>
+        <INDEX NAME="stepid-userid" UNIQUE="false" FIELDS="stepid, userid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_exemptions" COMMENT="Students exempted from specific steps (e.g. disability accommodations).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="stepid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The student who is exempt from this step."/>
+        <FIELD NAME="reason" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional reason for the exemption."/>
+        <FIELD NAME="exemptedby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The teacher who granted the exemption."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+        <KEY NAME="step-user" TYPE="unique" FIELDS="stepid, userid"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_flags" COMMENT="Student-level flags raised during an exam sitting (e.g. suspected malpractice).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The flagged student."/>
+        <FIELD NAME="flagtype" TYPE="char" LENGTH="50" NOTNULL="true" DEFAULT="other" SEQUENCE="false" COMMENT="malpractice, excluded, administrative, other."/>
+        <FIELD NAME="note" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Optional note describing the reason for the flag."/>
+        <FIELD NAME="flaggedby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>

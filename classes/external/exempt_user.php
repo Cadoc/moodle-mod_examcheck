@@ -23,16 +23,15 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_examcheck\local\checker;
-use mod_examcheck\local\outcome;
 
 /**
- * Web service: remove a student's check for a step, with optional reason documentation.
+ * Web service: grant or revoke a step exemption for a student.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class unmark_user extends external_api {
+class exempt_user extends external_api {
 
     /**
      * Parameters.
@@ -41,55 +40,49 @@ class unmark_user extends external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'cmid'       => new external_value(PARAM_INT,  'Course module id'),
-            'stepid'     => new external_value(PARAM_INT,  'Check step id'),
-            'userid'     => new external_value(PARAM_INT,  'Student user id'),
-            'reasonkey'  => new external_value(PARAM_ALPHANUMEXT, 'Predefined reason key', VALUE_DEFAULT, ''),
-            'reasontext' => new external_value(PARAM_TEXT, 'Free-text reason', VALUE_DEFAULT, ''),
+            'cmid'   => new external_value(PARAM_INT,  'Course module id'),
+            'stepid' => new external_value(PARAM_INT,  'Check step id'),
+            'userid' => new external_value(PARAM_INT,  'Student user id'),
+            'grant'  => new external_value(PARAM_BOOL, 'True to grant exemption, false to revoke'),
+            'reason' => new external_value(PARAM_TEXT, 'Optional reason for the exemption', VALUE_DEFAULT, ''),
         ]);
     }
 
     /**
-     * Remove a student's check, logging the reason if provided or required.
+     * Grant or revoke a step exemption for a student.
      *
-     * @param int    $cmid       Course module id.
-     * @param int    $stepid     Check step id.
-     * @param int    $userid     Student user id.
-     * @param string $reasonkey  Optional predefined reason key.
-     * @param string $reasontext Optional free-text reason.
+     * @param int    $cmid   Course module id.
+     * @param int    $stepid Check step id.
+     * @param int    $userid Student user id.
+     * @param bool   $grant  True to grant, false to revoke.
+     * @param string $reason Optional reason text.
      * @return array Outcome.
      */
-    public static function execute(
-        int $cmid,
-        int $stepid,
-        int $userid,
-        string $reasonkey = '',
-        string $reasontext = ''
-    ): array {
+    public static function execute(int $cmid, int $stepid, int $userid, bool $grant, string $reason = ''): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'cmid'       => $cmid,
-            'stepid'     => $stepid,
-            'userid'     => $userid,
-            'reasonkey'  => $reasonkey,
-            'reasontext' => $reasontext,
+            'cmid'   => $cmid,
+            'stepid' => $stepid,
+            'userid' => $userid,
+            'grant'  => $grant,
+            'reason' => $reason,
         ]);
 
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
-        require_capability('mod/examcheck:uncheck', $checker->get_context());
         $checker->require_user_access($params['userid']);
 
-        $result = $checker->unmark_user(
-            $params['stepid'],
-            $params['userid'],
-            (int) $USER->id,
-            $params['reasonkey'],
-            $params['reasontext']
-        );
+        if ($params['grant']) {
+            return $checker->grant_exemption(
+                $params['stepid'],
+                $params['userid'],
+                $params['reason'],
+                (int) $USER->id
+            );
+        }
 
-        return outcome::format($result, $params['stepid']);
+        return $checker->revoke_exemption($params['stepid'], $params['userid']);
     }
 
     /**
@@ -98,6 +91,9 @@ class unmark_user extends external_api {
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
-        return outcome::structure();
+        return new external_single_structure([
+            'status' => new external_value(PARAM_ALPHA, 'Result: exempted|alreadyexempt|revoked|notexempt'),
+            'user'   => new external_value(PARAM_TEXT,  'Student full name', VALUE_OPTIONAL),
+        ]);
     }
 }

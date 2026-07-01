@@ -23,16 +23,16 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_examcheck\local\checker;
-use mod_examcheck\local\outcome;
+use mod_examcheck\local\flag_manager;
 
 /**
- * Web service: remove a student's check for a step, with optional reason documentation.
+ * Web service: add or remove a student flag.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class unmark_user extends external_api {
+class flag_user extends external_api {
 
     /**
      * Parameters.
@@ -41,55 +41,58 @@ class unmark_user extends external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'cmid'       => new external_value(PARAM_INT,  'Course module id'),
-            'stepid'     => new external_value(PARAM_INT,  'Check step id'),
-            'userid'     => new external_value(PARAM_INT,  'Student user id'),
-            'reasonkey'  => new external_value(PARAM_ALPHANUMEXT, 'Predefined reason key', VALUE_DEFAULT, ''),
-            'reasontext' => new external_value(PARAM_TEXT, 'Free-text reason', VALUE_DEFAULT, ''),
+            'cmid'     => new external_value(PARAM_INT,   'Course module id'),
+            'userid'   => new external_value(PARAM_INT,   'Student user id'),
+            'flagtype' => new external_value(PARAM_ALPHA, 'Flag type: malpractice|excluded|administrative|other',
+                VALUE_DEFAULT, flag_manager::TYPE_OTHER),
+            'note'     => new external_value(PARAM_TEXT,  'Optional note', VALUE_DEFAULT, ''),
+            'flagid'   => new external_value(PARAM_INT,   'Flag id to remove (0 = add a new flag)', VALUE_DEFAULT, 0),
         ]);
     }
 
     /**
-     * Remove a student's check, logging the reason if provided or required.
+     * Add or remove a student flag.
      *
-     * @param int    $cmid       Course module id.
-     * @param int    $stepid     Check step id.
-     * @param int    $userid     Student user id.
-     * @param string $reasonkey  Optional predefined reason key.
-     * @param string $reasontext Optional free-text reason.
+     * Pass flagid = 0 to add a new flag; pass a positive flagid to remove that flag.
+     *
+     * @param int    $cmid     Course module id.
+     * @param int    $userid   Student user id.
+     * @param string $flagtype Flag type string.
+     * @param string $note     Optional note.
+     * @param int    $flagid   Flag id to remove, or 0 to add.
      * @return array Outcome.
      */
     public static function execute(
         int $cmid,
-        int $stepid,
         int $userid,
-        string $reasonkey = '',
-        string $reasontext = ''
+        string $flagtype,
+        string $note,
+        int $flagid
     ): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
-            'cmid'       => $cmid,
-            'stepid'     => $stepid,
-            'userid'     => $userid,
-            'reasonkey'  => $reasonkey,
-            'reasontext' => $reasontext,
+            'cmid'     => $cmid,
+            'userid'   => $userid,
+            'flagtype' => $flagtype,
+            'note'     => $note,
+            'flagid'   => $flagid,
         ]);
 
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
-        require_capability('mod/examcheck:uncheck', $checker->get_context());
         $checker->require_user_access($params['userid']);
 
-        $result = $checker->unmark_user(
-            $params['stepid'],
-            $params['userid'],
-            (int) $USER->id,
-            $params['reasonkey'],
-            $params['reasontext']
-        );
+        if ($params['flagid'] > 0) {
+            return $checker->remove_flag($params['flagid']);
+        }
 
-        return outcome::format($result, $params['stepid']);
+        return $checker->add_flag(
+            $params['userid'],
+            $params['flagtype'],
+            $params['note'],
+            (int) $USER->id
+        );
     }
 
     /**
@@ -98,6 +101,9 @@ class unmark_user extends external_api {
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
-        return outcome::structure();
+        return new external_single_structure([
+            'status' => new external_value(PARAM_ALPHA, 'Result: flagged|removed|notfound'),
+            'user'   => new external_value(PARAM_TEXT,  'Student full name', VALUE_OPTIONAL),
+        ]);
     }
 }

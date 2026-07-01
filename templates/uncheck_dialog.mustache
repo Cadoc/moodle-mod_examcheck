@@ -1,0 +1,58 @@
+{{!
+    Template: mod_examcheck/uncheck_dialog
+
+    Body of the uncheck reason modal dialog. Rendered client-side by uncheck_dialog.js
+    and injected into a core/modal_factory SAVE_CANCEL modal.
+
+    Context variables:
+    - hasreasons   (bool)   - whether any predefined reasons are available
+    - reasons      (array)  - [{key, label}, ...]
+    - allowfreetext (bool)  - whether a free-text area should be shown
+    - mandatory    (bool)   - whether at least one form of reason is required
+
+    @template mod_examcheck/uncheck_dialog
+    @copyright 2026 André Camacho
+    @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+<div class="mod_examcheck-uncheck-dialog">
+
+    {{#mandatory}}
+    <p class="text-muted small">{{#str}} uncheckdialog_mandatoryhint, mod_examcheck {{/str}}</p>
+    {{/mandatory}}
+
+    {{^mandatory}}
+    <p class="text-muted small">{{#str}} uncheckdialog_optionalhint, mod_examcheck {{/str}}</p>
+    {{/mandatory}}
+
+    {{#hasreasons}}
+    <div class="mb-3">
+        <label for="examcheck-reason-select" class="form-label fw-semibold">
+            {{#str}} uncheckdialog_reasonlabel, mod_examcheck {{/str}}
+        </label>
+        <select id="examcheck-reason-select"
+                class="form-select"
+                data-region="examcheck-reason-select"
+                aria-describedby="examcheck-reason-hint">
+            <option value="">{{#str}} uncheckdialog_choosereason, mod_examcheck {{/str}}</option>
+            {{#reasons}}
+            <option value="{{key}}">{{label}}</option>
+            {{/reasons}}
+        </select>
+    </div>
+    {{/hasreasons}}
+
+    {{#allowfreetext}}
+    <div class="mb-3">
+        <label for="examcheck-reason-text" class="form-label fw-semibold">
+            {{#str}} uncheckdialog_freetextlabel, mod_examcheck {{/str}}
+        </label>
+        <textarea id="examcheck-reason-text"
+                  class="form-control"
+                  data-region="examcheck-reason-text"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="{{#str}} uncheckdialog_freetextplaceholder, mod_examcheck {{/str}}"></textarea>
+    </div>
+    {{/allowfreetext}}
+
+</div>

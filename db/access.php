@@ -38,7 +38,7 @@ $capabilities = [
         'clonepermissionsfrom' => 'moodle/course:manageactivities',
     ],
 
-    // View the activity and the checking dashboard. Granted to any teacher role.
+    // View the activity and the checking dashboard.
     'mod/examcheck:view' => [
         'captype'      => 'read',
         'contextlevel' => CONTEXT_MODULE,
@@ -49,7 +49,7 @@ $capabilities = [
         ],
     ],
 
-    // Record and remove your own checks against students (list + scanner).
+    // Record a check against a student (list + scanner).
     'mod/examcheck:check' => [
         'captype'      => 'write',
         'contextlevel' => CONTEXT_MODULE,
@@ -60,11 +60,67 @@ $capabilities = [
         ],
     ],
 
+    // Remove a check from a student. Separated from :check so invigilators
+    // can be granted the ability to mark without being able to unmark.
+    'mod/examcheck:uncheck' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'teacher'        => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
+    // Enter free-text when documenting an uncheck. Teachers who lack this
+    // capability can only select a predefined reason.
+    'mod/examcheck:uncheckfreetext' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
     // Override or remove a mark that was recorded by another teacher.
     'mod/examcheck:override' => [
         'captype'      => 'write',
         'contextlevel' => CONTEXT_MODULE,
         'archetypes'   => [
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
+    // Grant or revoke a per-step exemption for a student.
+    'mod/examcheck:exempt' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
+    // Raise or remove a student flag (suspected malpractice, exclusion, etc.).
+    'mod/examcheck:flag' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'teacher'        => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
+
+    // See student flags raised by any invigilator. Separating view from write
+    // lets admins grant read-only audit access to supervisors.
+    'mod/examcheck:viewflags' => [
+        'captype'      => 'read',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'teacher'        => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
             'manager'        => CAP_ALLOW,
         ],
