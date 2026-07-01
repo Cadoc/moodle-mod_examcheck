@@ -710,6 +710,7 @@ class checker {
         return [
             'status'    => 'conflict',
             'mark'      => $mark,
+            'userid'    => $userid,
             'user'      => self::user_label($userid),
             'by'        => self::user_label((int) $mark->checkedby),
             'ago'       => self::relative_time((int) $mark->timecreated),
