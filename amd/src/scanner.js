@@ -28,10 +28,11 @@
  */
 
 import Ajax from 'core/ajax';
-import {add as addToast} from 'core/toast';
-import {getString} from 'core/str';
+import { add as addToast } from 'core/toast';
+import { getString } from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
 import ConfirmModal from "./confirm_modal";
+import InfoModal from "./info_modal";
 
 const DEDUPE_MS = 2500;
 const CAMERA_STORAGE_KEY = 'examcheck_scanner_camera';
@@ -235,7 +236,7 @@ const configureDecoder = () => {
  * @param {HTMLVideoElement} video The live video element.
  * @returns {Promise} Resolves once the stream is playing.
  */
-const openStream = async(video) => {
+const openStream = async (video) => {
     const stream = await navigator.mediaDevices.getUserMedia(buildConstraints());
     mediaStream = stream;
     video.srcObject = stream;
@@ -266,7 +267,7 @@ const failStart = () => {
 /**
  * Start the camera and the continuous zxing-wasm decode loop, then offer the camera picker.
  */
-const startCamera = async() => {
+const startCamera = async () => {
     if (!zxinglib) {
         return;
     }
@@ -302,7 +303,7 @@ const startCamera = async() => {
  *
  * @param {HTMLVideoElement} video The live video element.
  */
-const populateCameras = async(video) => {
+const populateCameras = async (video) => {
     if (!showCameraSwitcher) {
         return;
     }
@@ -349,7 +350,7 @@ const populateCameras = async(video) => {
  *
  * @param {String} deviceId The chosen camera deviceId.
  */
-const switchCamera = async(deviceId) => {
+const switchCamera = async (deviceId) => {
     if (!deviceId || !zxinglib) {
         return;
     }
@@ -429,7 +430,7 @@ const grabFrame = (video) => {
  */
 const startDecodeLoop = (video) => {
     cancelDecodeLoop();
-    const tick = async() => {
+    const tick = async () => {
         // Camera was stopped: end the loop.
         if (!mediaStream) {
             rafHandle = 0;
@@ -510,12 +511,38 @@ const process = (value) => {
             mode: mode,
         },
     }])[0].then((outcome) => {
-        handleOutcome(outcome, value, requireConfirm);
+        handleOutcome(outcome, value);
         return outcome;
     }).catch((err) => {
         addToast(err.message || String(err), {type: 'danger'});
         resumeScanning();
     });
+};
+
+/**
+ * @param {Outcome} outcome
+ * @param {String} scannedValue
+ * @param {Boolean} [isWarning]
+ * @returns {Promise<void>}
+ */
+const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
+    pauseScanning();
+
+    const modal = await InfoModal.create({
+        templateContext: {
+            step_name: currentStepName(),
+            user_fullname: outcome.userlabel,
+            user_picture: outcome.userpicture,
+            scan_field_name: currentFieldName(),
+            scan_value: scannedValue,
+            roster_link: 'https://youtu.be/dQw4w9WgXcQ',
+            message: outcome.message,
+            message_is_warning: isWarning
+        },
+    });
+
+    await modal.show();
+    resumeScanning();
 };
 
 /**
@@ -526,6 +553,8 @@ const process = (value) => {
  * @returns {Promise<void>}
  */
 const showConfirmationModal = async (outcome, scannedValue) => {
+    pauseScanning();
+
     /** @var {ConfirmModal} modal */
     const modal = await ConfirmModal.create({
         templateContext: {
@@ -546,7 +575,7 @@ const showConfirmationModal = async (outcome, scannedValue) => {
         return;
     }
 
-    Ajax.call([{
+    await Ajax.call([{
         methodname: 'mod_examcheck_scan_lookup',
         args: {
             cmid: config.cmid,
@@ -557,25 +586,27 @@ const showConfirmationModal = async (outcome, scannedValue) => {
             requireconfirm: true,
             groupid: config.groupid,
         },
-    }])[0].then((outcome) => {
-        if (outcome.status === 'marked') {
-            addToast(outcome.message, {type: 'success'});
-        } else if (outcome.status === 'conflict') {
-            addToast(outcome.message, {type: 'warning'});
-        } else if (outcome.status === 'requirementnotmet') {
-            // Defensive: scan() fails fast before needsconfirm, so we should never get
-            // here for the gate — but if a step is reconfigured mid-session it could.
-            addToast(outcome.message, {type: 'danger'});
-        } else {
-            addToast(outcome.message, {type: 'info'});
-        }
-        // In confirm mode we always wait for an explicit "scan next".
-        showNext();
-        return outcome;
-    }).catch((err) => {
-        addToast(err.message || String(err), {type: 'danger'});
-        resumeScanning();
-    });
+    }])[0]
+        .then((outcome) => {
+            if (outcome.status === 'marked') {
+                addToast(outcome.message, {type: 'success'});
+            } else if (outcome.status === 'conflict') {
+                addToast(outcome.message, {type: 'warning'});
+            } else if (outcome.status === 'requirementnotmet') {
+                // Defensive: scan() fails fast before needsconfirm, so we should never get
+                // here for the gate — but if a step is reconfigured mid-session it could.
+                addToast(outcome.message, {type: 'danger'});
+            } else {
+                addToast(outcome.message, {type: 'info'});
+            }
+            // In confirm mode we always wait for an explicit "scan next".
+            resumeScanning();
+            return outcome;
+        })
+        .catch((err) => {
+            addToast(err.message || String(err), {type: 'danger'});
+            resumeScanning();
+        });
 };
 
 /**
@@ -583,29 +614,30 @@ const showConfirmationModal = async (outcome, scannedValue) => {
  *
  * @param {Object} outcome The web service outcome.
  * @param {String} value The scanned value (kept for the confirm step).
- * @param {Boolean} requireConfirm Whether confirmation is required this session.
  */
-const handleOutcome = (outcome, value, requireConfirm) => {
+const handleOutcome = (outcome, value) => {
     switch (outcome.status) {
         case 'found':
             // Reading mode: name + per-step check status, no marking.
-            addToast(outcome.message, {type: 'info'});
-            resumeScanning();
+            showInfoModal(outcome, value);
             break;
         case 'needsconfirm':
-            addToast(outcome.message, {type: 'info'});
             showConfirmationModal(outcome, value);
             break;
         case 'marked':
             addToast(outcome.message, {type: 'success'});
-            afterDefinitive(requireConfirm);
+            resumeScanning();
             break;
         case 'conflict':
-            addToast(outcome.message, {type: 'warning'});
-            afterDefinitive(requireConfirm);
+            showInfoModal(outcome, value, true);
             break;
         case 'notfound':
             // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.
+            addToast(outcome.message, {type: 'warning'});
+            resumeScanning();
+            break;
+        case 'notenrolled':
+            // A real account matched the scanned value, but it isn't enrolled in this course.
             addToast(outcome.message, {type: 'warning'});
             resumeScanning();
             break;
@@ -620,33 +652,12 @@ const handleOutcome = (outcome, value, requireConfirm) => {
     }
 };
 
-/**
- * Behaviour after a definitive (marked/conflict) outcome.
- *
- * @param {Boolean} requireConfirm Whether the session waits for a click.
- */
-const afterDefinitive = (requireConfirm) => {
-    if (requireConfirm) {
-        showNext();
-    } else {
-        resumeScanning();
-    }
-};
-
-/**
- * Resume scanning for the next student and reset the result panel.
- */
 const resumeScanning = () => {
-    toggle('[data-action="next"]', false);
     scanning = Boolean(mediaStream); // Only auto-scan when the camera is running.
 };
-/**
- * Show the "scan next" control and stop auto-scanning until clicked.
- */
-const showNext = () => {
+
+const pauseScanning = () => {
     scanning = false;
-    toggle('[data-region="pending"]', false);
-    toggle('[data-action="next"]', true);
 };
 
 /**

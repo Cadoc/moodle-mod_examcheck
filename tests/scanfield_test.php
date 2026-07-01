@@ -95,6 +95,28 @@ final class scanfield_test extends \advanced_testcase {
     }
 
     /**
+     * A null candidate set searches every user on the site, not just a roster.
+     */
+    public function test_null_candidates_search_all_users(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user(['idnumber' => 'ANY-1']);
+
+        $this->assertSame((int) $user->id, scanfield::find_user('idnumber', 'ANY-1', null));
+        $this->assertSame((int) $user->id, scanfield::find_user('userid', (string) $user->id, null));
+        $this->assertSame(0, scanfield::find_user('idnumber', 'NOSUCHVALUE', null));
+    }
+
+    /**
+     * An ambiguous unscoped match still returns nothing.
+     */
+    public function test_null_candidates_ambiguous_match_returns_zero(): void {
+        $this->resetAfterTest();
+        $this->getDataGenerator()->create_user(['idnumber' => 'DUP2']);
+        $this->getDataGenerator()->create_user(['idnumber' => 'DUP2']);
+        $this->assertSame(0, scanfield::find_user('idnumber', 'DUP2', null));
+    }
+
+    /**
      * The extraction regex pulls a capture group out of a longer value.
      */
     public function test_apply_regex(): void {

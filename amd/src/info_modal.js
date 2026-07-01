@@ -21,40 +21,35 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import ModalEvents from 'core/modal_events';
-import InfoModal from "./info_modal";
+import Modal from 'core/modal';
 
-export default class ConfirmModal extends InfoModal {
-    static TYPE = "mod_examcheck/confirm_modal";
-    static TEMPLATE = "mod_examcheck/confirm_modal";
+/**
+ * @typedef {Object} ScanResultModalConfig
+ * @property {Object} templateContext
+ * @property {String} templateContext.step_name
+ * @property {String} templateContext.user_fullname
+ * @property {String} templateContext.user_picture
+ * @property {String} templateContext.scan_field_name
+ * @property {String} templateContext.scan_value
+ * @property {String} templateContext.roster_link
+ */
 
-    #wasConfirmed = false;
+/**
+ * @typedef {Object} InfoModalConfig
+ * @extends {ScanResultModalConfig}
+ * @property {Object} templateContext
+ * @property {String} [templateContext.message]
+ * @property {Boolean} [templateContext.message_is_warning]
+ */
+
+export default class InfoModal extends Modal {
+    static TYPE = "mod_examcheck/info_modal";
+    static TEMPLATE = "mod_examcheck/info_modal";
 
     /**
-     * @param {ScanResultModalConfig} modalConfig
+     * @param {InfoModalConfig} modalConfig
      */
     static async create(modalConfig) {
         return await super.create(modalConfig);
-    }
-
-    /**
-     * Resolves once the modal is hidden, with whether "Confirm" was clicked
-     * (as opposed to cancel, backdrop click, or Escape).
-     *
-     * @returns {Promise<Boolean>}
-     */
-    wasConfirmed() {
-        return new Promise((resolve) => {
-            this.getRoot().on(ModalEvents.hidden, () => resolve(this.#wasConfirmed));
-        });
-    }
-
-    registerEventListeners() {
-        super.registerEventListeners();
-
-        this.getRoot().on('click', '[data-action="confirm"]', () => {
-            this.#wasConfirmed = true;
-            this.hide();
-        });
     }
 }
