@@ -19,6 +19,11 @@
  * Modelled on core_user/participants_filter, without the course id filter: the
  * roster table carries its course module id in its unique id instead.
  *
+ * After every successful filter apply this module dispatches the custom event
+ * {@see Events.filtersetChanged} on the filter element (bubbling) so that
+ * roster_quickfilter can track the current filterset state without needing to
+ * read Moodle internals.
+ *
  * @module     mod_examcheck/roster_filter
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -28,6 +33,21 @@ import CoreFilter from 'core/datafilter';
 import * as DynamicTable from 'core_table/dynamic';
 import Selectors from 'core/datafilter/selectors';
 import Notification from 'core/notification';
+
+/**
+ * Custom events fired by this module.
+ *
+ * @type {Object}
+ */
+export const Events = {
+    /**
+     * Fired on the filter element (bubbling) whenever the datafilter applies a
+     * new filterset to the roster dynamic table.
+     *
+     * Detail: {jointype: Number, filters: Array}
+     */
+    filtersetChanged: 'examcheck:filterset-changed',
+};
 
 /**
  * Initialise the roster filter on the element with the given id.
@@ -41,15 +61,22 @@ export const init = (filterRegionId) => {
     }
 
     const coreFilter = new CoreFilter(filterSet, (filters, pendingPromise) => {
+        const jointype = parseInt(filterSet.querySelector(Selectors.filterset.fields.join).value, 10);
+
         DynamicTable.setFilters(
             DynamicTable.getTableFromId(filterSet.dataset.tableRegion),
-            {
-                jointype: parseInt(filterSet.querySelector(Selectors.filterset.fields.join).value, 10),
-                filters,
-            }
+            {jointype, filters}
         )
             .then((result) => {
                 pendingPromise.resolve();
+
+                // Notify roster_quickfilter (and any other listeners) of the new
+                // filterset so they can track state without parsing Moodle internals.
+                filterSet.dispatchEvent(new CustomEvent(Events.filtersetChanged, {
+                    detail: {jointype, filters},
+                    bubbles: true,
+                }));
+
                 return result;
             })
             .catch(Notification.exception);

@@ -45,6 +45,8 @@
     {{#hassteps}}
         {{{filter}}}
 
+        <div data-region="examcheck-quickfilter" class="d-flex align-items-center mb-2"></div>
+
         <form id="examcheck-rosterform" method="post" action="{{exporturl}}">
             <input type="hidden" name="id" value="{{cmid}}">
             <input type="hidden" name="sesskey" value="{{sesskey}}">
@@ -55,8 +57,11 @@
     {{/hassteps}}
 </div>
 {{#js}}
-require(['mod_examcheck/checker', 'mod_examcheck/roster_actions'], function(Checker, RosterActions) {
-    Checker.init({{cmid}}, {{pollinterval}});
-    RosterActions.init({{cmid}});
-});
+require(['mod_examcheck/checker', 'mod_examcheck/roster_actions', 'mod_examcheck/roster_quickfilter'],
+    function(Checker, RosterActions, RosterQuickfilter) {
+        Checker.init({{cmid}}, {{pollinterval}});
+        RosterActions.init({{cmid}});
+        RosterQuickfilter.init({{cmid}});
+    }
+);
 {{/js}}
