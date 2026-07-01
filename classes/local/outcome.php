@@ -43,7 +43,7 @@ class outcome {
     public static function structure(): external_single_structure {
         return new external_single_structure([
             'status'      => new external_value(PARAM_ALPHA, 'Outcome: marked, conflict, notinroster, unmarked, '
-                . 'notchecked, notfound, needsconfirm or requirementnotmet.'),
+                . 'notchecked, notfound, needsconfirm, requirementnotmet or found.'),
             'message'     => new external_value(PARAM_TEXT, 'Localised message ready to show to the teacher.'),
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
@@ -118,6 +118,20 @@ class outcome {
 
             case 'notfound':
                 $response['message'] = get_string('result_notfound', 'mod_examcheck', $result['value'] ?? '');
+                break;
+
+            case 'found':
+                // Reading mode: no marking, just the student's name and check status on every step.
+                $response['userid'] = (int) ($result['userid'] ?? 0);
+                $statuses = array_map(fn($step) => get_string(
+                    $step['checked'] ? 'checkstatus_optionchecked' : 'checkstatus_optionnotchecked',
+                    'mod_examcheck',
+                    $step['name']
+                ), $result['steps'] ?? []);
+                $response['message'] = get_string('result_read', 'mod_examcheck', (object) [
+                    'user'     => $userlabel,
+                    'statuses' => implode(', ', $statuses),
+                ]);
                 break;
 
             case 'needsconfirm':

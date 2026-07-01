@@ -34,6 +34,20 @@ if ($ADMIN->fulltree) {
         \mod_examcheck\local\scanfield::get_field_menu()
     ));
 
+    // Default scanner mode for new scanning sessions. Purely a session-level
+    // control (see scan.php / scanner.mustache): there is no per-activity
+    // override and the choice is not persisted once the page is left.
+    $settings->add(new admin_setting_configselect(
+        'mod_examcheck/defaultscannermode',
+        get_string('defaultscannermode', 'mod_examcheck'),
+        get_string('defaultscannermode_desc', 'mod_examcheck'),
+        'scanning',
+        [
+            'scanning' => get_string('scannermodescanning', 'mod_examcheck'),
+            'reading'  => get_string('scannermodereading', 'mod_examcheck'),
+        ]
+    ));
+
     // Site-wide scan extraction pattern applied by every examcheck scanner.
     // The custom setting rejects a pattern that does not compile.
     $settings->add(new \mod_examcheck\admin\setting_scanregex(

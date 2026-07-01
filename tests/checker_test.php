@@ -241,6 +241,60 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Reading mode: lookup() resolves a scanned value to a student and reports
+     * their status on every step, without recording a mark.
+     */
+    public function test_lookup_returns_step_statuses_without_marking(): void {
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[2]->id, $this->teacher->id);
+
+        $result = $checker->lookup('idnumber', 'S2');
+
+        $this->assertSame('found', $result['status']);
+        $this->assertEquals($this->students[2]->id, $result['userid']);
+        $this->assertCount(1, $result['steps']);
+        $this->assertTrue($result['steps'][0]['checked']);
+        // A fresh instance seeds one step, so marking it doesn't add another.
+        $this->assertEquals(1, $this->countmarks());
+    }
+
+    /**
+     * lookup() reports the correct (unchecked) status for a student not yet marked.
+     */
+    public function test_lookup_unchecked_student(): void {
+        $checker = new checker($this->examcheck, $this->context);
+
+        $result = $checker->lookup('idnumber', 'S1');
+
+        $this->assertSame('found', $result['status']);
+        $this->assertFalse($result['steps'][0]['checked']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * lookup() applies the extraction regex the same way scan() does.
+     */
+    public function test_lookup_with_regex(): void {
+        $checker = new checker($this->examcheck, $this->context);
+
+        $result = $checker->lookup('idnumber', 'CARD;ID=S3;ISSUED=2026', 0, 'ID=(S\d+)');
+
+        $this->assertSame('found', $result['status']);
+        $this->assertEquals($this->students[3]->id, $result['userid']);
+    }
+
+    /**
+     * lookup() reports "not found" for an unknown value, same as scan().
+     */
+    public function test_lookup_not_found(): void {
+        $checker = new checker($this->examcheck, $this->context);
+
+        $result = $checker->lookup('idnumber', 'NOPE');
+
+        $this->assertSame('notfound', $result['status']);
+    }
+
+    /**
      * Progress counts only checked roster members for the group.
      */
     public function test_progress(): void {

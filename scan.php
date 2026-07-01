@@ -83,6 +83,13 @@ foreach (scanfield::get_field_menu() as $key => $label) {
     ];
 }
 
+// Session-only default: no per-activity override, and not persisted once the
+// page is left (see settings.php / classes/local/checker.php::lookup()).
+$scannermode = (string) get_config('mod_examcheck', 'defaultscannermode');
+if (!in_array($scannermode, ['scanning', 'reading'], true)) {
+    $scannermode = 'scanning';
+}
+
 $templatecontext = [
     'cmid'           => $cm->id,
     'groupid'        => $groupid,
@@ -91,6 +98,8 @@ $templatecontext = [
     'fields'         => $fieldoptions,
     'requireconfirm' => (bool) $examcheck->requireconfirm,
     'showcameraswitcher' => (bool) $examcheck->showcameraswitcher,
+    'modescanning'   => $scannermode === 'scanning',
+    'modereading'    => $scannermode === 'reading',
 ];
 
 echo $OUTPUT->header();

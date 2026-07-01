@@ -396,6 +396,48 @@ class checker {
     }
 
     /**
+     * Resolve a scanned value to a student without marking anything.
+     *
+     * Used by the scanner's "reading" mode: look the student up the same way
+     * {@see self::scan()} does, but return their name and checked status on
+     * every step instead of recording a mark.
+     *
+     * @param string $fieldkey The scan field key (see {@see scanfield}).
+     * @param string $value The raw scanned value.
+     * @param int $groupid Group context used to validate roster membership.
+     * @param string $regex Optional regex (no delimiters) to extract the value to match.
+     * @return array Result: notfound|found, plus user and per-step status data.
+     */
+    public function lookup(string $fieldkey, string $value, int $groupid = 0, string $regex = ''): array {
+        $needle = scanfield::apply_regex($regex, $value);
+        if ($needle === null || $needle === '') {
+            return ['status' => 'notfound', 'value' => trim($value)];
+        }
+
+        $rosterids = $this->get_roster_ids($groupid);
+        $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
+        if (!$userid) {
+            return ['status' => 'notfound', 'value' => trim($value)];
+        }
+
+        $marks = $this->get_marks();
+        $steps = [];
+        foreach (steps::get_steps($this->examcheck->id) as $step) {
+            $steps[] = [
+                'name'    => format_string($step->name, true, ['context' => $this->context]),
+                'checked' => isset($marks[(int) $step->id][$userid]),
+            ];
+        }
+
+        return [
+            'status' => 'found',
+            'userid' => $userid,
+            'user'   => self::user_label($userid),
+            'steps'  => $steps,
+        ];
+    }
+
+    /**
      * Count checked students per step for the given group, for progress display.
      *
      * @param int $groupid Group id, or 0 for all participants.
