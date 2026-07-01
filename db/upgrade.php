@@ -129,7 +129,12 @@ function xmldb_examcheck_upgrade($oldversion) {
 
         // Rename quizcmid to the generic requirementcmid, shared by both the quiz and
         // activity-completion requirement types (only one is ever active per step).
-        $quizcmid = new xmldb_field('quizcmid');
+        // rename_field() requires the field's full original spec (unlike field_exists()
+        // / drop_field(), which only need the name), or it throws "must contain full
+        // specs" — this must match quizcmid's old definition exactly.
+        $quizcmid = new xmldb_field(
+            'quizcmid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'requirementtype'
+        );
         if ($dbman->field_exists($table, $quizcmid)) {
             $dbman->rename_field($table, $quizcmid, 'requirementcmid');
         }
