@@ -79,8 +79,8 @@ the result into a completion condition you can use to gate other activities.
 
 ## Screenshots
 
-| Roster | Scanner | Manage steps |
-|---|---|---|
+| Roster                                | Scanner                                 | Manage steps                               |
+|---------------------------------------|-----------------------------------------|--------------------------------------------|
 | ![Roster](pix/screenshots/roster.png) | ![Scanner](pix/screenshots/scanner.png) | ![Manage steps](pix/screenshots/steps.png) |
 
 - **Roster** – tick students through every check step from any teacher's phone.
@@ -184,13 +184,13 @@ start the quiz.
 
 ## Capabilities
 
-| Capability | Default roles | Purpose |
-|---|---|---|
-| `mod/examcheck:addinstance` | editingteacher, manager | Add the activity |
-| `mod/examcheck:view` | teacher, editingteacher, manager | Open the dashboard / export |
-| `mod/examcheck:check` | teacher, editingteacher, manager | Record / remove checks (list + scanner) |
-| `mod/examcheck:override` | editingteacher, manager | Remove a mark made by another teacher |
-| `mod/examcheck:managesteps` | editingteacher, manager | Manage steps, clear checks |
+| Capability                  | Default roles                    | Purpose                                 |
+|-----------------------------|----------------------------------|-----------------------------------------|
+| `mod/examcheck:addinstance` | editingteacher, manager          | Add the activity                        |
+| `mod/examcheck:view`        | teacher, editingteacher, manager | Open the dashboard / export             |
+| `mod/examcheck:check`       | teacher, editingteacher, manager | Record / remove checks (list + scanner) |
+| `mod/examcheck:override`    | editingteacher, manager          | Remove a mark made by another teacher   |
+| `mod/examcheck:managesteps` | editingteacher, manager          | Manage steps, clear checks              |
 
 Students are **not** given access — the activity is teacher‑facing. The roster is
 every actively enrolled user who cannot themselves check students.
@@ -239,7 +239,7 @@ code triggers none.
 
 ## File layout
 
-```
+```text
 mod/examcheck/
 ├── amd/{src,build}/{checker,scanner}.js     AMD modules (source + built)
 ├── amd/{src,build}/zxingwasm.js             bundled zxing-wasm JS loader/glue
