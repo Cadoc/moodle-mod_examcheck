@@ -25,8 +25,11 @@ use core_table\dynamic as dynamic_table;
 use core_table\local\filter\filterset;
 use html_writer;
 use mod_examcheck\local\checker;
+use mod_examcheck\local\exemption_manager;
+use mod_examcheck\local\flag_manager;
 use mod_examcheck\local\scanfield;
 use mod_examcheck\local\steps;
+use mod_examcheck\local\uncheck_reason;
 use moodle_url;
 use stdClass;
 
@@ -76,6 +79,15 @@ class roster extends \table_sql implements dynamic_table {
     /** @var array<int, array<int, stdClass>> Marks indexed [stepid][userid]. */
     protected array $marks = [];
 
+    /** @var array<int, array<int, stdClass>> Exemptions indexed [stepid][userid]. */
+    protected array $exemptions = [];
+
+    /** @var array<int, stdClass[]> Flags indexed by userid. */
+    protected array $flags = [];
+
+    /** @var array<int, stdClass> Step records keyed by step id (includes uncheckmode). */
+    protected array $steprecords = [];
+
     /** @var int Effective group constraint: 0 = all, -1 = none, otherwise a group id. */
     protected int $effectivegroup = 0;
 
@@ -122,7 +134,12 @@ class roster extends \table_sql implements dynamic_table {
         $this->examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
         $this->checker = new checker($this->examcheck, $this->context);
         $this->steps = array_values(steps::get_steps((int) $this->examcheck->id));
-        $this->marks = $this->checker->get_marks();
+        $this->marks      = $this->checker->get_marks();
+        $this->exemptions = exemption_manager::get_exemptions_for_instance((int) $this->examcheck->id);
+        $this->flags      = flag_manager::get_flags_for_instance((int) $this->examcheck->id);
+        foreach ($this->steps as $step) {
+            $this->steprecords[(int) $step->id] = $step;
+        }
         // The scan match field (idnumber, userid or a custom profile field) gets its own column.
         $this->matchfield = (string) ($this->examcheck->scanfield ?: 'idnumber');
 
@@ -495,6 +512,20 @@ class roster extends \table_sql implements dynamic_table {
         $profileurl = new moodle_url('/user/view.php', ['id' => (int) $row->id, 'course' => $this->examcheck->course]);
         $name = html_writer::link($profileurl, fullname($row), ['class' => 'examcheck-studentname']);
 
+        $userflags = $this->flags[(int) $row->id] ?? [];
+        if (!empty($userflags) && has_capability('mod/examcheck:viewflags', $this->context)) {
+            $flaglabels = implode(', ', array_map(
+                fn(stdClass $f): string => flag_manager::get_type_label($f->flagtype),
+                $userflags
+            ));
+            $flagicon = html_writer::tag('i', '', [
+                'class'       => 'fa fa-flag text-danger ms-1',
+                'aria-hidden' => 'true',
+                'title'       => get_string('studentisflagged', 'mod_examcheck', $flaglabels),
+            ]);
+            return html_writer::tag('span', $picture . $name . $flagicon, ['class' => 'd-inline-flex align-items-center gap-2']);
+        }
+
         return html_writer::tag(
             'span',
             $picture . $name,
@@ -574,17 +605,43 @@ class roster extends \table_sql implements dynamic_table {
         ]);
         $srtext = html_writer::tag('span', $sr, ['class' => 'sr-only']);
 
+        $step            = $this->steprecords[$stepid] ?? null;
+        $uncheckmode     = (int) ($step->uncheckmode ?? 0);
+        $uncheckfreetext = (int) ($step->uncheckfreetext ?? 1);
+        $isexempt        = isset($this->exemptions[$stepid][$userid]);
+
+        if ($isexempt) {
+            $exemptlabel = get_string('exempt_studentisexempt', 'mod_examcheck');
+            $exicon  = html_writer::tag('i', '', ['class' => 'fa fa-minus-circle', 'aria-hidden' => 'true']);
+            $exsr    = html_writer::tag('span', $exemptlabel, ['class' => 'sr-only']);
+            return html_writer::tag('button', $exicon . $exsr, [
+                'type'         => 'button',
+                'class'        => 'btn examcheck-cell btn-outline-warning disabled',
+                'data-action'  => 'examcheck-toggle',
+                'data-stepid'  => $stepid,
+                'data-userid'  => $userid,
+                'data-checked' => '0',
+                'data-groupid' => max(0, $this->effectivegroup),
+                'data-exempt'  => '1',
+                'aria-pressed' => 'false',
+                'title'        => $exemptlabel,
+                'disabled'     => 'disabled',
+            ]);
+        }
+
         return html_writer::tag('button', $icon . $srtext, [
-            'type' => 'button',
-            'class' => 'btn examcheck-cell ' . ($checked ? 'btn-success' : 'btn-outline-secondary'),
-            'data-action' => 'examcheck-toggle',
-            'data-stepid' => $stepid,
-            'data-userid' => $userid,
-            'data-checked' => $checked ? '1' : '0',
+            'type'                 => 'button',
+            'class'                => 'btn examcheck-cell ' . ($checked ? 'btn-success' : 'btn-outline-secondary'),
+            'data-action'          => 'examcheck-toggle',
+            'data-stepid'          => $stepid,
+            'data-userid'          => $userid,
+            'data-checked'         => $checked ? '1' : '0',
             // The group the roster was rendered for, so marking/polling validates access correctly.
-            'data-groupid' => max(0, $this->effectivegroup),
-            'aria-pressed' => $checked ? 'true' : 'false',
-            'title' => $title,
+            'data-groupid'         => max(0, $this->effectivegroup),
+            'data-uncheckmode'     => $uncheckmode,
+            'data-uncheckfreetext' => $uncheckfreetext,
+            'aria-pressed'         => $checked ? 'true' : 'false',
+            'title'                => $title,
         ]);
     }
 
