@@ -139,6 +139,24 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
+     * scan_lookup distinguishes a value matching a real, unenrolled account
+     * from a value matching no account at all.
+     */
+    public function test_scan_lookup_not_enrolled_vs_not_found(): void {
+        $this->getDataGenerator()->create_user(['idnumber' => 'OUTSIDER']);
+
+        $result = scan_lookup::execute($this->examcheck->cmid, $this->stepid, 'idnumber', 'OUTSIDER', false, false, 0);
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('notenrolled', $result['status']);
+        $this->assertNotEmpty($result['message']);
+
+        $result = scan_lookup::execute($this->examcheck->cmid, $this->stepid, 'idnumber', 'NOPE', false, false, 0);
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('notfound', $result['status']);
+        $this->assertNotEmpty($result['message']);
+    }
+
+    /**
      * get_marks returns the current state and progress.
      */
     public function test_get_marks(): void {

@@ -44,7 +44,7 @@ class outcome {
     public static function structure(): external_single_structure {
         return new external_single_structure([
             'status'      => new external_value(PARAM_ALPHA, 'Outcome: marked, conflict, notinroster, unmarked, '
-                . 'notchecked, notfound, needsconfirm, requirementnotmet or found.'),
+                . 'notchecked, notfound, notenrolled, needsconfirm, requirementnotmet or found.'),
             'message'     => new external_value(PARAM_TEXT, 'Localised message ready to show to the teacher.'),
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
@@ -127,6 +127,10 @@ class outcome {
 
             case 'notfound':
                 $response['message'] = get_string('result_notfound', 'mod_examcheck', $result['value'] ?? '');
+                break;
+
+            case 'notenrolled':
+                $response['message'] = get_string('result_notenrolled', 'mod_examcheck', $result['value'] ?? '');
                 break;
 
             case 'found':

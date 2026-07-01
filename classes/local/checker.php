@@ -340,7 +340,7 @@ class checker {
      * @param int $checkedby The teacher recording the mark.
      * @param int $groupid Group context used to validate roster membership.
      * @param string $regex Optional regex (no delimiters) to extract the value to match.
-     * @return array Result: notfound|needsconfirm|marked|conflict, plus user data.
+     * @return array Result: notfound|notenrolled|needsconfirm|marked|conflict, plus user data.
      */
     public function scan(
         int $stepid,
@@ -365,6 +365,9 @@ class checker {
         $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
 
         if (!$userid) {
+            if (scanfield::find_user($fieldkey, $needle, null)) {
+                return ['status' => 'notenrolled', 'value' => trim($value)];
+            }
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
@@ -406,7 +409,7 @@ class checker {
      * @param string $value The raw scanned value.
      * @param int $groupid Group context used to validate roster membership.
      * @param string $regex Optional regex (no delimiters) to extract the value to match.
-     * @return array Result: notfound|found, plus user and per-step status data.
+     * @return array Result: notfound|notenrolled|found, plus user and per-step status data.
      */
     public function lookup(string $fieldkey, string $value, int $groupid = 0, string $regex = ''): array {
         $needle = scanfield::apply_regex($regex, $value);
@@ -417,6 +420,9 @@ class checker {
         $rosterids = $this->get_roster_ids($groupid);
         $userid = scanfield::find_user($fieldkey, $needle, $rosterids);
         if (!$userid) {
+            if (scanfield::find_user($fieldkey, $needle, null)) {
+                return ['status' => 'notenrolled', 'value' => trim($value)];
+            }
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 

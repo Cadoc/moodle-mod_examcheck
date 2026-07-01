@@ -128,31 +128,38 @@ class scanfield {
      *
      * @param string $fieldkey The scan field key.
      * @param string $value The raw value read from the QR code or barcode.
-     * @param int[] $candidateids User ids that are allowed to match (the roster).
+     * @param int[]|null $candidateids User ids that are allowed to match (the roster),
+     *        or null to search all users on the site with no restriction.
      * @return int The matching user id, or 0 when there is no unambiguous match.
      */
-    public static function find_user(string $fieldkey, string $value, array $candidateids): int {
+    public static function find_user(string $fieldkey, string $value, ?array $candidateids): int {
         global $DB;
 
         $value = trim($value);
-        if ($value === '' || empty($candidateids)) {
+        if ($value === '' || $candidateids === []) {
             return 0;
         }
 
-        [$insql, $inparams] = $DB->get_in_or_equal($candidateids, SQL_PARAMS_NAMED, 'cand');
+        if ($candidateids === null) {
+            $idclause = '';
+            $inparams = [];
+        } else {
+            [$insql, $inparams] = $DB->get_in_or_equal($candidateids, SQL_PARAMS_NAMED, 'cand');
+            $idclause = "id $insql AND ";
+        }
 
         if ($fieldkey === 'userid') {
             if (!ctype_digit($value)) {
                 return 0;
             }
             $params = $inparams + ['value' => (int) $value];
-            $found = $DB->get_fieldset_select('user', 'id', "id $insql AND id = :value", $params);
+            $found = $DB->get_fieldset_select('user', 'id', "{$idclause}id = :value", $params);
             return (count($found) === 1) ? (int) reset($found) : 0;
         }
 
         if ($fieldkey === 'idnumber') {
             $params = $inparams + ['value' => \core_text::strtolower($value)];
-            $sql = "id $insql AND " . $DB->sql_equal($DB->sql_compare_text('idnumber'), ':value', false, false);
+            $sql = $idclause . $DB->sql_equal($DB->sql_compare_text('idnumber'), ':value', false, false);
             $found = $DB->get_fieldset_sql("SELECT id FROM {user} WHERE $sql", $params);
             return (count($found) === 1) ? (int) reset($found) : 0;
         }
@@ -162,12 +169,12 @@ class scanfield {
             if (!$field = $DB->get_record('user_info_field', ['shortname' => $shortname], 'id')) {
                 return 0;
             }
+            $useridclause = $candidateids === null ? '' : "userid $insql AND ";
             $params = $inparams + ['fieldid' => $field->id, 'value' => \core_text::strtolower($value)];
             $sql = "SELECT userid
                       FROM {user_info_data}
                      WHERE fieldid = :fieldid
-                       AND userid $insql
-                       AND " . $DB->sql_equal($DB->sql_compare_text('data'), ':value', false, false);
+                       AND {$useridclause}" . $DB->sql_equal($DB->sql_compare_text('data'), ':value', false, false);
             $found = $DB->get_fieldset_sql($sql, $params);
             return (count($found) === 1) ? (int) reset($found) : 0;
         }

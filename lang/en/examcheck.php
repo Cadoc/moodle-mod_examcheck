@@ -157,6 +157,7 @@ $string['result_conflict'] = 'Already checked: {$a->user} was marked by {$a->by}
 $string['result_marked'] = '{$a} marked as checked.';
 $string['result_needsconfirm'] = 'Found {$a}. Confirm to mark them as checked.';
 $string['result_notchecked'] = '{$a} was not checked.';
+$string['result_notenrolled'] = 'A matching user account was found for "{$a}", but is not enrolled in this course.';
 $string['result_notfound'] = 'No student in this roster matches the scanned value "{$a}".';
 $string['result_notinroster'] = '{$a} is not in the selected group for this activity.';
 $string['result_read'] = '{$a->user}: {$a->statuses}';
