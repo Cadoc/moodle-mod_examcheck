@@ -163,5 +163,89 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026070102, 'examcheck');
     }
 
+    if ($oldversion < 2026070201) {
+        // Issue #16: uncheck documentation, student flags and step exemptions.
+        // Add per-step uncheck documentation settings to examcheck_steps.
+        $table = new xmldb_table('examcheck_steps');
+
+        $uncheckmode = new xmldb_field(
+            'uncheckmode', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'requirementcmid'
+        );
+        if (!$dbman->field_exists($table, $uncheckmode)) {
+            $dbman->add_field($table, $uncheckmode);
+        }
+
+        $uncheckfreetext = new xmldb_field(
+            'uncheckfreetext', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'uncheckmode'
+        );
+        if (!$dbman->field_exists($table, $uncheckfreetext)) {
+            $dbman->add_field($table, $uncheckfreetext);
+        }
+
+        // Add activity-level predefined reasons list to examcheck.
+        $examtable = new xmldb_table('examcheck');
+        $uncheckreasons = new xmldb_field(
+            'uncheckreasons', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null, 'requiresequential'
+        );
+        if (!$dbman->field_exists($examtable, $uncheckreasons)) {
+            $dbman->add_field($examtable, $uncheckreasons);
+            // Backfill existing rows with an empty string (means "use all defaults").
+            $DB->execute("UPDATE {examcheck} SET uncheckreasons = '' WHERE uncheckreasons IS NULL");
+        }
+
+        // New table: audit trail of uncheck actions with documented reasons.
+        $eventable = new xmldb_table('examcheck_uncheck_events');
+        $eventable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $eventable->add_field('examcheckid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $eventable->add_field('stepid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $eventable->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $eventable->add_field('actingby', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $eventable->add_field('reasonkey', XMLDB_TYPE_CHAR, '100', null, null);
+        $eventable->add_field('reasontext', XMLDB_TYPE_TEXT, null, null, null);
+        $eventable->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $eventable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $eventable->add_key('examcheckid', XMLDB_KEY_FOREIGN, ['examcheckid'], 'examcheck', ['id']);
+        $eventable->add_index('examcheckid-userid', XMLDB_INDEX_NOTUNIQUE, ['examcheckid', 'userid']);
+        $eventable->add_index('stepid-userid', XMLDB_INDEX_NOTUNIQUE, ['stepid', 'userid']);
+        if (!$dbman->table_exists($eventable)) {
+            $dbman->create_table($eventable);
+        }
+
+        // New table: per-student per-step exemptions.
+        $extable = new xmldb_table('examcheck_exemptions');
+        $extable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $extable->add_field('examcheckid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $extable->add_field('stepid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $extable->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $extable->add_field('reason', XMLDB_TYPE_TEXT, null, null, null);
+        $extable->add_field('exemptedby', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $extable->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $extable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $extable->add_key('examcheckid', XMLDB_KEY_FOREIGN, ['examcheckid'], 'examcheck', ['id']);
+        $extable->add_key('step-user', XMLDB_KEY_UNIQUE, ['stepid', 'userid']);
+        $extable->add_index('examcheckid-userid', XMLDB_INDEX_NOTUNIQUE, ['examcheckid', 'userid']);
+        if (!$dbman->table_exists($extable)) {
+            $dbman->create_table($extable);
+        }
+
+        // New table: per-student per-activity flags.
+        $flagtable = new xmldb_table('examcheck_flags');
+        $flagtable->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE);
+        $flagtable->add_field('examcheckid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $flagtable->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $flagtable->add_field('flagtype', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, 'other');
+        $flagtable->add_field('note', XMLDB_TYPE_TEXT, null, null, null);
+        $flagtable->add_field('flaggedby', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL);
+        $flagtable->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $flagtable->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $flagtable->add_key('examcheckid', XMLDB_KEY_FOREIGN, ['examcheckid'], 'examcheck', ['id']);
+        $flagtable->add_index('examcheckid-userid', XMLDB_INDEX_NOTUNIQUE, ['examcheckid', 'userid']);
+        if (!$dbman->table_exists($flagtable)) {
+            $dbman->create_table($flagtable);
+        }
+
+        upgrade_mod_savepoint(true, 2026070201, 'examcheck');
+    }
+
     return true;
 }
