@@ -50,6 +50,13 @@ class mod_examcheck_mod_form extends moodleform_mod {
 
         $this->standard_intro_elements();
 
+        // Attendance settings section.
+        $mform->addElement('header', 'attendanceheader', get_string('attendancesettings', 'mod_examcheck'));
+
+        $mform->addElement('selectyesno', 'requiresequential', get_string('requiresequential', 'mod_examcheck'));
+        $mform->setDefault('requiresequential', (int) get_config('mod_examcheck', 'defaultrequiresequential'));
+        $mform->addHelpButton('requiresequential', 'requiresequential', 'mod_examcheck');
+
         // Scanning defaults section.
         $mform->addElement('header', 'scanningheader', get_string('scanningsettings', 'mod_examcheck'));
 

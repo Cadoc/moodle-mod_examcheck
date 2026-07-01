@@ -48,6 +48,26 @@ class steps {
     }
 
     /**
+     * Return the step immediately before the given step in sortorder, if any.
+     *
+     * Used by the "require step-by-step completion" gate: the first step in the
+     * ordering has no predecessor and always returns null.
+     *
+     * @param int $examcheckid The instance id.
+     * @param int $stepid The step id to find the predecessor of.
+     * @return \stdClass|null The previous step record, or null when there isn't one.
+     */
+    public static function get_previous_step(int $examcheckid, int $stepid): ?\stdClass {
+        $ordered = array_values(self::get_steps($examcheckid));
+        foreach ($ordered as $index => $step) {
+            if ((int) $step->id === $stepid) {
+                return $index > 0 ? $ordered[$index - 1] : null;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Add a step to the end of the list.
      *
      * @param int $examcheckid The instance id.

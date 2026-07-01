@@ -138,6 +138,13 @@ class outcome {
                     ]);
                     break;
                 }
+                if ($reason === 'sequential') {
+                    $response['message'] = get_string('result_requirementnotmet_sequential', 'mod_examcheck', (object) [
+                        'user'         => $userlabel,
+                        'previousstep' => $result['previousstep'] ?? '',
+                    ]);
+                    break;
+                }
                 $args = (object) [
                     'user' => $userlabel,
                     'quiz' => $result['quiz'] ?? '',

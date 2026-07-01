@@ -33,6 +33,10 @@ the result into a completion condition you can use to gate other activities.
 - **Custom, ordered check steps.** Every activity starts with one *Attendance*
   step; add as many more as you like with your own names (*Identity verified*,
   *Copy submitted*, …) and reorder them.
+- **Require step-by-step completion.** An activity-wide *Attendance settings*
+  toggle that, when enabled, only lets a student be checked on a step once
+  they're already checked on the immediately preceding one. Combines with a
+  step's own requirement below — both must be satisfied.
 - **Shared, conflict‑safe marking.** A student can only be checked **once per
   step**. If a second teacher tries to check someone already checked, they get a
   clear message — *“Already checked: Jane Doe was marked by Mr Smith, 2 minutes

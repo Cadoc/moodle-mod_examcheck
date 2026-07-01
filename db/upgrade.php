@@ -137,5 +137,26 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026070101, 'examcheck');
     }
 
+    if ($oldversion < 2026070102) {
+        // Activity-wide "require step-by-step completion" setting: when on, a step
+        // can only be checked once the immediately preceding step is checked too.
+        $table = new xmldb_table('examcheck');
+        $field = new xmldb_field(
+            'requiresequential',
+            XMLDB_TYPE_INTEGER,
+            '2',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'completionstep'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026070102, 'examcheck');
+    }
+
     return true;
 }

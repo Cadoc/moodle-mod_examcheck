@@ -39,7 +39,7 @@ class backup_examcheck_activity_structure_step extends backup_activity_structure
         $examcheck = new backup_nested_element('examcheck', ['id'], [
             'name', 'intro', 'introformat',
             'scanfield', 'requireconfirm', 'enablescanner', 'showcameraswitcher',
-            'completionchecked', 'completionstep',
+            'completionchecked', 'completionstep', 'requiresequential',
             'timecreated', 'timemodified',
         ]);
 

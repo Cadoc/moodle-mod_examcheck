@@ -491,6 +491,115 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Marking a later step is blocked while the immediately preceding step has
+     * not been checked for that student, when step-by-step completion is required.
+     */
+    public function test_mark_blocked_when_previous_step_not_checked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('sequential', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking a later step succeeds once the immediately preceding step is checked.
+     */
+    public function test_mark_passes_when_previous_step_checked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+        $this->assertEquals(2, $this->countmarks());
+    }
+
+    /**
+     * The very first step has no predecessor, so it is never blocked by sequencing.
+     */
+    public function test_first_step_never_blocked_by_sequential(): void {
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+    }
+
+    /**
+     * With the setting off (the default), steps can still be checked in any order.
+     */
+    public function test_sequential_off_allows_any_order(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+    }
+
+    /**
+     * When both the sequential gate and the step's own custom requirement are
+     * unmet at once, the sequential failure takes priority: custom requirements
+     * build on top of sequencing, not the other way round.
+     */
+    public function test_sequential_checked_before_custom_requirement(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+        global $DB;
+        $gen = $this->getDataGenerator();
+        $quiz = $gen->create_module('quiz', ['course' => $this->course->id]);
+        $DB->update_record('examcheck_steps', (object) [
+            'id'              => $second,
+            'requirementtype' => 'quiz',
+            'requirementcmid' => (int) $quiz->cmid,
+            'timemodified'    => time(),
+        ]);
+        // Neither the previous step nor the quiz requirement are satisfied.
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('sequential', $result['reason']);
+    }
+
+    /**
+     * Unmarking an earlier step does not retroactively revoke a later step's
+     * existing mark: the gate only blocks future marking attempts.
+     */
+    public function test_unmark_previous_step_does_not_revoke_later_mark(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->enable_sequential();
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+        $this->assertEquals(2, $this->countmarks());
+
+        $checker->unmark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertNotFalse($checker->get_mark($second, $this->students[1]->id));
+        $this->assertEquals(1, $this->countmarks());
+    }
+
+    /**
+     * Enable "require step-by-step completion" on the instance under test.
+     */
+    protected function enable_sequential(): void {
+        global $DB;
+        $DB->set_field('examcheck', 'requiresequential', 1, ['id' => $this->examcheck->id]);
+        $this->examcheck->requiresequential = 1;
+    }
+
+    /**
      * Create a quiz in the course and wire the seeded step to require an attempt on it.
      *
      * @return \stdClass The quiz course-module record (with ->instance = quiz id, ->id = cmid).

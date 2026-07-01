@@ -258,6 +258,12 @@ class checker {
             return $this->conflict_result($existing, $userid);
         }
 
+        // Activity-wide "require step-by-step completion" gate, checked before the
+        // step's own requirement: custom requirements build on top of sequencing.
+        if ($failure = $this->validate_sequential($step, $userid)) {
+            return $failure;
+        }
+
         // Per-step "requirements for checking" gate. Returns null when the step has
         // no requirement configured; otherwise a requirementnotmet result describing why.
         if ($failure = $this->validate_requirement($step, $userid)) {
@@ -367,9 +373,12 @@ class checker {
             return $this->conflict_result($existing, $userid);
         }
 
-        // Fail fast on the gate so the teacher never sees a "Confirm" prompt for a
-        // student who will be refused. Same check fires again inside mark_user as a
+        // Fail fast on the gates so the teacher never sees a "Confirm" prompt for a
+        // student who will be refused. Same checks fire again inside mark_user as a
         // belt-and-braces — they're idempotent.
+        if ($failure = $this->validate_sequential($step, $userid)) {
+            return $failure;
+        }
         if ($failure = $this->validate_requirement($step, $userid)) {
             return $failure;
         }
@@ -432,6 +441,41 @@ class checker {
         if ($completion->is_enabled($cm) == COMPLETION_TRACKING_AUTOMATIC && !empty($this->examcheck->completionchecked)) {
             $completion->update_state($cm, COMPLETION_UNKNOWN, $userid);
         }
+    }
+
+    /**
+     * Enforce the activity-wide "require step-by-step completion" setting.
+     *
+     * When enabled, a step can only be checked once the immediately preceding
+     * step (by sortorder) is already checked for the same student. The first
+     * step has no predecessor and always passes. This gate only blocks new
+     * marking attempts; it never retroactively unmarks a later step if an
+     * earlier one is subsequently unmarked.
+     *
+     * @param stdClass $step The step record being checked.
+     * @param int $userid The student user id.
+     * @return array|null Requirementnotmet result (reason "sequential"), or null when the gate passes / is off.
+     */
+    protected function validate_sequential(stdClass $step, int $userid): ?array {
+        if (empty($this->examcheck->requiresequential)) {
+            return null;
+        }
+
+        $previous = steps::get_previous_step($this->examcheck->id, (int) $step->id);
+        if (!$previous) {
+            return null;
+        }
+
+        if (!$this->get_mark((int) $previous->id, $userid)) {
+            return [
+                'status'       => 'requirementnotmet',
+                'reason'       => 'sequential',
+                'user'         => self::user_label($userid),
+                'previousstep' => format_string($previous->name, true, ['context' => $this->context]),
+            ];
+        }
+
+        return null;
     }
 
     /**
