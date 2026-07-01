@@ -127,10 +127,20 @@ if ($mform->is_cancelled()) {
         $DB->get_record('examcheck_steps', ['id' => $data->stepid, 'examcheckid' => $examcheck->id], 'id', MUST_EXIST);
         steps::rename_step((int) $data->stepid, $data->name);
         steps::save_step_requirement((int) $data->stepid, $requirementtype, $requirementcmid);
+        steps::save_step_uncheck_settings(
+            (int) $data->stepid,
+            (int) ($data->uncheckmode ?? 0),
+            (int) ($data->uncheckfreetext ?? 1)
+        );
         redirect($baseurl, get_string('stepupdated', 'mod_examcheck'), null, notification::NOTIFY_SUCCESS);
     } else {
         $newid = steps::add_step($examcheck->id, $data->name);
         steps::save_step_requirement($newid, $requirementtype, $requirementcmid);
+        steps::save_step_uncheck_settings(
+            $newid,
+            (int) ($data->uncheckmode ?? 0),
+            (int) ($data->uncheckfreetext ?? 1)
+        );
         redirect($baseurl, get_string('stepadded', 'mod_examcheck'), null, notification::NOTIFY_SUCCESS);
     }
 }
@@ -147,7 +157,9 @@ if ($action === 'edit' && $stepid) {
         'name'            => $editing->name,
         'requirementtype' => $requirementtype,
         'quizcmid'        => $requirementtype === 'quiz' ? (int) ($editing->requirementcmid ?? 0) : 0,
-        'completioncmid'  => $requirementtype === 'completion' ? (int) ($editing->requirementcmid ?? 0) : 0,
+        'completioncmid'   => $requirementtype === 'completion' ? (int) ($editing->requirementcmid ?? 0) : 0,
+        'uncheckmode'      => (int) ($editing->uncheckmode ?? 0),
+        'uncheckfreetext'  => (int) ($editing->uncheckfreetext ?? 1),
     ]);
 } else {
     $mform->set_data(['id' => $cm->id, 'action' => 'add']);

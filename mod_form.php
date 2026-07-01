@@ -84,25 +84,29 @@ class mod_examcheck_mod_form extends moodleform_mod {
         $mform->addHelpButton('showcameraswitcher', 'showcameraswitcher', 'mod_examcheck');
         $mform->hideIf('showcameraswitcher', 'enablescanner', 'eq', 0);
 
-
-        // Uncheck documentation section.
-        $mform->addElement('header', 'uncheckheader', get_string('unchecksettings', 'mod_examcheck'));
-
-        $reasonoptions = \mod_examcheck\local\uncheck_reason::get_default_menu();
-        $mform->addElement(
-            'select',
-            'uncheckreasons',
-            get_string('uncheckreasons', 'mod_examcheck'),
-            $reasonoptions,
-            ['multiple' => true, 'size' => 7]
-        );
-        $mform->setType('uncheckreasons', PARAM_TEXT);
-        $mform->addHelpButton('uncheckreasons', 'uncheckreasons', 'mod_examcheck');
-
         // Standard course module elements (visibility, groups, etc.).
         $this->standard_coursemodule_elements();
 
         $this->add_action_buttons();
+    }
+
+
+    /**
+     * Pre-process the data loaded from the DB before it is set on the form.
+     *
+     * The uncheckreasons field is stored as a comma-separated string in the DB
+     * but the form element is a multi-select that expects an array.
+     *
+     * @param array $defaultvalues The values loaded from the DB, passed by reference.
+     */
+    public function data_preprocessing(&$defaultvalues) {
+        parent::data_preprocessing($defaultvalues);
+
+        if (isset($defaultvalues['uncheckreasons']) && is_string($defaultvalues['uncheckreasons'])) {
+            $defaultvalues['uncheckreasons'] = $defaultvalues['uncheckreasons'] !== ''
+                ? explode(',', $defaultvalues['uncheckreasons'])
+                : [];
+        }
     }
 
     /**

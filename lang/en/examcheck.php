@@ -197,6 +197,8 @@ $string['unmarkaction'] = 'Undo "{$a}"';
 $string['visiblecount'] = '{$a->visible} of {$a->total} shown';
 $string['withselectedstudents'] = 'With selected students';
 
+$string['unchecksettings'] = 'Uncheck documentation';
+
 // Uncheck reason dialog strings.
 \$string['uncheckdialog_cancel'] = 'Cancel';
 \$string['uncheckdialog_choosereason'] = '— Select a reason —';

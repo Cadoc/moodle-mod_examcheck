@@ -68,6 +68,7 @@ function examcheck_add_instance($data, $mform = null) {
     $data->timecreated = time();
     $data->timemodified = $data->timecreated;
     examcheck_prepare_completion_fields($data);
+    examcheck_prepare_uncheck_fields($data);
     $data->id = $DB->insert_record('examcheck', $data);
 
     // Every new instance starts with a single "Attendance" step. Teachers add more later.
@@ -89,8 +90,26 @@ function examcheck_update_instance($data, $mform = null) {
     $data->id = $data->instance;
     $data->timemodified = time();
     examcheck_prepare_completion_fields($data);
+    examcheck_prepare_uncheck_fields($data);
 
     return $DB->update_record('examcheck', $data);
+}
+
+/**
+ * Normalise the uncheck reasons multi-select into a comma-separated string for storage.
+ *
+ * The form returns an array when the user makes a selection; we store it as a
+ * comma-separated string. An empty selection stores as an empty string, which
+ * the plugin interprets as "use all default reasons".
+ *
+ * @param stdClass $data Form data, modified in place.
+ */
+function examcheck_prepare_uncheck_fields(stdClass $data): void {
+    if (isset($data->uncheckreasons) && is_array($data->uncheckreasons)) {
+        $data->uncheckreasons = implode(',', array_filter(array_map('trim', $data->uncheckreasons)));
+    } else {
+        $data->uncheckreasons = (string) ($data->uncheckreasons ?? '');
+    }
 }
 
 /**

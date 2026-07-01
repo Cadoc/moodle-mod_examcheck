@@ -607,7 +607,9 @@ class roster extends \table_sql implements dynamic_table {
 
         $step            = $this->steprecords[$stepid] ?? null;
         $uncheckmode     = (int) ($step->uncheckmode ?? 0);
-        $uncheckfreetext = (int) ($step->uncheckfreetext ?? 1);
+        $uncheckfreetext = (int) ($step->uncheckfreetext ?? 1)
+            && has_capability('mod/examcheck:uncheckfreetext', $this->context)
+            ? 1 : 0;
         $isexempt        = isset($this->exemptions[$stepid][$userid]);
 
         if ($isexempt) {

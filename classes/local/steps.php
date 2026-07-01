@@ -67,6 +67,20 @@ class steps {
         return null;
     }
 
+
+    /**
+     * Persist the uncheck documentation settings for a step.
+     *
+     * @param int $stepid       The step id.
+     * @param int $uncheckmode  0 = none, 1 = optional reason, 2 = mandatory reason.
+     * @param int $uncheckfreetext 1 = free-text entry allowed, 0 = predefined only.
+     */
+    public static function save_step_uncheck_settings(int $stepid, int $uncheckmode, int $uncheckfreetext): void {
+        global $DB;
+        $DB->set_field('examcheck_steps', 'uncheckmode',    max(0, min(2, $uncheckmode)),    ['id' => $stepid]);
+        $DB->set_field('examcheck_steps', 'uncheckfreetext', $uncheckfreetext ? 1 : 0,       ['id' => $stepid]);
+    }
+
     /**
      * Add a step to the end of the list.
      *

@@ -20,6 +20,7 @@ use core\output\renderer_base;
 use core\output\renderable;
 use core\output\templatable;
 use mod_examcheck\local\steps;
+use mod_examcheck\local\uncheck_reason;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
 use moodle_url;
@@ -75,8 +76,11 @@ class dashboard implements renderable, templatable {
         // back to the admin default explicitly rather than relying on null coalescing.
         $poll = get_config('mod_examcheck', 'pollinterval');
 
+        $reasons = uncheck_reason::get_for_instance($examcheck);
+
         return [
-            'cmid'         => $this->cmid,
+            'cmid'           => $this->cmid,
+            'uncheckreasons' => json_encode($reasons),
             'hassteps'     => $hassteps,
             'filter'       => $filterhtml,
             'table'        => $tablehtml,
