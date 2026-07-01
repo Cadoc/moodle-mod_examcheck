@@ -609,6 +609,11 @@ const handleOutcome = (outcome, value, requireConfirm) => {
             addToast(outcome.message, {type: 'warning'});
             resumeScanning();
             break;
+        case 'notenrolled':
+            // A real account matched the scanned value, but it isn't enrolled in this course.
+            addToast(outcome.message, {type: 'warning'});
+            resumeScanning();
+            break;
         case 'requirementnotmet':
             // Step's requirement gate refused: stay in scanning mode, don't mark.
             addToast(outcome.message, {type: 'danger'});

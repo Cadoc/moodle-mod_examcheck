@@ -225,6 +225,19 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Scanning a value that matches a real account not enrolled in the course
+     * is reported distinctly from an unknown value.
+     */
+    public function test_scan_matches_unenrolled_user(): void {
+        $checker = new checker($this->examcheck, $this->context);
+        $this->getDataGenerator()->create_user(['idnumber' => 'OUTSIDER']);
+
+        $result = $checker->scan($this->stepid, 'idnumber', 'OUTSIDER', false, false, $this->teacher->id);
+        $this->assertSame('notenrolled', $result['status']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
      * With confirmation required, a scan pauses for confirmation before marking.
      */
     public function test_scan_needs_confirm_then_marks(): void {
@@ -292,6 +305,19 @@ final class checker_test extends \advanced_testcase {
         $result = $checker->lookup('idnumber', 'NOPE');
 
         $this->assertSame('notfound', $result['status']);
+    }
+
+    /**
+     * lookup() reports "not enrolled" for a value that matches a real account
+     * outside the course, distinctly from an unknown value.
+     */
+    public function test_lookup_matches_unenrolled_user(): void {
+        $checker = new checker($this->examcheck, $this->context);
+        $this->getDataGenerator()->create_user(['idnumber' => 'OUTSIDER']);
+
+        $result = $checker->lookup('idnumber', 'OUTSIDER');
+
+        $this->assertSame('notenrolled', $result['status']);
     }
 
     /**
