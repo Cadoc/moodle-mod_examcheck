@@ -61,6 +61,7 @@ $string['completionstepsel'] = 'Step required for completion';
 $string['completionstepsel_help'] = 'Choose what completes the activity for a student. Select "All steps" to require the student to be checked on every step, or pick a single step (for example "Attendance") to complete the activity as soon as the student is checked on just that step.
 
 Because completion is recorded per student, you can use it as a prerequisite elsewhere — for example, requiring this activity to be complete before a quiz becomes available.';
+$string['confirm_step'] = 'Confirm: {$a}';
 $string['confirmclearstep'] = 'Remove all recorded checks for the step "{$a}"? The step itself is kept.';
 $string['confirmdeletestep'] = 'Delete the step "{$a}"? All checks recorded for this step will be permanently removed.';
 $string['confirmmark'] = 'Confirm and mark';
@@ -201,5 +202,6 @@ $string['stopcamera'] = 'Stop camera';
 $string['student'] = 'Student';
 $string['uncheck'] = 'Uncheck';
 $string['unmarkaction'] = 'Undo "{$a}"';
+$string['view_in_roster'] = 'View in roster';
 $string['visiblecount'] = '{$a->visible} of {$a->total} shown';
 $string['withselectedstudents'] = 'With selected students';

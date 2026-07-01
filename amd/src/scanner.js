@@ -31,6 +31,7 @@ import Ajax from 'core/ajax';
 import {add as addToast} from 'core/toast';
 import {getString} from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
+import ConfirmModal from "./confirm_modal";
 
 const DEDUPE_MS = 2500;
 const CAMERA_STORAGE_KEY = 'examcheck_scanner_camera';
@@ -107,12 +108,25 @@ let decodeCanvas = null; // Reusable canvas for frame capture.
 let decodeCtx = null;
 let zxingConfigured = false; // True once setZXingModuleOverrides has run.
 let scanning = false;
-let pending = null; // {value} awaiting confirmation.
 let lastValue = '';
 let lastValueTime = 0;
 let showCameraSwitcher = false;
 let selectedDeviceId = null; // Preferred camera deviceId, or null for the default (rear).
 let allowedFormats = FORMATS_ALL; // Symbologies the decode loop currently looks for.
+
+/**
+ * @typedef {Object} Outcome
+ * @property {String} status
+ * @property {String} message
+ * @property {Number} stepid
+ * @property {Number} userid
+ * @property {String} userlabel
+ * @property {String} userpicture
+ * @property {Number} checkedby
+ * @property {String} checkedbyname
+ * @property {Number} timecreated
+ * @property {String} ago
+ */
 
 /**
  * Initialise the scanner page.
@@ -144,7 +158,6 @@ export const init = (cmid, groupid, showcameraswitcher) => {
 const registerControls = () => {
     root.querySelector('[data-action="startcamera"]')?.addEventListener('click', startCamera);
     root.querySelector('[data-action="stopcamera"]')?.addEventListener('click', stopCamera);
-    root.querySelector('[data-action="confirm"]')?.addEventListener('click', confirmPending);
     root.querySelector('[data-action="next"]')?.addEventListener('click', resumeScanning);
     root.querySelector('[data-action="cancel"]')?.addEventListener('click', resumeScanning);
     root.querySelector('[data-region="cameraselect"]')?.addEventListener('change', (e) => switchCamera(e.target.value));
@@ -506,64 +519,40 @@ const process = (value) => {
 };
 
 /**
- * Act on the result of a scan lookup.
+ * Show the confirmation modal and mark the check step if confirmed.
  *
- * @param {Object} outcome The web service outcome.
- * @param {String} value The scanned value (kept for the confirm step).
- * @param {Boolean} requireConfirm Whether confirmation is required this session.
+ * @param {Outcome} outcome
+ * @param {String} scannedValue
+ * @returns {Promise<void>}
  */
-const handleOutcome = (outcome, value, requireConfirm) => {
-    switch (outcome.status) {
-        case 'found':
-            // Reading mode: name + per-step check status, no marking.
-            addToast(outcome.message, {type: 'info'});
-            resumeScanning();
-            break;
-        case 'needsconfirm':
-            addToast(outcome.message, {type: 'info'});
-            pending = {value};
-            showPending(outcome.userlabel);
-            break;
-        case 'marked':
-            addToast(outcome.message, {type: 'success'});
-            afterDefinitive(requireConfirm);
-            break;
-        case 'conflict':
-            addToast(outcome.message, {type: 'warning'});
-            afterDefinitive(requireConfirm);
-            break;
-        case 'notfound':
-            // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.
-            addToast(outcome.message, {type: 'warning'});
-            resumeScanning();
-            break;
-        case 'requirementnotmet':
-            // Step's requirement gate refused: stay in scanning mode, don't mark.
-            addToast(outcome.message, {type: 'danger'});
-            resumeScanning();
-            break;
-        default:
-            addToast(outcome.message, {type: 'info'});
-            resumeScanning();
-    }
-};
+const showConfirmationModal = async (outcome, scannedValue) => {
+    /** @var {ConfirmModal} modal */
+    const modal = await ConfirmModal.create({
+        templateContext: {
+            step_name: currentStepName(),
+            user_fullname: outcome.userlabel,
+            user_picture: outcome.userpicture,
+            scan_field_name: currentFieldName(),
+            scan_value: scannedValue,
+            roster_link: 'https://youtu.be/dQw4w9WgXcQ'
+        },
+    });
 
-/**
- * Confirm and mark the pending student.
- */
-const confirmPending = () => {
-    if (!pending) {
+    modal.show();
+
+    const confirmed = await modal.wasConfirmed();
+    if (!confirmed) {
+        resumeScanning();
         return;
     }
-    const value = pending.value;
-    pending = null;
+
     Ajax.call([{
         methodname: 'mod_examcheck_scan_lookup',
         args: {
             cmid: config.cmid,
             stepid: currentStep(),
             scanfield: currentField(),
-            value: value,
+            value: scannedValue,
             confirm: true,
             requireconfirm: true,
             groupid: config.groupid,
@@ -590,6 +579,48 @@ const confirmPending = () => {
 };
 
 /**
+ * Act on the result of a scan lookup.
+ *
+ * @param {Object} outcome The web service outcome.
+ * @param {String} value The scanned value (kept for the confirm step).
+ * @param {Boolean} requireConfirm Whether confirmation is required this session.
+ */
+const handleOutcome = (outcome, value, requireConfirm) => {
+    switch (outcome.status) {
+        case 'found':
+            // Reading mode: name + per-step check status, no marking.
+            addToast(outcome.message, {type: 'info'});
+            resumeScanning();
+            break;
+        case 'needsconfirm':
+            addToast(outcome.message, {type: 'info'});
+            showConfirmationModal(outcome, value);
+            break;
+        case 'marked':
+            addToast(outcome.message, {type: 'success'});
+            afterDefinitive(requireConfirm);
+            break;
+        case 'conflict':
+            addToast(outcome.message, {type: 'warning'});
+            afterDefinitive(requireConfirm);
+            break;
+        case 'notfound':
+            // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.
+            addToast(outcome.message, {type: 'warning'});
+            resumeScanning();
+            break;
+        case 'requirementnotmet':
+            // Step's requirement gate refused: stay in scanning mode, don't mark.
+            addToast(outcome.message, {type: 'danger'});
+            resumeScanning();
+            break;
+        default:
+            addToast(outcome.message, {type: 'info'});
+            resumeScanning();
+    }
+};
+
+/**
  * Behaviour after a definitive (marked/conflict) outcome.
  *
  * @param {Boolean} requireConfirm Whether the session waits for a click.
@@ -606,26 +637,9 @@ const afterDefinitive = (requireConfirm) => {
  * Resume scanning for the next student and reset the result panel.
  */
 const resumeScanning = () => {
-    pending = null;
-    toggle('[data-region="pending"]', false);
     toggle('[data-action="next"]', false);
     scanning = Boolean(mediaStream); // Only auto-scan when the camera is running.
 };
-
-/**
- * Show the pending student awaiting confirmation.
- *
- * @param {String} name The student's full name.
- */
-const showPending = (name) => {
-    const region = root.querySelector('[data-region="pending"] [data-region="pendingname"]');
-    if (region) {
-        region.textContent = name;
-    }
-    toggle('[data-region="pending"]', true);
-    toggle('[data-action="next"]', false);
-};
-
 /**
  * Show the "scan next" control and stop auto-scanning until clicked.
  */
@@ -685,9 +699,20 @@ const toggle = (selector, visible) => {
 const currentStep = () => parseInt(root.querySelector('[data-region="step"]').value, 10);
 
 /**
+ * @returns {String} The currently selected step name.
+ */
+const currentStepName = () => root.querySelector('[data-region="step"]').selectedOptions[0].text;
+
+
+/**
  * @returns {String} The currently selected scan field key.
  */
 const currentField = () => root.querySelector('[data-region="scanfield"]').value;
+
+/**
+ * @returns {String} The currently selected scan field name.
+ */
+const currentFieldName = () => root.querySelector('[data-region="scanfield"]').selectedOptions[0].text;
 
 /**
  * @returns {String} The current scanner mode, "scanning" or "reading".

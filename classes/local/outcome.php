@@ -18,6 +18,7 @@ namespace mod_examcheck\local;
 
 use core_external\external_single_structure;
 use core_external\external_value;
+use core_user;
 
 /**
  * Shared web service return structure for a check outcome.
@@ -48,6 +49,7 @@ class outcome {
             'stepid'      => new external_value(PARAM_INT, 'The step the outcome relates to.'),
             'userid'      => new external_value(PARAM_INT, 'The matched/affected student id, or 0 when none.', VALUE_DEFAULT, 0),
             'userlabel'   => new external_value(PARAM_TEXT, 'The student full name, when known.', VALUE_DEFAULT, ''),
+            'userpicture' => new external_value(PARAM_RAW_TRIMMED, 'The student profile picture HTML.', VALUE_DEFAULT, ''),
             'checkedby'   => new external_value(
                 PARAM_INT,
                 'For conflicts: the teacher who recorded the existing mark.',
@@ -71,6 +73,12 @@ class outcome {
     public static function format(array $result, int $stepid): array {
         $status = $result['status'];
         $userlabel = $result['user'] ?? '';
+        if (empty($result['userid'])) {
+            $userpicture = '';
+        } else {
+            global $OUTPUT;
+            $userpicture = $OUTPUT->user_picture(core_user::get_user($result['userid']), ['link' => false]);
+        }
 
         $response = [
             'status'        => $status,
@@ -78,6 +86,7 @@ class outcome {
             'stepid'        => $stepid,
             'userid'        => 0,
             'userlabel'     => $userlabel,
+            'userpicture'   => $userpicture,
             'checkedby'     => 0,
             'checkedbyname' => '',
             'timecreated'   => 0,
