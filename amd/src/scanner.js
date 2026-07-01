@@ -525,8 +525,8 @@ const handleOutcome = (outcome, value, requireConfirm) => {
             addToast(outcome.message, {type: 'warning'});
             resumeScanning();
             break;
-        case 'attemptmissing':
-            // Step's quiz-attempt gate refused: stay in scanning mode, don't mark.
+        case 'requirementnotmet':
+            // Step's requirement gate refused: stay in scanning mode, don't mark.
             addToast(outcome.message, {type: 'danger'});
             resumeScanning();
             break;
@@ -561,7 +561,7 @@ const confirmPending = () => {
             addToast(outcome.message, {type: 'success'});
         } else if (outcome.status === 'conflict') {
             addToast(outcome.message, {type: 'warning'});
-        } else if (outcome.status === 'attemptmissing') {
+        } else if (outcome.status === 'requirementnotmet') {
             // Defensive: scan() fails fast before needsconfirm, so we should never get
             // here for the gate — but if a step is reconfigured mid-session it could.
             addToast(outcome.message, {type: 'danger'});

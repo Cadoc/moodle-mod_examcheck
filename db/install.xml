@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/examcheck/db" VERSION="20260603" COMMENT="XMLDB file for Moodle mod/examcheck"
+<XMLDB PATH="mod/examcheck/db" VERSION="20260701" COMMENT="XMLDB file for Moodle mod/examcheck"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -30,8 +30,8 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="requirequizattempt" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, marking this step requires the student to have a finished quiz attempt and no in-progress attempt on the linked quiz."/>
-        <FIELD NAME="quizcmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Course module id of the quiz this step validates against, when requirequizattempt is on."/>
+        <FIELD NAME="requirementtype" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="none" SEQUENCE="false" COMMENT="Requirement gating checks on this step: none, quiz (submitted quiz attempt) or completion (activity completion)."/>
+        <FIELD NAME="requirementcmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Course module id the requirement checks against: the quiz (requirementtype=quiz) or the activity (requirementtype=completion)."/>
         <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>

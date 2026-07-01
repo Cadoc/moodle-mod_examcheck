@@ -72,17 +72,20 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
         $oldid = $data->id;
         $data->examcheckid = $this->get_new_parentid('examcheck');
 
-        // Remap the quiz cmid to its restored counterpart. Clear the gate when the
-        // target quiz is not part of this restore so we never carry a dangling cmid.
-        if (!empty($data->requirequizattempt) && !empty($data->quizcmid)) {
-            $newcmid = $this->get_mappingid('course_module', (int) $data->quizcmid);
-            $data->quizcmid = $newcmid ?: null;
-            if (empty($data->quizcmid)) {
-                $data->requirequizattempt = 0;
+        $data->requirementtype = $data->requirementtype ?? 'none';
+        $data->requirementcmid = $data->requirementcmid ?? null;
+
+        if (in_array($data->requirementtype, ['quiz', 'completion'], true) && !empty($data->requirementcmid)) {
+            // Remap the linked cmid to its restored counterpart. Clear the requirement
+            // when the target activity is not part of this restore so we never carry a
+            // dangling cmid.
+            $newcmid = $this->get_mappingid('course_module', (int) $data->requirementcmid);
+            $data->requirementcmid = $newcmid ?: null;
+            if (empty($data->requirementcmid)) {
+                $data->requirementtype = 'none';
             }
-        } else {
-            $data->quizcmid = $data->quizcmid ?? null;
-            $data->requirequizattempt = $data->requirequizattempt ?? 0;
+        } else if (!in_array($data->requirementtype, ['quiz', 'completion'], true)) {
+            $data->requirementtype = 'none';
         }
 
         $newitemid = $DB->insert_record('examcheck_steps', $data);

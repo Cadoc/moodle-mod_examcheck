@@ -96,23 +96,29 @@ class steps {
     }
 
     /**
-     * Persist a step's "requires a submitted quiz attempt" configuration.
+     * Persist a step's "requirements for checking" configuration.
      *
-     * When the gate is off, the quiz cmid is forced to null so we never carry
-     * a stale link that would surface as a "missing quiz" misconfiguration.
+     * The requirement type and its linked course module are mutually exclusive.
+     * When the type is "none", the cmid is forced to null so we never carry a
+     * stale link that would surface as a misconfiguration if the type is later
+     * switched back on.
      *
      * @param int $stepid The step id.
-     * @param bool $require Whether marking the step requires a quiz attempt.
-     * @param int|null $quizcmid The course module id of the quiz to validate against.
+     * @param string $requirementtype One of "none", "quiz" or "completion".
+     * @param int|null $requirementcmid The course module id the requirement checks against.
      */
-    public static function save_step_quiz_requirement(int $stepid, bool $require, ?int $quizcmid): void {
+    public static function save_step_requirement(int $stepid, string $requirementtype, ?int $requirementcmid): void {
         global $DB;
 
+        if (!in_array($requirementtype, ['none', 'quiz', 'completion'], true)) {
+            $requirementtype = 'none';
+        }
+
         $DB->update_record('examcheck_steps', (object) [
-            'id'                 => $stepid,
-            'requirequizattempt' => $require ? 1 : 0,
-            'quizcmid'           => $require ? $quizcmid : null,
-            'timemodified'       => time(),
+            'id'              => $stepid,
+            'requirementtype' => $requirementtype,
+            'requirementcmid' => $requirementtype === 'none' ? null : $requirementcmid,
+            'timemodified'    => time(),
         ]);
     }
 

@@ -258,9 +258,9 @@ class checker {
             return $this->conflict_result($existing, $userid);
         }
 
-        // Per-step "submitted quiz attempt" gate. Returns null when the step has
-        // no gate configured; otherwise an attemptmissing result describing why.
-        if ($failure = $this->validate_quiz_attempt($step, $userid)) {
+        // Per-step "requirements for checking" gate. Returns null when the step has
+        // no requirement configured; otherwise a requirementnotmet result describing why.
+        if ($failure = $this->validate_requirement($step, $userid)) {
             return $failure;
         }
 
@@ -370,7 +370,7 @@ class checker {
         // Fail fast on the gate so the teacher never sees a "Confirm" prompt for a
         // student who will be refused. Same check fires again inside mark_user as a
         // belt-and-braces — they're idempotent.
-        if ($failure = $this->validate_quiz_attempt($step, $userid)) {
+        if ($failure = $this->validate_requirement($step, $userid)) {
             return $failure;
         }
 
@@ -435,30 +435,49 @@ class checker {
     }
 
     /**
-     * Enforce the optional "submitted quiz attempt" gate on a step.
+     * Enforce the optional "requirements for checking" gate on a step.
      *
-     * Returns null when the step has no gate configured, or an attemptmissing
-     * result array describing why the student does not qualify yet. The reason
-     * code drives the localised message in {@see outcome::format()}:
+     * Returns null when the step has no requirement configured (or an unknown
+     * type), or a requirementnotmet result array describing why the student
+     * does not qualify yet.
      *
-     * - misconfigured: gate enabled but no quiz picked.
-     * - missingquiz:   the configured quiz cmid no longer resolves (deleted).
-     * - inprogress:    the student still has an attempt in progress / overdue.
-     * - nosubmission:  no finished (submitted) attempt for the student.
-     *
-     * @param stdClass $step The step record (must include requirequizattempt and quizcmid).
+     * @param stdClass $step The step record (must include requirementtype and requirementcmid).
      * @param int $userid The student user id.
-     * @return array|null Attemptmissing result, or null when the gate passes / is off.
+     * @return array|null Requirementnotmet result, or null when the gate passes / is off.
      */
-    protected function validate_quiz_attempt(stdClass $step, int $userid): ?array {
+    protected function validate_requirement(stdClass $step, int $userid): ?array {
+        switch ($step->requirementtype ?? 'none') {
+            case 'quiz':
+                return $this->validate_quiz_requirement($step, $userid);
+            case 'completion':
+                return $this->validate_completion_requirement($step, $userid);
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Enforce the "submitted quiz attempt" requirement type. This restriction is
+     * fixed and not customisable: no attempt currently in progress, and at least
+     * one finished (submitted) attempt.
+     *
+     * The reason code drives the localised message in {@see outcome::format()}:
+     *
+     * - misconfigured:  requirement enabled but no quiz picked.
+     * - missingactivity: the configured quiz cmid no longer resolves (deleted).
+     * - inprogress:     the student still has an attempt in progress / overdue.
+     * - nosubmission:   no finished (submitted) attempt for the student.
+     *
+     * @param stdClass $step The step record (must include requirementcmid).
+     * @param int $userid The student user id.
+     * @return array|null Requirementnotmet result, or null when the requirement passes.
+     */
+    protected function validate_quiz_requirement(stdClass $step, int $userid): ?array {
         global $DB;
 
-        if (empty($step->requirequizattempt)) {
-            return null;
-        }
-        if (empty($step->quizcmid)) {
+        if (empty($step->requirementcmid)) {
             return [
-                'status' => 'attemptmissing',
+                'status' => 'requirementnotmet',
                 'reason' => 'misconfigured',
                 'user'   => self::user_label($userid),
             ];
@@ -470,15 +489,15 @@ class checker {
         // depending on a quiz from another course.
         $cm = get_coursemodule_from_id(
             'quiz',
-            (int) $step->quizcmid,
+            (int) $step->requirementcmid,
             (int) $this->examcheck->course,
             false,
             IGNORE_MISSING
         );
         if (!$cm) {
             return [
-                'status' => 'attemptmissing',
-                'reason' => 'missingquiz',
+                'status' => 'requirementnotmet',
+                'reason' => 'missingactivity',
                 'user'   => self::user_label($userid),
             ];
         }
@@ -504,7 +523,7 @@ class checker {
         $quizname = format_string($cm->name, true, ['context' => $this->context]);
         if ($inprogress > 0) {
             return [
-                'status' => 'attemptmissing',
+                'status' => 'requirementnotmet',
                 'reason' => 'inprogress',
                 'user'   => self::user_label($userid),
                 'quiz'   => $quizname,
@@ -512,12 +531,79 @@ class checker {
         }
         if ($submitted === 0) {
             return [
-                'status' => 'attemptmissing',
+                'status' => 'requirementnotmet',
                 'reason' => 'nosubmission',
                 'user'   => self::user_label($userid),
                 'quiz'   => $quizname,
             ];
         }
+        return null;
+    }
+
+    /**
+     * Enforce the "activity completion" requirement type: the student being
+     * checked must have completion recorded for the chosen activity.
+     *
+     * Completion is looked up for the student passed in $userid — the one about
+     * to be checked — never the invigilator performing the check. Passing 0 to
+     * completion_info::get_data() would silently default to the current $USER,
+     * so $userid must always be supplied explicitly here.
+     *
+     * @param stdClass $step The step record (must include requirementcmid).
+     * @param int $userid The student user id being checked.
+     * @return array|null Requirementnotmet result, or null when the requirement passes.
+     */
+    protected function validate_completion_requirement(stdClass $step, int $userid): ?array {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        if (empty($step->requirementcmid)) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        // Cross-course guard, same rationale as the quiz requirement above: any
+        // activity type is allowed, so pass null for modname to accept them all.
+        $cm = get_coursemodule_from_id(
+            null,
+            (int) $step->requirementcmid,
+            (int) $this->examcheck->course,
+            false,
+            IGNORE_MISSING
+        );
+        if (!$cm) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'missingactivity',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        $course = get_course($this->examcheck->course);
+        $completion = new \completion_info($course);
+        if ($completion->is_enabled($cm) == COMPLETION_TRACKING_NONE) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'nocompletion',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        // Explicit $userid: this must be the student being checked, not whoever is
+        // currently logged in and performing the check.
+        $data = $completion->get_data($cm, false, $userid);
+        if ((int) $data->completionstate === COMPLETION_INCOMPLETE) {
+            return [
+                'status'   => 'requirementnotmet',
+                'reason'   => 'incomplete',
+                'user'     => self::user_label($userid),
+                'activity' => format_string($cm->name, true, ['context' => $this->context]),
+            ];
+        }
+
         return null;
     }
 

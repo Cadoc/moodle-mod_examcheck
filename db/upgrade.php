@@ -101,5 +101,41 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026060306, 'examcheck');
     }
 
+    if ($oldversion < 2026070101) {
+        // Generalise the per-step quiz-attempt gate into a "requirements for checking"
+        // type, so a step can instead require completion of any other course activity.
+        $table = new xmldb_table('examcheck_steps');
+
+        $requirementtype = new xmldb_field(
+            'requirementtype',
+            XMLDB_TYPE_CHAR,
+            '20',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            'none',
+            'name'
+        );
+        if (!$dbman->field_exists($table, $requirementtype)) {
+            $dbman->add_field($table, $requirementtype);
+        }
+
+        // Migrate the old boolean gate into the new type before dropping it.
+        $requirequizattempt = new xmldb_field('requirequizattempt');
+        if ($dbman->field_exists($table, $requirequizattempt)) {
+            $DB->execute("UPDATE {examcheck_steps} SET requirementtype = 'quiz' WHERE requirequizattempt = 1");
+            $dbman->drop_field($table, $requirequizattempt);
+        }
+
+        // Rename quizcmid to the generic requirementcmid, shared by both the quiz and
+        // activity-completion requirement types (only one is ever active per step).
+        $quizcmid = new xmldb_field('quizcmid');
+        if ($dbman->field_exists($table, $quizcmid)) {
+            $dbman->rename_field($table, $quizcmid, 'requirementcmid');
+        }
+
+        upgrade_mod_savepoint(true, 2026070101, 'examcheck');
+    }
+
     return true;
 }

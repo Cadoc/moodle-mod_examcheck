@@ -63,12 +63,15 @@ the result into a completion condition you can use to gate other activities.
   they're checked on **all steps** *or* on **one specific step**. Because
   completion is per student, you can require it elsewhere — e.g. *“Attendance
   must be complete before the quiz opens.”*
-- **Quiz‑attempt gate per step.** A step can require the student to have
-  submitted at least one attempt to a chosen course quiz (and have no attempt
-  left in progress) before they can be marked. Useful for an *Exam copy
-  submitted* step backed by a real Moodle quiz: the dashboard, the scanner and
-  the bulk check action all refuse to tick the student off until their quiz
-  attempt is actually `finished`, and show a clear red message instead.
+- **Requirements for checking, per step.** Optionally gate a step behind one
+  of two conditions before a student can be marked: a **submitted quiz
+  attempt** (fixed rule — no attempt in progress, and at least one finished
+  attempt on a chosen course quiz; useful for an *Exam copy submitted* step
+  backed by a real Moodle quiz), or **activity completion** (the student must
+  have completion recorded on any other chosen activity in the course). The
+  dashboard, the scanner and the bulk check action all refuse to tick the
+  student off until their own requirement is satisfied, and show a clear red
+  message instead.
 - **Search & filter.** Filter the roster by name / ID number and show only
   not‑yet‑checked students.
 - **Export.** Download the roster with every step's status, who checked each
@@ -88,8 +91,8 @@ the result into a completion condition you can use to gate other activities.
 - **Scanner** – read a QR/barcode from the student card with the camera.
   Manual entry works for keyboard‑wedge scanners too.
 - **Manage steps** – add, rename and reorder steps; optionally make a step
-  require a submitted attempt on a course quiz before the student can be
-  checked.
+  require a submitted quiz attempt, or completion of another activity, before
+  the student can be checked.
 
 ## Installation
 
@@ -123,11 +126,20 @@ The activity is created with a single **Attendance** step.
 From the dashboard choose **Manage steps** (needs `mod/examcheck:managesteps`)
 to add, rename, reorder or delete steps, and to clear recorded checks.
 
-When editing a step you can optionally tick **Require a submitted quiz
-attempt** and pick a course quiz. With that on, every mark path — the
-dashboard toggle, the scanner (camera and manual entry) and the bulk‑check
-action — will refuse to mark a student who hasn't actually submitted an
-attempt yet, or who still has one in progress. The teacher sees a clear red
+When editing a step you can optionally set **Requirements for checking** to
+one of:
+
+- **Submitted quiz attempt** — pick a course quiz. This restriction isn't
+  customisable: the student must have no attempt in progress, and at least
+  one finished (submitted) attempt.
+- **Activity completion** — pick any other activity in the course. The
+  student being checked must have completion recorded on that activity (the
+  invigilator's own completion is never relevant — it's always checked
+  against the student being marked).
+
+With either on, every mark path — the dashboard toggle, the scanner (camera
+and manual entry) and the bulk‑check action — will refuse to mark a student
+who doesn't yet satisfy the requirement. The teacher sees a clear red
 message; the cell stays untouched.
 
 ### Check students (dashboard)

@@ -110,22 +110,27 @@ if ($action === 'resetall') {
 
 // Add / rename form. The same form is used on the management page (add mode) and on
 // the dedicated edit page (edit mode); the branch below switches between them.
-$mform = new step_form($baseurl, ['courseid' => $course->id]);
+$mform = new step_form($baseurl, ['courseid' => $course->id, 'cmid' => $cm->id]);
 if ($mform->is_cancelled()) {
     redirect($baseurl);
 } else if ($data = $mform->get_data()) {
-    $require = !empty($data->requirequizattempt);
-    $quizcmid = $require ? ((int) ($data->quizcmid ?? 0) ?: null) : null;
+    $requirementtype = in_array($data->requirementtype, ['quiz', 'completion'], true) ? $data->requirementtype : 'none';
+    $requirementcmid = null;
+    if ($requirementtype === 'quiz') {
+        $requirementcmid = (int) ($data->quizcmid ?? 0) ?: null;
+    } else if ($requirementtype === 'completion') {
+        $requirementcmid = (int) ($data->completioncmid ?? 0) ?: null;
+    }
 
     if (!empty($data->stepid)) {
         // Confirm the step belongs to this instance before renaming.
         $DB->get_record('examcheck_steps', ['id' => $data->stepid, 'examcheckid' => $examcheck->id], 'id', MUST_EXIST);
         steps::rename_step((int) $data->stepid, $data->name);
-        steps::save_step_quiz_requirement((int) $data->stepid, $require, $quizcmid);
+        steps::save_step_requirement((int) $data->stepid, $requirementtype, $requirementcmid);
         redirect($baseurl, get_string('stepupdated', 'mod_examcheck'), null, notification::NOTIFY_SUCCESS);
     } else {
         $newid = steps::add_step($examcheck->id, $data->name);
-        steps::save_step_quiz_requirement($newid, $require, $quizcmid);
+        steps::save_step_requirement($newid, $requirementtype, $requirementcmid);
         redirect($baseurl, get_string('stepadded', 'mod_examcheck'), null, notification::NOTIFY_SUCCESS);
     }
 }
@@ -134,13 +139,15 @@ if ($mform->is_cancelled()) {
 $editing = null;
 if ($action === 'edit' && $stepid) {
     $editing = $DB->get_record('examcheck_steps', ['id' => $stepid, 'examcheckid' => $examcheck->id], '*', MUST_EXIST);
+    $requirementtype = $editing->requirementtype ?? 'none';
     $mform->set_data([
-        'id'                 => $cm->id,
-        'stepid'             => $editing->id,
-        'action'             => 'edit',
-        'name'               => $editing->name,
-        'requirequizattempt' => (int) ($editing->requirequizattempt ?? 0),
-        'quizcmid'           => (int) ($editing->quizcmid ?? 0),
+        'id'              => $cm->id,
+        'stepid'          => $editing->id,
+        'action'          => 'edit',
+        'name'            => $editing->name,
+        'requirementtype' => $requirementtype,
+        'quizcmid'        => $requirementtype === 'quiz' ? (int) ($editing->requirementcmid ?? 0) : 0,
+        'completioncmid'  => $requirementtype === 'completion' ? (int) ($editing->requirementcmid ?? 0) : 0,
     ]);
 } else {
     $mform->set_data(['id' => $cm->id, 'action' => 'add']);

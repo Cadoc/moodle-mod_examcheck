@@ -85,7 +85,7 @@ class bulk_action extends external_api {
                     case 'conflict':
                         $conflicts++;
                         break;
-                    case 'attemptmissing':
+                    case 'requirementnotmet':
                         $failed++;
                         break;
                     case 'notinroster':
@@ -154,7 +154,10 @@ class bulk_action extends external_api {
             'conflicts'   => new external_value(PARAM_INT, 'Already checked by someone else (mark only)'),
             'skipped'     => new external_value(PARAM_INT, 'Skipped (e.g. not checked, or override denied)'),
             'notinroster' => new external_value(PARAM_INT, 'Not on the roster for this group'),
-            'failed'      => new external_value(PARAM_INT, 'Blocked by per-step requirements (e.g. quiz attempt gate)'),
+            'failed'      => new external_value(
+                PARAM_INT,
+                'Blocked by per-step requirements (e.g. quiz attempt or activity completion gate)'
+            ),
             'total'       => new external_value(PARAM_INT, 'Number of students requested'),
             'message'     => new external_value(PARAM_TEXT, 'Localised summary message'),
         ]);
