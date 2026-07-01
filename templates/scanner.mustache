@@ -58,6 +58,16 @@
                         </select>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label" for="examcheck-codetype">{{#str}}scancodetype, mod_examcheck{{/str}}</label>
+                        <select id="examcheck-codetype" class="form-select" data-region="codetype">
+                            <option value="all" selected>{{#str}}scancodetypeall, mod_examcheck{{/str}}</option>
+                            <option value="2d">{{#str}}scancodetype2d, mod_examcheck{{/str}}</option>
+                            <option value="1d">{{#str}}scancodetype1d, mod_examcheck{{/str}}</option>
+                        </select>
+                        <div class="form-text">{{#str}}scancodetype_desc, mod_examcheck{{/str}}</div>
+                    </div>
+
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="examcheck-confirm"
                             data-action="requireconfirm" {{#requireconfirm}}checked{{/requireconfirm}}>

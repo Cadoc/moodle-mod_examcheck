@@ -50,19 +50,36 @@ const DECODE_MAX_DIMENSION = 1280;
 // common 2D and 1D codes printed on student / library cards. zxing-wasm
 // supports more (Telepen, DXFilmEdge, GS1 DataBar Stacked, …) but enabling
 // rarely-used formats just slows the decoder down without changing outcomes.
+const FORMATS_2D = ['QRCode', 'MicroQRCode', 'RMQRCode', 'DataMatrix', 'Aztec', 'PDF417', 'MaxiCode'];
+const FORMATS_1D = [
+    'Code128', 'Code39', 'Code93', 'Codabar', 'ITF', 'ITF14',
+    'EAN13', 'EAN8', 'UPCA', 'UPCE',
+    'DataBar', 'DataBarExp',
+];
+const FORMATS_ALL = [...FORMATS_2D, ...FORMATS_1D];
+
 const READER_OPTIONS = {
-    formats: [
-        'QRCode', 'MicroQRCode', 'RMQRCode',
-        'DataMatrix', 'Aztec', 'PDF417', 'MaxiCode',
-        'Code128', 'Code39', 'Code93', 'Codabar', 'ITF', 'ITF14',
-        'EAN13', 'EAN8', 'UPCA', 'UPCE',
-        'DataBar', 'DataBarExp',
-    ],
     tryHarder: true,
     tryRotate: true,
     tryInvert: true,
     tryDownscale: true,
     maxNumberOfSymbols: 1,
+};
+
+/**
+ * Resolve the "Code type" session control's value to a formats list.
+ *
+ * @param {String} value One of 'all', '2d', '1d'.
+ * @returns {String[]} The zxing-wasm format names to look for.
+ */
+const formatsForCodeType = (value) => {
+    if (value === '2d') {
+        return FORMATS_2D;
+    }
+    if (value === '1d') {
+        return FORMATS_1D;
+    }
+    return FORMATS_ALL;
 };
 
 // Resolve the zxing-wasm library across module-interop shapes, falling back to the
@@ -95,6 +112,7 @@ let lastValue = '';
 let lastValueTime = 0;
 let showCameraSwitcher = false;
 let selectedDeviceId = null; // Preferred camera deviceId, or null for the default (rear).
+let allowedFormats = FORMATS_ALL; // Symbologies the decode loop currently looks for.
 
 /**
  * Initialise the scanner page.
@@ -130,6 +148,9 @@ const registerControls = () => {
     root.querySelector('[data-action="next"]')?.addEventListener('click', resumeScanning);
     root.querySelector('[data-action="cancel"]')?.addEventListener('click', resumeScanning);
     root.querySelector('[data-region="cameraselect"]')?.addEventListener('change', (e) => switchCamera(e.target.value));
+    root.querySelector('[data-region="codetype"]')?.addEventListener('change', (e) => {
+        allowedFormats = formatsForCodeType(e.target.value);
+    });
 
     const form = root.querySelector('[data-region="manualform"]');
     form?.addEventListener('submit', (e) => {
@@ -416,7 +437,7 @@ const startDecodeLoop = (video) => {
         decodeBusy = true;
         try {
             const imageData = grabFrame(video);
-            const results = await zxinglib.readBarcodes(imageData, READER_OPTIONS);
+            const results = await zxinglib.readBarcodes(imageData, {...READER_OPTIONS, formats: allowedFormats});
             if (results && results.length && scanning) {
                 process(results[0].text);
             }
