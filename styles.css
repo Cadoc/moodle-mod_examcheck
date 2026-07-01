@@ -46,3 +46,8 @@
 .mod_examcheck-scanner .examcheck-pendingname {
     word-break: break-word;
 }
+
+/* Quick search: hide non-matching rows (composes with roster_quickfilter's hidden attribute). */
+.examcheck-search-hidden {
+    display: none;
+}

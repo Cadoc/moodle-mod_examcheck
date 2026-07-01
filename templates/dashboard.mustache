@@ -55,8 +55,11 @@
     {{/hassteps}}
 </div>
 {{#js}}
-require(['mod_examcheck/checker', 'mod_examcheck/roster_actions'], function(Checker, RosterActions) {
-    Checker.init({{cmid}}, {{pollinterval}});
-    RosterActions.init({{cmid}});
-});
+require(['mod_examcheck/checker', 'mod_examcheck/roster_actions', 'mod_examcheck/roster_quicksearch'],
+    function(Checker, RosterActions, RosterQuicksearch) {
+        Checker.init({{cmid}}, {{pollinterval}});
+        RosterActions.init({{cmid}});
+        RosterQuicksearch.init({{cmid}});
+    }
+);
 {{/js}}

@@ -138,6 +138,7 @@ $string['privacy:metadata:examcheck_marks:stepid'] = 'The check step the mark be
 $string['privacy:metadata:examcheck_marks:timecreated'] = 'The time the check was recorded.';
 $string['privacy:metadata:examcheck_marks:userid'] = 'The student who was checked.';
 $string['progresscount'] = '{$a->done} of {$a->total} checked';
+$string['quicksearchplaceholder'] = 'Search students…';
 $string['quizactivity'] = 'Quiz activity';
 $string['quizactivity_help'] = 'The quiz this step verifies. This restriction is not customisable: the student must have no attempt in progress, and a minimum of one completed (submitted) attempt, before they can be marked on this step.';
 $string['requireconfirm'] = 'Confirm before marking';
