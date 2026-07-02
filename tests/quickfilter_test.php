@@ -60,20 +60,57 @@ final class quickfilter_test extends \advanced_testcase {
             $html,
             'The quickfilter mount point must be present in the dashboard template.'
         );
+    }
 
-        // The AMD module must be initialised from the {{#js}} block.
+    /**
+     * The dashboard template's {{#js}} block must require and initialise
+     * mod_examcheck/roster_quickfilter.
+     *
+     * This reads the raw .mustache source file directly rather than the
+     * rendered HTML string, because Moodle extracts {{#js}} block content out
+     * of render_from_template()'s return value into $PAGE->requires rather
+     * than leaving it as literal text in the returned HTML — asserting
+     * against the rendered string would not reliably catch this.
+     */
+    public function test_dashboard_template_requires_roster_quickfilter_module(): void {
+        $path = \core_component::get_component_directory('mod_examcheck') . '/templates/dashboard.mustache';
+        $this->assertFileExists($path, 'dashboard.mustache must exist.');
+
+        $source = file_get_contents($path);
+
         $this->assertStringContainsString(
-            'mod_examcheck/roster_quickfilter',
-            $html,
-            'roster_quickfilter must be required in the dashboard JS block.'
+            "'mod_examcheck/roster_quickfilter'",
+            $source,
+            'roster_quickfilter must be listed in the dashboard require() call.'
         );
-
-        // roster_filter.js is always wired (it drives the datafilter bar),
-        // even though the quickfilter piggy-backs on its custom event.
         $this->assertStringContainsString(
-            'mod_examcheck/roster_filter',
-            $html,
-            'roster_filter must be required by roster_quickfilter for its Events export.'
+            'RosterQuickfilter.init(',
+            $source,
+            'roster_quickfilter must be initialised with the course module id.'
+        );
+    }
+
+    /**
+     * roster_filter.mustache (the datafilter bar partial, included into the
+     * dashboard via {{{filter}}}) must still require mod_examcheck/roster_filter
+     * and initialise it — roster_quickfilter.js listens for the custom event
+     * that module dispatches.
+     */
+    public function test_roster_filter_template_requires_roster_filter_module(): void {
+        $path = \core_component::get_component_directory('mod_examcheck') . '/templates/roster_filter.mustache';
+        $this->assertFileExists($path, 'roster_filter.mustache must exist.');
+
+        $source = file_get_contents($path);
+
+        $this->assertStringContainsString(
+            "'mod_examcheck/roster_filter'",
+            $source,
+            'roster_filter must be required in roster_filter.mustache.'
+        );
+        $this->assertStringContainsString(
+            'RosterFilter.init(',
+            $source,
+            'roster_filter must be initialised in roster_filter.mustache.'
         );
     }
 

@@ -19,12 +19,55 @@ use Behat\Gherkin\Node\TableNode;
 /**
  * Behat step definitions for mod_examcheck.
  *
+ * The core datafilter interaction steps below were written against the actual
+ * markup in core (lib/templates/datafilter/*.mustache and
+ * lib/amd/src/datafilter.js), not guessed: the "Add condition" button
+ * (data-filteraction="add") appends a filter row containing a real
+ * <select data-filterfield="type"> populated from the filtertypes passed to
+ * the template; choosing an option there is what reveals the value picker in
+ * that row's [data-filterregion="value"]. Applying uses
+ * button[data-filteraction="apply"] (type=submit); clearing a single row uses
+ * button[data-filteraction="remove"] inside that row; clearing everything
+ * uses button[data-filteraction="reset"].
+ *
  * @package    mod_examcheck
  * @category   test
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_mod_examcheck extends behat_base {
+
+    /**
+     * Create a check step directly via the plugin's business logic, bypassing
+     * the manage.php UI entirely.
+     *
+     * This avoids relying on Moodle's generic "the following '$component >
+     * $entity' exist" generator step resolving correctly to this plugin's
+     * create_step() method, which could not be verified without a full
+     * Moodle install to run Behat against.
+     *
+     * @Given the following mod_examcheck steps exist:
+     *
+     * @param \Behat\Gherkin\Node\TableNode $data Table with columns: examcheck, name.
+     *                                             "examcheck" must match the idnumber of an
+     *                                             existing mod_examcheck course module.
+     */
+    public function the_following_examcheck_steps_exist(TableNode $data): void {
+        global $DB;
+
+        foreach ($data->getHash() as $row) {
+            if (!isset($row['examcheck'], $row['name'])) {
+                throw new \Behat\Behat\Tester\Exception\PendingException(
+                    'The "mod_examcheck steps" table requires "examcheck" and "name" columns.'
+                );
+            }
+
+            $cm = $DB->get_record('course_modules', ['idnumber' => $row['examcheck']], '*', MUST_EXIST);
+            $examcheckid = (int) $cm->instance;
+
+            \mod_examcheck\local\steps::add_step($examcheckid, $row['name']);
+        }
+    }
 
     /**
      * Mark a named student as checked on the named step by clicking their
@@ -39,15 +82,6 @@ class behat_mod_examcheck extends behat_base {
         $session = $this->getSession();
         $page    = $session->getPage();
 
-        // Find the roster row by student name.
-        $namelink = $page->find('css', '.examcheck-studentname');
-        if (!$namelink) {
-            throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'student name link', 'css', '.examcheck-studentname'
-            );
-        }
-
-        // Find all student rows and locate the one matching the student name.
         $rows = $page->findAll('css', '.examcheck-roster tbody tr');
         $targetrow = null;
         foreach ($rows as $row) {
@@ -64,8 +98,6 @@ class behat_mod_examcheck extends behat_base {
             );
         }
 
-        // Find the toggle button for the named step. The button title contains
-        // the step name (via markaction or checkedbyon strings).
         $buttons = $targetrow->findAll('css', '[data-action="examcheck-toggle"]');
         $button  = null;
         foreach ($buttons as $btn) {
@@ -76,7 +108,6 @@ class behat_mod_examcheck extends behat_base {
         }
 
         if (!$button) {
-            // Fall back: click the first unchecked toggle in the row.
             foreach ($buttons as $btn) {
                 if ($btn->getAttribute('data-checked') === '0') {
                     $button = $btn;
@@ -92,130 +123,108 @@ class behat_mod_examcheck extends behat_base {
         }
 
         $button->click();
-
-        // Wait for the AJAX response and any confirmation modal to resolve.
         $this->getSession()->wait(2000, "document.querySelector('[data-action=\"examcheck-toggle\"]') !== null");
     }
 
     /**
-     * Apply a named check status filter chip via the datafilter bar.
+     * Apply a "check status" filter chip for a given step and status via the
+     * real core datafilter UI: click "Add condition", choose "Check status"
+     * in the new row's type select, then select the matching value option
+     * and click Apply.
      *
-     * @When I apply the :optionlabel check status filter in the roster
+     * @When I apply the :stepname check status filter set to :status in the roster
      *
-     * @param string $optionlabel The visible label of the filter option (e.g. "Attendance: not checked").
+     * @param string $stepname Name of the step (e.g. "Attendance").
+     * @param string $status   Either "checked" or "not checked".
      */
-    public function i_apply_check_status_filter(string $optionlabel): void {
+    public function i_apply_check_status_filter(string $stepname, string $status): void {
         $session = $this->getSession();
         $page    = $session->getPage();
 
-        // Open the "Add filter" dropdown in the datafilter bar.
-        $addfilter = $page->find('css', '[data-filterregion="filteroptions"] button, .datafilter .btn');
-        if (!$addfilter) {
+        $dashboard = $page->find('css', '[data-region="examcheck-dashboard"]');
+        if (!$dashboard) {
             throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'Add filter button', 'css', '[data-filterregion="filteroptions"] button'
+                $session, 'examcheck dashboard', 'css', '[data-region="examcheck-dashboard"]'
             );
         }
-        $addfilter->click();
 
-        // Wait for the dropdown to open and click the "Check status" option.
-        $this->getSession()->wait(1000);
-
-        $checkstatuslink = $page->find('xpath',
-            '//a[contains(., "' . get_string('checkstatus', 'mod_examcheck') . '")]'
-            . '|//button[contains(., "' . get_string('checkstatus', 'mod_examcheck') . '")]'
-        );
-        if (!$checkstatuslink) {
+        // "Add condition" appends a new [data-filterregion="filter"] row.
+        $existingrows = count($dashboard->findAll('css', '[data-filterregion="filter"]'));
+        $addbutton = $dashboard->find('css', '[data-filteraction="add"]');
+        if (!$addbutton) {
             throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'Check status filter option', 'text', get_string('checkstatus', 'mod_examcheck')
+                $session, 'Add condition button', 'css', '[data-filteraction="add"]'
             );
         }
-        $checkstatuslink->click();
+        $addbutton->click();
+        $this->getSession()->wait(1000, sprintf(
+            "document.querySelectorAll('[data-filterregion=\"filter\"]').length > %d", $existingrows
+        ));
 
+        // The newest row is the one we just added.
+        $rows = $dashboard->findAll('css', '[data-filterregion="filter"]');
+        $newrow = end($rows);
+
+        $typeselect = $newrow->find('css', 'select[data-filterfield="type"]');
+        if (!$typeselect) {
+            throw new \Behat\Mink\Exception\ElementNotFoundException(
+                $session, 'filter type select', 'css', 'select[data-filterfield="type"]'
+            );
+        }
+        $typeselect->selectOption(get_string('checkstatus', 'mod_examcheck'));
         $this->getSession()->wait(1000);
 
-        // Select the specific option (e.g. "Attendance: not checked").
-        $option = $page->find('xpath', '//option[contains(., "' . $optionlabel . '")]');
+        // Selecting the type populates [data-filterregion="value"] with the value picker.
+        $statuskey = ($status === 'checked') ? 'checkstatus_optionchecked' : 'checkstatus_optionnotchecked';
+        $optionlabel = get_string($statuskey, 'mod_examcheck', $stepname);
+
+        $valueregion = $newrow->find('css', '[data-filterregion="value"]');
+        if (!$valueregion) {
+            throw new \Behat\Mink\Exception\ElementNotFoundException(
+                $session, 'filter value region', 'css', '[data-filterregion="value"]'
+            );
+        }
+
+        // The value picker may render as a native <select> (multiple) or as a
+        // core/form/autocomplete widget backed by a hidden <select>; try the
+        // visible option element first, which covers both by matching the
+        // option text inside whichever control is present.
+        $option = $valueregion->find('xpath', './/option[contains(., "' . $optionlabel . '")]');
         if (!$option) {
             throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'filter option', 'text', $optionlabel
+                $session, 'filter value option', 'text', $optionlabel
             );
         }
         $option->click();
 
-        // Click the Apply button.
-        $apply = $page->find('css', '[data-filterregion="filter"] [data-action="filter-add"],'
-            . '[data-filteraction="save"]');
-        if ($apply) {
-            $apply->click();
+        $applybutton = $dashboard->find('css', '[data-filteraction="apply"]');
+        if (!$applybutton) {
+            throw new \Behat\Mink\Exception\ElementNotFoundException(
+                $session, 'Apply filters button', 'css', '[data-filteraction="apply"]'
+            );
         }
+        $applybutton->click();
 
-        // Wait for the dynamic table to reload.
-        $this->getSession()->wait(3000,
-            "document.querySelector('.examcheck-roster tbody tr') !== null"
-        );
+        $this->getSession()->wait(3000, "document.querySelector('.examcheck-roster tbody tr') !== null");
     }
 
     /**
-     * Search for a term using the datafilter keyword chip.
+     * Remove every active filter via the single "Clear filters" reset button.
      *
-     * @When I search for :term in the roster keyword filter
-     *
-     * @param string $term The search term.
+     * @When I clear all roster filters
      */
-    public function i_search_keyword_in_roster(string $term): void {
+    public function i_clear_all_roster_filters(): void {
         $session = $this->getSession();
         $page    = $session->getPage();
 
-        $addfilter = $page->find('css', '[data-filterregion="filteroptions"] button');
-        if (!$addfilter) {
+        $resetbutton = $page->find('css', '[data-region="examcheck-dashboard"] [data-filteraction="reset"]');
+        if (!$resetbutton) {
             throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'Add filter button', 'css', '[data-filterregion="filteroptions"] button'
+                $session, 'Clear filters button', 'css', '[data-filteraction="reset"]'
             );
         }
-        $addfilter->click();
-        $this->getSession()->wait(500);
+        $resetbutton->click();
 
-        $keywordlink = $page->find('xpath',
-            '//a[contains(., "' . get_string('searchstudents', 'mod_examcheck') . '")]'
-        );
-        if ($keywordlink) {
-            $keywordlink->click();
-            $this->getSession()->wait(500);
-        }
-
-        $input = $page->find('css', '[data-filterregion="filter"] input[type="text"]');
-        if (!$input) {
-            throw new \Behat\Mink\Exception\ElementNotFoundException(
-                $session, 'keyword filter input', 'css', 'input[type="text"]'
-            );
-        }
-        $input->setValue($term);
-        $input->keyPress("\n");
-
-        $this->getSession()->wait(3000,
-            "document.querySelector('.examcheck-roster tbody tr') !== null"
-        );
-    }
-
-    /**
-     * Remove all active check status filter chips from the datafilter bar.
-     *
-     * @When I remove all check status filter chips from the roster
-     */
-    public function i_remove_all_checkstatus_chips(): void {
-        $page = $this->getSession()->getPage();
-
-        $chips = $page->findAll('css',
-            '[data-filterregion="filter"][data-filter-type="checkstatus"] [data-filteraction="remove"],'
-            . '[data-filterregion="filter"][data-filter-type="checkstatus"] [data-action="remove"]'
-        );
-
-        foreach ($chips as $chip) {
-            $chip->click();
-            $this->getSession()->wait(1000);
-        }
-
-        // Wait for the dynamic table to reload after the last chip is removed.
         $this->getSession()->wait(2000);
     }
 
