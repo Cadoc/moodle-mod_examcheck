@@ -16,9 +16,17 @@
 /**
  * Quick search input for the checking roster.
  *
- * Adds an always-visible text input next to the quick-filter buttons (see
- * roster_quickfilter) that narrows the visible rows as the invigilator types,
- * without requiring a page reload or interaction with the datafilter chip bar.
+ * Adds an always-visible text input above the roster table that narrows the
+ * visible rows as the invigilator types, without requiring a page reload or
+ * interaction with the datafilter chip bar.
+ *
+ * This module is self-sufficient: it mounts into the shared
+ * `[data-region="examcheck-quickfilter"]` container used by roster_quickfilter
+ * (see issue #10) when that container is present, so the search box sits neatly
+ * alongside the quick-filter tabs. When that container is absent — i.e. this
+ * module is deployed on its own, in either merge order — it creates its own
+ * container in the same position (immediately before the roster form) so the
+ * feature works correctly whether or not roster_quickfilter is installed.
  *
  * Matching is client-side and case-insensitive. The search term is tested
  * against the text content of every non-step cell in a row (student name,
@@ -52,12 +60,16 @@ let currentTerm = '';
  */
 export const init = async (cmid) => {
     const root = document.querySelector(`[data-region="examcheck-dashboard"][data-cmid="${cmid}"]`);
-    const container = root ? root.querySelector('[data-region="examcheck-quickfilter"]') : null;
-    if (!root || !container) {
+    if (!root) {
         return;
     }
 
     try {
+        const container = getOrCreateContainer(root);
+        if (!container) {
+            return;
+        }
+
         const placeholder = await getString('quicksearchplaceholder', 'mod_examcheck');
         buildInput(container, placeholder);
         bindInput(container, root);
@@ -69,6 +81,36 @@ export const init = async (cmid) => {
     } catch (e) {
         Notification.exception(e);
     }
+};
+
+/**
+ * Find the shared quickfilter container (see roster_quickfilter, issue #10) or
+ * create a standalone one in the same position if it does not exist.
+ *
+ * Inserting before the roster form matches the position roster_quickfilter
+ * uses when it renders its own container via the dashboard template, so the
+ * layout is identical regardless of which module created the container.
+ *
+ * @param {HTMLElement} root The dashboard region.
+ * @returns {HTMLElement|null} The container element, or null if no anchor was found.
+ */
+const getOrCreateContainer = (root) => {
+    const existing = root.querySelector('[data-region="examcheck-quickfilter"]');
+    if (existing) {
+        return existing;
+    }
+
+    const form = root.querySelector('#examcheck-rosterform');
+    if (!form) {
+        // No stable anchor found (e.g. the activity has no steps yet); nothing to mount into.
+        return null;
+    }
+
+    const container = document.createElement('div');
+    container.dataset.region = 'examcheck-quickfilter';
+    container.className = 'd-flex align-items-center mb-2';
+    form.parentNode.insertBefore(container, form);
+    return container;
 };
 
 /**
