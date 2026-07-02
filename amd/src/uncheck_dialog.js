@@ -25,12 +25,17 @@
  * Resolves with {reasonkey, reasontext} when confirmed, or rejects when
  * cancelled. The caller is responsible for calling the unmark web service.
  *
+ * Uses ModalSaveCancel.create() directly rather than the removed
+ * core/modal_factory module (ModalFactory.create({type: ...}) no longer
+ * exists in current Moodle core; each modal subclass now exposes its own
+ * static create()).
+ *
  * @module     mod_examcheck/uncheck_dialog
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import ModalFactory from 'core/modal_factory';
+import ModalSaveCancel from 'core/modal_save_cancel';
 import ModalEvents from 'core/modal_events';
 import Templates from 'core/templates';
 import {get_strings as getStrings} from 'core/str';
@@ -45,10 +50,9 @@ import Notification from 'core/notification';
  * @returns {Promise<{reasonkey: string, reasontext: string}>} Resolves on confirm, rejects on cancel.
  */
 export const show = async (reasons, allowFreetext, mandatory) => {
-    const [title, confirmLabel, cancelLabel, mandatoryError] = await getStrings([
+    const [title, confirmLabel, mandatoryError] = await getStrings([
         {key: 'uncheckdialog_title',         component: 'mod_examcheck'},
         {key: 'uncheckdialog_confirm',        component: 'mod_examcheck'},
-        {key: 'uncheckdialog_cancel',         component: 'mod_examcheck'},
         {key: 'uncheckdialog_reasonrequired', component: 'mod_examcheck'},
     ]);
 
@@ -62,10 +66,9 @@ export const show = async (reasons, allowFreetext, mandatory) => {
     const bodyHtml = await Templates.render('mod_examcheck/uncheck_dialog', templateContext);
 
     return new Promise((resolve, reject) => {
-        ModalFactory.create({
-            type:  ModalFactory.types.SAVE_CANCEL,
+        ModalSaveCancel.create({
             title,
-            body:  bodyHtml,
+            body: bodyHtml,
         })
             .then((modal) => {
                 modal.setSaveButtonText(confirmLabel);
@@ -73,9 +76,9 @@ export const show = async (reasons, allowFreetext, mandatory) => {
                 modal.getRoot().on(ModalEvents.save, (e) => {
                     e.preventDefault();
 
-                    const body      = modal.getRoot()[0].querySelector('.modal-body');
-                    const select    = body.querySelector('[data-region="examcheck-reason-select"]');
-                    const textarea  = body.querySelector('[data-region="examcheck-reason-text"]');
+                    const body       = modal.getRoot()[0].querySelector('.modal-body');
+                    const select     = body.querySelector('[data-region="examcheck-reason-select"]');
+                    const textarea   = body.querySelector('[data-region="examcheck-reason-text"]');
                     const reasonkey  = select ? select.value : '';
                     const reasontext = textarea ? textarea.value.trim() : '';
 
@@ -106,8 +109,8 @@ export const show = async (reasons, allowFreetext, mandatory) => {
 /**
  * Show an inline error message inside the dialog body.
  *
- * @param {HTMLElement} body      The dialog body element.
- * @param {string}      message   The error message to display.
+ * @param {HTMLElement} body    The dialog body element.
+ * @param {string}      message The error message to display.
  */
 const showError = (body, message) => {
     let alert = body.querySelector('.examcheck-dialog-error');

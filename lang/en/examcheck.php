@@ -61,6 +61,7 @@ $string['completionstepsel'] = 'Step required for completion';
 $string['completionstepsel_help'] = 'Choose what completes the activity for a student. Select "All steps" to require the student to be checked on every step, or pick a single step (for example "Attendance") to complete the activity as soon as the student is checked on just that step.
 
 Because completion is recorded per student, you can use it as a prerequisite elsewhere — for example, requiring this activity to be complete before a quiz becomes available.';
+$string['confirm_step'] = 'Confirm: {$a}';
 $string['confirmclearstep'] = 'Remove all recorded checks for the step "{$a}"? The step itself is kept.';
 $string['confirmdeletestep'] = 'Delete the step "{$a}"? All checks recorded for this step will be permanently removed.';
 $string['confirmmark'] = 'Confirm and mark';
@@ -74,6 +75,8 @@ $string['defaultrequiresequential'] = 'Require step-by-step completion by defaul
 $string['defaultrequiresequential_desc'] = 'Whether new exam check activities require students to be checked on steps in order by default.';
 $string['defaultscanfield'] = 'Default scan match field';
 $string['defaultscanfield_desc'] = 'The scan match field selected by default when a teacher creates a new exam check activity.';
+$string['defaultscannermode'] = 'Default scanner mode';
+$string['defaultscannermode_desc'] = 'The scanner mode (Scanning or Reading) selected by default each time a teacher opens the scanner page. Teachers can still switch modes for their own session; the choice is not remembered after the page is left or reloaded.';
 $string['defaultscanregex'] = 'Scan extraction pattern';
 $string['defaultscanregex_desc'] = 'A regular expression (without delimiters) applied by every exam check scanner on this site to extract the part of a scanned QR/barcode value to match against the scan field. The first capturing group is used, or the whole match if there is no group. For example, if a card scans as "U=12345678;LIB=987", the pattern "(\d{8})" extracts "12345678". Leave empty to match the whole scanned value.';
 $string['defaultshowcameraswitcher'] = 'Show camera switcher by default';
@@ -85,9 +88,13 @@ $string['editstepfor'] = 'Edit step: {$a}';
 $string['enablescanner'] = 'Enable scanner';
 $string['enablescanner_help'] = 'When enabled, teachers can open the camera/barcode scanner from the activity to check students. When disabled, the scanner is hidden and cannot be opened; the list and bulk actions on the dashboard still work.';
 $string['error_alreadychecked'] = 'This student has already been checked for this step.';
+$string['error_invalidflagtype'] = 'The flag type provided is not valid.';
+
+// Privacy metadata for new tables.
 $string['error_invalidregex'] = 'This is not a valid regular expression.';
 $string['error_nosteps'] = 'This activity has no check steps yet. Add a step first.';
 $string['error_overridedenied'] = 'This mark was recorded by another teacher and you do not have permission to change it.';
+$string['error_uncheckdenied'] = 'You do not have permission to remove this check.';
 $string['eventusermarked'] = 'Student marked as checked';
 $string['eventuserunmarked'] = 'Student check removed';
 $string['examcheck:addinstance'] = 'Add a new exam check activity';
@@ -95,12 +102,28 @@ $string['examcheck:check'] = 'Record and remove checks against students';
 $string['examcheck:managesteps'] = 'Manage the check steps of an exam check activity';
 $string['examcheck:override'] = 'Override or remove a mark recorded by another teacher';
 $string['examcheck:view'] = 'View the exam check dashboard';
+$string['exempt_grant'] = 'Grant exemption';
+$string['exempt_help'] = 'An exempted student is excused from this step (e.g. a student with a disability who follows a different entry procedure). Exempted steps are shown with a distinct indicator in the roster.';
+
+// Capability-related error strings.
+$string['exempt_reason'] = 'Reason for exemption';
+$string['exempt_revoke'] = 'Revoke exemption';
+$string['exempt_studentisexempt'] = 'Exempt';
 $string['export'] = 'Export';
 $string['exportas'] = 'Export as';
 $string['exportfilename'] = 'examcheck';
 $string['field_idnumber'] = 'ID number';
 $string['field_profile'] = 'Profile field: {$a}';
 $string['field_userid'] = 'User id (internal)';
+$string['flag_addflag'] = 'Add flag';
+$string['flag_note'] = 'Flag note';
+$string['flag_removeflag'] = 'Remove flag';
+$string['flagstudent'] = 'Flag student';
+$string['flagstudent_help'] = 'Raise a flag to note an exceptional situation for this student (e.g. suspected malpractice or exclusion). Flags are visible to all invigilators and supervisors with the appropriate capability.';
+$string['flagtype_administrative'] = 'Administrative note';
+$string['flagtype_excluded'] = 'Excluded from exam';
+$string['flagtype_malpractice'] = 'Suspected malpractice';
+$string['flagtype_other'] = 'Other';
 $string['justnow'] = 'just now';
 $string['managesteps'] = 'Manage check steps';
 $string['managestepslink'] = 'Manage steps';
@@ -121,18 +144,34 @@ $string['nostudents'] = 'There are no students to check in the selected group.';
 $string['nostudentsatall'] = 'No students are enrolled on this course yet.';
 $string['notchecked'] = 'Not checked';
 $string['opascanner'] = 'Open scanner';
+$string['participant_status'] = 'Participant status';
 $string['pluginadministration'] = 'Exam check administration';
 $string['pluginname'] = 'Exam check';
 $string['pollinterval'] = 'Live refresh interval';
 $string['pollinterval_desc'] = 'How often, in seconds, the dashboard checks for marks recorded by other teachers so that everyone sees an up-to-date roster. Set to 0 to disable live refresh.';
 $string['privacy:checkedbyme'] = 'Checks you recorded as a teacher';
 $string['privacy:checkedstudent'] = 'Checks recorded about you as a student';
+$string['privacy:metadata:examcheck_exemptions'] = 'Records of students exempted from specific check steps.';
+$string['privacy:metadata:examcheck_exemptions:exemptedby'] = 'The teacher who granted the exemption.';
+$string['privacy:metadata:examcheck_exemptions:reason'] = 'The reason for the exemption.';
+$string['privacy:metadata:examcheck_exemptions:userid'] = 'The student who is exempt.';
+$string['privacy:metadata:examcheck_flags'] = 'Student-level flags raised during an exam sitting.';
+$string['privacy:metadata:examcheck_flags:flaggedby'] = 'The invigilator who raised the flag.';
+$string['privacy:metadata:examcheck_flags:flagtype'] = 'The type of flag raised.';
+$string['privacy:metadata:examcheck_flags:note'] = 'The note associated with the flag.';
+$string['privacy:metadata:examcheck_flags:userid'] = 'The flagged student.';
 $string['privacy:metadata:examcheck_marks'] = 'Records of which students were checked at which step, including who recorded each check.';
 $string['privacy:metadata:examcheck_marks:checkedby'] = 'The teacher who recorded the check.';
 $string['privacy:metadata:examcheck_marks:method'] = 'How the check was recorded (manually, from the list, or by scanning).';
 $string['privacy:metadata:examcheck_marks:stepid'] = 'The check step the mark belongs to.';
 $string['privacy:metadata:examcheck_marks:timecreated'] = 'The time the check was recorded.';
 $string['privacy:metadata:examcheck_marks:userid'] = 'The student who was checked.';
+$string['privacy:metadata:examcheck_uncheck_events'] = 'Records of uncheck actions with the reason documented by the invigilator.';
+$string['privacy:metadata:examcheck_uncheck_events:actingby'] = 'The invigilator who removed the check.';
+$string['privacy:metadata:examcheck_uncheck_events:reasonkey'] = 'The predefined reason key selected, if any.';
+$string['privacy:metadata:examcheck_uncheck_events:reasontext'] = 'The free-text reason entered, if any.';
+$string['privacy:metadata:examcheck_uncheck_events:timecreated'] = 'The time the check was removed.';
+$string['privacy:metadata:examcheck_uncheck_events:userid'] = 'The student whose check was removed.';
 $string['progresscount'] = '{$a->done} of {$a->total} checked';
 $string['quizactivity'] = 'Quiz activity';
 $string['quizactivity_help'] = 'The quiz this step verifies. This restriction is not customisable: the student must have no attempt in progress, and a minimum of one completed (submitted) attempt, before they can be marked on this step.';
@@ -154,8 +193,10 @@ $string['result_conflict'] = 'Already checked: {$a->user} was marked by {$a->by}
 $string['result_marked'] = '{$a} marked as checked.';
 $string['result_needsconfirm'] = 'Found {$a}. Confirm to mark them as checked.';
 $string['result_notchecked'] = '{$a} was not checked.';
+$string['result_notenrolled'] = 'A matching user account was found for "{$a}", but is not enrolled in this course.';
 $string['result_notfound'] = 'No student in this roster matches the scanned value "{$a}".';
 $string['result_notinroster'] = '{$a} is not in the selected group for this activity.';
+$string['result_read'] = '{$a->user}: {$a->statuses}';
 $string['result_requirementnotmet_incomplete'] = '{$a->user} cannot be checked yet: they still need to complete "{$a->activity}" first.';
 $string['result_requirementnotmet_inprogress'] = '{$a->user} still has an attempt in progress on "{$a->quiz}". Ask them to submit before checking.';
 $string['result_requirementnotmet_misconfigured'] = 'This step has a requirement configured, but the linked quiz or activity is missing, no longer exists, or no longer tracks completion. Edit the step to fix it.';
@@ -175,6 +216,10 @@ $string['scanmanualentryplaceholder'] = 'Enter or scan a code value';
 $string['scanner'] = 'Scanner';
 $string['scannerdisabled'] = 'The scanner is disabled for this activity.';
 $string['scannerfor'] = 'Scanner: {$a}';
+$string['scannermode'] = 'Scanner mode';
+$string['scannermode_desc'] = 'Scanning marks the student on the step below as soon as they are matched. Reading only looks the student up and shows their name and check status on every step, without marking anything.';
+$string['scannermodereading'] = 'Reading';
+$string['scannermodescanning'] = 'Scanning';
 $string['scannext'] = 'Scan next student';
 $string['scanning'] = 'Point the camera at a QR code or barcode…';
 $string['scanningsettings'] = 'Scanning defaults';
@@ -192,83 +237,48 @@ $string['steps'] = 'Check steps';
 $string['stepupdated'] = 'Step updated.';
 $string['stopcamera'] = 'Stop camera';
 $string['student'] = 'Student';
-$string['uncheck'] = 'Uncheck';
-$string['unmarkaction'] = 'Undo "{$a}"';
-$string['visiblecount'] = '{$a->visible} of {$a->total} shown';
-$string['withselectedstudents'] = 'With selected students';
+$string['studentisflagged'] = 'This student has been flagged: {$a}';
 
+// Step exemption strings.
+$string['uncheck'] = 'Uncheck';
+$string['uncheckdialog_cancel'] = 'Cancel';
+$string['uncheckdialog_choosereason'] = '— Select a reason —';
+$string['uncheckdialog_confirm'] = 'Confirm removal';
+$string['uncheckdialog_freetextlabel'] = 'Additional notes';
+$string['uncheckdialog_freetextplaceholder'] = 'Describe the reason in your own words…';
+$string['uncheckdialog_mandatoryhint'] = 'A reason is required before this check can be removed.';
+$string['uncheckdialog_optionalhint'] = 'Optionally document why this check is being removed.';
+$string['uncheckdialog_reasonlabel'] = 'Reason for removal';
+$string['uncheckdialog_reasonrequired'] = 'Please select a reason or enter a note before confirming.';
+$string['uncheckdialog_title'] = 'Remove check — document reason';
+
+// Per-step uncheck mode setting.
+$string['uncheckfreetext'] = 'Allow free-text reason';
+$string['uncheckfreetext_help'] = 'When enabled, invigilators with the "Enter free-text reason" capability may type a note in addition to (or instead of) selecting a predefined reason.';
+
+// Activity-level predefined reasons setting.
+$string['uncheckmode'] = 'Uncheck documentation';
+$string['uncheckmode_help'] = 'Controls whether an invigilator must document a reason when removing a student's check on this step. <strong>None</strong>: no confirmation or reason needed. <strong>Optional</strong>: confirmation is required but a reason does not have to be entered. <strong>Mandatory</strong>: a reason (predefined or free text) must be provided before the check can be removed.';
+$string['uncheckmode_mandatory'] = 'Mandatory — a reason must be given';
+$string['uncheckmode_none'] = 'None — no confirmation or reason required';
+$string['uncheckmode_optional'] = 'Optional — confirmation required; reason is optional';
+$string['uncheckreason_escortedout'] = 'Student escorted out — attendance not recorded';
+$string['uncheckreason_excluded'] = 'Student excluded from exam';
+$string['uncheckreason_exemptiongranted'] = 'Student has a documented exemption';
+$string['uncheckreason_fallill'] = 'Student has fallen ill';
+$string['uncheckreason_markedinerror'] = 'Marked in error';
+$string['uncheckreason_other'] = 'Other reason';
+$string['uncheckreason_suspectedirregularity'] = 'Suspected irregularity — documented separately';
+
+// Student flag strings.
+$string['uncheckreasons'] = 'Predefined uncheck reasons';
+$string['uncheckreasons_help'] = 'Choose which predefined reasons are offered to invigilators when removing a check. Leave all unchecked to offer the full default list.';
+
+// Predefined uncheck reason labels.
 $string['unchecksettings'] = 'Uncheck documentation';
 
 // Uncheck reason dialog strings.
-\$string['uncheckdialog_cancel'] = 'Cancel';
-\$string['uncheckdialog_choosereason'] = '— Select a reason —';
-\$string['uncheckdialog_confirm'] = 'Confirm removal';
-\$string['uncheckdialog_freetextlabel'] = 'Additional notes';
-\$string['uncheckdialog_freetextplaceholder'] = 'Describe the reason in your own words…';
-\$string['uncheckdialog_mandatoryhint'] = 'A reason is required before this check can be removed.';
-\$string['uncheckdialog_optionalhint'] = 'Optionally document why this check is being removed.';
-\$string['uncheckdialog_reasonlabel'] = 'Reason for removal';
-\$string['uncheckdialog_reasonrequired'] = 'Please select a reason or enter a note before confirming.';
-\$string['uncheckdialog_title'] = 'Remove check — document reason';
-
-// Per-step uncheck mode setting.
-\$string['uncheckmode'] = 'Uncheck documentation';
-\$string['uncheckmode_help'] = 'Controls whether an invigilator must document a reason when removing a student's check on this step. <strong>None</strong>: no confirmation or reason needed. <strong>Optional</strong>: confirmation is required but a reason does not have to be entered. <strong>Mandatory</strong>: a reason (predefined or free text) must be provided before the check can be removed.';
-\$string['uncheckmode_none'] = 'None — no confirmation or reason required';
-\$string['uncheckmode_optional'] = 'Optional — confirmation required; reason is optional';
-\$string['uncheckmode_mandatory'] = 'Mandatory — a reason must be given';
-\$string['uncheckfreetext'] = 'Allow free-text reason';
-\$string['uncheckfreetext_help'] = 'When enabled, invigilators with the "Enter free-text reason" capability may type a note in addition to (or instead of) selecting a predefined reason.';
-
-// Activity-level predefined reasons setting.
-\$string['uncheckreasons'] = 'Predefined uncheck reasons';
-\$string['uncheckreasons_help'] = 'Choose which predefined reasons are offered to invigilators when removing a check. Leave all unchecked to offer the full default list.';
-
-// Predefined uncheck reason labels.
-\$string['uncheckreason_escortedout'] = 'Student escorted out — attendance not recorded';
-\$string['uncheckreason_excluded'] = 'Student excluded from exam';
-\$string['uncheckreason_exemptiongranted'] = 'Student has a documented exemption';
-\$string['uncheckreason_fallill'] = 'Student has fallen ill';
-\$string['uncheckreason_markedinerror'] = 'Marked in error';
-\$string['uncheckreason_other'] = 'Other reason';
-\$string['uncheckreason_suspectedirregularity'] = 'Suspected irregularity — documented separately';
-
-// Student flag strings.
-\$string['flagtype_administrative'] = 'Administrative note';
-\$string['flagtype_excluded'] = 'Excluded from exam';
-\$string['flagtype_malpractice'] = 'Suspected malpractice';
-\$string['flagtype_other'] = 'Other';
-\$string['flagstudent'] = 'Flag student';
-\$string['flagstudent_help'] = 'Raise a flag to note an exceptional situation for this student (e.g. suspected malpractice or exclusion). Flags are visible to all invigilators and supervisors with the appropriate capability.';
-\$string['flag_note'] = 'Flag note';
-\$string['flag_removeflag'] = 'Remove flag';
-\$string['flag_addflag'] = 'Add flag';
-\$string['studentisflagged'] = 'This student has been flagged: {$a}';
-
-// Step exemption strings.
-\$string['exempt_grant'] = 'Grant exemption';
-\$string['exempt_revoke'] = 'Revoke exemption';
-\$string['exempt_reason'] = 'Reason for exemption';
-\$string['exempt_studentisexempt'] = 'Exempt';
-\$string['exempt_help'] = 'An exempted student is excused from this step (e.g. a student with a disability who follows a different entry procedure). Exempted steps are shown with a distinct indicator in the roster.';
-
-// Capability-related error strings.
-\$string['error_uncheckdenied'] = 'You do not have permission to remove this check.';
-\$string['error_invalidflagtype'] = 'The flag type provided is not valid.';
-
-// Privacy metadata for new tables.
-\$string['privacy:metadata:examcheck_uncheck_events'] = 'Records of uncheck actions with the reason documented by the invigilator.';
-\$string['privacy:metadata:examcheck_uncheck_events:userid'] = 'The student whose check was removed.';
-\$string['privacy:metadata:examcheck_uncheck_events:actingby'] = 'The invigilator who removed the check.';
-\$string['privacy:metadata:examcheck_uncheck_events:reasonkey'] = 'The predefined reason key selected, if any.';
-\$string['privacy:metadata:examcheck_uncheck_events:reasontext'] = 'The free-text reason entered, if any.';
-\$string['privacy:metadata:examcheck_uncheck_events:timecreated'] = 'The time the check was removed.';
-\$string['privacy:metadata:examcheck_exemptions'] = 'Records of students exempted from specific check steps.';
-\$string['privacy:metadata:examcheck_exemptions:userid'] = 'The student who is exempt.';
-\$string['privacy:metadata:examcheck_exemptions:exemptedby'] = 'The teacher who granted the exemption.';
-\$string['privacy:metadata:examcheck_exemptions:reason'] = 'The reason for the exemption.';
-\$string['privacy:metadata:examcheck_flags'] = 'Student-level flags raised during an exam sitting.';
-\$string['privacy:metadata:examcheck_flags:userid'] = 'The flagged student.';
-\$string['privacy:metadata:examcheck_flags:flaggedby'] = 'The invigilator who raised the flag.';
-\$string['privacy:metadata:examcheck_flags:flagtype'] = 'The type of flag raised.';
-\$string['privacy:metadata:examcheck_flags:note'] = 'The note associated with the flag.';
+$string['unmarkaction'] = 'Undo "{$a}"';
+$string['view_in_roster'] = 'View in roster';
+$string['visiblecount'] = '{$a->visible} of {$a->total} shown';
+$string['withselectedstudents'] = 'With selected students';
