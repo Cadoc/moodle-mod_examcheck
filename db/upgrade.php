@@ -22,8 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Execute the mod_examcheck upgrade from the given old version.
  *
@@ -133,7 +131,14 @@ function xmldb_examcheck_upgrade($oldversion) {
         // / drop_field(), which only need the name), or it throws "must contain full
         // specs" — this must match quizcmid's old definition exactly.
         $quizcmid = new xmldb_field(
-            'quizcmid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'requirementtype'
+            'quizcmid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'requirementtype'
         );
         if ($dbman->field_exists($table, $quizcmid)) {
             $dbman->rename_field($table, $quizcmid, 'requirementcmid');

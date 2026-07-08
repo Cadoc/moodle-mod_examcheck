@@ -26,12 +26,12 @@ import Modal from 'core/modal';
 /**
  * @typedef {Object} ScanResultModalConfig
  * @property {Object} templateContext
- * @property {String} templateContext.step_name
- * @property {String} templateContext.user_fullname
- * @property {String} templateContext.user_picture
- * @property {String} templateContext.scan_field_name
- * @property {String} templateContext.scan_value
- * @property {String} templateContext.roster_link
+ * @property {String} templateContext.stepName
+ * @property {String} templateContext.userFullname
+ * @property {String} templateContext.userPicture
+ * @property {String} templateContext.scanFieldName
+ * @property {String} templateContext.scanValue
+ * @property {String} templateContext.rosterLink
  */
 
 /**
@@ -39,7 +39,7 @@ import Modal from 'core/modal';
  * @extends {ScanResultModalConfig}
  * @property {Object} templateContext
  * @property {String} [templateContext.message]
- * @property {Boolean} [templateContext.message_is_warning]
+ * @property {Boolean} [templateContext.messageIsWarning]
  */
 
 export default class InfoModal extends Modal {

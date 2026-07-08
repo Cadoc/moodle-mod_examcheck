@@ -30,17 +30,17 @@
 
     Example context (json):
     {
-        "user_picture": "<img>...</img>",
-        "user_fullname": "Jane Doe",
-        "scan_field_name": "User id (internal)",
-        "scan_value": "6",
-        "roster_link": "https://tbd.example.org"
+        "userPicture": "<img src=\"https://example.org/user.jpg\" alt=\"Jane Doe\" class=\"userpicture\">",
+        "userFullname": "Jane Doe",
+        "scanFieldName": "User id (internal)",
+        "scanValue": "6",
+        "rosterLink": "https://tbd.example.org"
     }
 }}
 
 {{< core/modal }}
     {{$classes}} {{classes}} modal-fullscreen-sm-down {{/classes}}
-    {{$title}}{{#str}} confirm_step, mod_examcheck, {{step_name}} {{/str}}{{/title}}
+    {{$title}}{{#str}} confirm_step, mod_examcheck, {{stepName}} {{/str}}{{/title}}
     {{$body}}
         {{> mod_examcheck/scan_result_modal/user_info }}
     {{/body}}

@@ -480,11 +480,11 @@ final class checker_test extends \advanced_testcase {
         $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
         $this->assertEquals(1, $this->countmarks());
 
-        // Now delete the submitted attempt so the gate would refuse a new mark…
+        // Now delete the submitted attempt so the gate would refuse a new mark.
         global $DB;
         $DB->delete_records('quiz_attempts', ['quiz' => $quiz->instance, 'userid' => $this->students[1]->id]);
 
-        // …but unmarking still works.
+        // But unmarking still works.
         $result = $checker->unmark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
         $this->assertSame('unmarked', $result['status']);
         $this->assertEquals(0, $this->countmarks());
@@ -754,7 +754,7 @@ final class checker_test extends \advanced_testcase {
         global $DB;
 
         $now = time();
-        // attempt is unique per (quiz, userid); uniqueid is unique across the whole table.
+        // Attempt is unique per (quiz, userid); uniqueid is unique across the whole table.
         $attemptno = $DB->count_records('quiz_attempts', ['quiz' => $quiz->instance, 'userid' => $userid]) + 1;
         $uniqueid = $DB->count_records('quiz_attempts') + 1;
         $DB->insert_record('quiz_attempts', (object) [

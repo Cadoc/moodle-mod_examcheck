@@ -59,7 +59,7 @@ export const init = (cmid) => {
  * @param {HTMLSelectElement} select The action select.
  * @param {Number} cmid Course module id.
  */
-const handle = async (root, form, select, cmid) => {
+const handle = async(root, form, select, cmid) => {
     const value = select.value;
     if (!value) {
         return;
