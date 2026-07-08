@@ -1,5 +1,7 @@
 # Exam check (mod_examcheck)
 
+[![Moodle Plugin CI](https://github.com/a-camacho/moodle-mod_examcheck/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/a-camacho/moodle-mod_examcheck/actions/workflows/moodle-ci.yml)
+
 A Moodle activity for **running attendance and verification checks on exam day**.
 A teacher picks a group, then ticks students off through one or more *check
 steps* — attendance, identity verification, exam copy submitted, or any custom
