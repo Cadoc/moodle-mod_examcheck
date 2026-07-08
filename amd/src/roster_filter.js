@@ -33,8 +33,10 @@ import Notification from 'core/notification';
  * Initialise the roster filter on the element with the given id.
  *
  * @param {String} filterRegionId The id of the filter element.
+ * @param {Number} [initialUserid] A student id to pre-apply as a removable chip on load
+ *      (e.g. from the scanner's "View in roster" link), or 0 for none.
  */
-export const init = (filterRegionId) => {
+export const init = (filterRegionId, initialUserid = 0) => {
     const filterSet = document.getElementById(filterRegionId);
     if (!filterSet) {
         return;
@@ -56,4 +58,21 @@ export const init = (filterRegionId) => {
     });
 
     coreFilter.init();
+
+    // Pre-apply the single-student chip when the roster was deep-linked to a student.
+    // The table body is already rendered filtered server-side (see dashboard.php), so we
+    // only mirror that state in the bar as a removable "Student: <name>" chip; removing it
+    // triggers the normal AJAX reload back to the full roster. Modelled on question/filter.js.
+    if (initialUserid > 0) {
+        const emptyFilterRow = filterSet.querySelector(Selectors.filterset.regions.emptyFilterRow);
+        if (emptyFilterRow) {
+            emptyFilterRow.remove();
+        }
+        coreFilter.addFilterRow({
+            filtertype: 'userid',
+            values: [initialUserid],
+            jointype: 1,
+            rownum: 1,
+        });
+    }
 };

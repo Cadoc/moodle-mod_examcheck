@@ -27,6 +27,7 @@ require(__DIR__ . '/../../config.php');
 use mod_examcheck\output\dashboard;
 
 $id = required_param('id', PARAM_INT); // Course module id.
+$userid = optional_param('userid', 0, PARAM_INT); // Optional: focus the roster on one student.
 
 [$course, $cm] = get_course_and_cm_from_cmid($id, 'examcheck');
 require_login($course, true, $cm);
@@ -64,7 +65,7 @@ if ($introhtml !== '') {
 
 // The roster table enforces the separate-groups restriction itself (see roster::resolve_group),
 // and the group selector lives in the datafilter bar, so the page only needs the cmid here.
-$dashboard = new dashboard($cm->id);
+$dashboard = new dashboard($cm->id, $userid);
 echo $OUTPUT->render_from_template('mod_examcheck/dashboard', $dashboard->export_for_template($OUTPUT));
 
 echo $OUTPUT->footer();

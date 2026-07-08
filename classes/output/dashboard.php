@@ -19,6 +19,7 @@ namespace mod_examcheck\output;
 use core\output\renderer_base;
 use core\output\renderable;
 use core\output\templatable;
+use mod_examcheck\local\checker;
 use mod_examcheck\local\steps;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
@@ -36,13 +37,18 @@ class dashboard implements renderable, templatable {
     /** @var int Course module id. */
     protected int $cmid;
 
+    /** @var int Optional student id to focus the roster on (0 = none). */
+    protected int $userid;
+
     /**
      * Constructor.
      *
      * @param int $cmid Course module id.
+     * @param int $userid Optional student id to focus the roster on (0 = show everyone).
      */
-    public function __construct(int $cmid) {
+    public function __construct(int $cmid, int $userid = 0) {
         $this->cmid = $cmid;
+        $this->userid = $userid;
     }
 
     /**
@@ -60,15 +66,38 @@ class dashboard implements renderable, templatable {
         $steps = array_values(steps::get_steps((int) $examcheck->id));
         $hassteps = !empty($steps);
 
+        // Resolve an optional focus student. Only honour the userid when it belongs to a
+        // student this viewer may see (reachable roster + separate-groups access), so we
+        // never seed a filter or reveal a name for an out-of-reach or non-roster user.
+        $focususer = null;
+        if ($this->userid > 0) {
+            $checker = new checker($examcheck, $context);
+            $roster = $checker->get_roster();
+            if (isset($roster[$this->userid])) {
+                try {
+                    $checker->require_user_access($this->userid);
+                    $focususer = $roster[$this->userid];
+                } catch (\required_capability_exception $e) {
+                    $focususer = null;
+                }
+            }
+        }
+
         // Render the roster dynamic table (its body reloads over AJAX on filter/sort/hide).
         $table = new roster("examcheck-roster-{$this->cmid}");
-        $table->set_filterset(new roster_filterset());
+        $filterset = new roster_filterset();
+        if ($focususer) {
+            // Seed the table so the first (server-rendered) body already shows only this
+            // student; the datafilter bar mirrors it with a removable chip below.
+            $filterset->add_filter_from_params('userid', roster_filterset::JOINTYPE_ANY, [$this->userid]);
+        }
+        $table->set_filterset($filterset);
         ob_start();
         $table->out(50, false);
         $tablehtml = ob_get_clean();
 
         // Render the datafilter (keyword + group) bar bound to that table.
-        $filter = new roster_filter($context, $table->uniqueid, $this->cmid);
+        $filter = new roster_filter($context, $table->uniqueid, $this->cmid, $focususer);
         $filterhtml = $output->render_from_template('mod_examcheck/roster_filter', $filter->export_for_template($output));
 
         // Note get_config() returns false (not null) when the key is unset, so fall

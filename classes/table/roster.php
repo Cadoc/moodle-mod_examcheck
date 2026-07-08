@@ -282,6 +282,7 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->apply_checkstatus_filter($users);
+        $this->apply_userid_filter($users);
 
         if (!empty($this->activitygroups)) {
             $this->usergroups = $this->load_user_groups($users);
@@ -377,6 +378,29 @@ class roster extends \table_sql implements dynamic_table {
                 }
             }
         }
+    }
+
+    /**
+     * Restrict $users to the student(s) named by the "userid" filter, if present.
+     *
+     * Used to deep-link the roster to a single student (the scanner's "View in
+     * roster" link). Intersecting against the already-loaded roster keeps the
+     * group/enrolment access checks in get_roster() authoritative: an id outside
+     * the viewer's reachable roster simply drops out and yields an empty table.
+     *
+     * @param stdClass[] $users Roster keyed by user id. Modified in place.
+     */
+    protected function apply_userid_filter(array &$users): void {
+        $filterset = $this->get_filterset();
+        if (!$filterset->has_filter('userid')) {
+            return;
+        }
+        $values = $filterset->get_filter('userid')->get_filter_values();
+        if (empty($values)) {
+            return;
+        }
+        $ids = array_map('intval', $values);
+        $users = array_intersect_key($users, array_flip($ids));
     }
 
     /**

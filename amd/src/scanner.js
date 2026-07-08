@@ -28,6 +28,7 @@
  */
 
 import Ajax from 'core/ajax';
+import Url from 'core/url';
 import { add as addToast } from 'core/toast';
 import { getString } from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
@@ -520,6 +521,21 @@ const process = (value) => {
 };
 
 /**
+ * Build the "View in roster" link for a scan outcome: the roster (view.php) focused
+ * on the matched student via their userid, so the modal link lands on just this student.
+ *
+ * @param {Outcome} outcome The scan-lookup outcome (carries userid).
+ * @returns {String} A roster URL, filtered to the student when a userid is present.
+ */
+const rosterLinkFor = (outcome) => {
+    const params = {id: config.cmid};
+    if (outcome.userid) {
+        params.userid = outcome.userid;
+    }
+    return Url.relativeUrl('/mod/examcheck/view.php', params);
+};
+
+/**
  * @param {Outcome} outcome
  * @param {String} scannedValue
  * @param {Boolean} [isWarning]
@@ -535,7 +551,7 @@ const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
             user_picture: outcome.userpicture,
             scan_field_name: currentFieldName(),
             scan_value: scannedValue,
-            roster_link: 'https://youtu.be/dQw4w9WgXcQ',
+            roster_link: rosterLinkFor(outcome),
             message: outcome.message,
             message_is_warning: isWarning
         },
@@ -563,7 +579,7 @@ const showConfirmationModal = async (outcome, scannedValue) => {
             user_picture: outcome.userpicture,
             scan_field_name: currentFieldName(),
             scan_value: scannedValue,
-            roster_link: 'https://youtu.be/dQw4w9WgXcQ'
+            roster_link: rosterLinkFor(outcome)
         },
     });
 
