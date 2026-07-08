@@ -30,6 +30,8 @@ use mod_examcheck\local\steps;
 use moodle_url;
 use stdClass;
 
+defined('MOODLE_INTERNAL') || die();
+
 global $CFG;
 require_once($CFG->libdir . '/tablelib.php');
 

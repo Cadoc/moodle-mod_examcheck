@@ -83,7 +83,7 @@ const registerToggles = (root, cmid) => {
  * @param {HTMLElement} button The toggle button.
  * @param {Number} cmid Course module id.
  */
-const toggle = async (root, button, cmid) => {
+const toggle = async(root, button, cmid) => {
     const wasChecked = button.dataset.checked === '1';
     const stepid = parseInt(button.dataset.stepid, 10);
     const userid = parseInt(button.dataset.userid, 10);
@@ -100,7 +100,7 @@ const toggle = async (root, button, cmid) => {
         ? {cmid, stepid, userid}
         : {cmid, stepid, userid, groupid, method: 'list'};
 
-    // core/ajax returns jQuery promises (no .finally), so re-enable from try/finally.
+    // Core/ajax returns jQuery promises (no .finally), so re-enable from try/finally.
     button.disabled = true;
     try {
         const outcome = await Ajax.call([{methodname, args}])[0];

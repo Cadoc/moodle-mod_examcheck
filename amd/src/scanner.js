@@ -29,8 +29,8 @@
 
 import Ajax from 'core/ajax';
 import Url from 'core/url';
-import { add as addToast } from 'core/toast';
-import { getString } from 'core/str';
+import {add as addToast} from 'core/toast';
+import {getString} from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
 import ConfirmModal from "./confirm_modal";
 import InfoModal from "./info_modal";
@@ -237,11 +237,11 @@ const configureDecoder = () => {
  * @param {HTMLVideoElement} video The live video element.
  * @returns {Promise} Resolves once the stream is playing.
  */
-const openStream = async (video) => {
+const openStream = async(video) => {
     const stream = await navigator.mediaDevices.getUserMedia(buildConstraints());
     mediaStream = stream;
     video.srcObject = stream;
-    // play() can reject on some browsers if the tab loses focus mid-start; we
+    // Play() can reject on some browsers if the tab loses focus mid-start; we
     // already gate startCamera behind a user-gesture click so this is rare.
     await video.play();
 };
@@ -268,7 +268,7 @@ const failStart = () => {
 /**
  * Start the camera and the continuous zxing-wasm decode loop, then offer the camera picker.
  */
-const startCamera = async () => {
+const startCamera = async() => {
     if (!zxinglib) {
         return;
     }
@@ -304,7 +304,7 @@ const startCamera = async () => {
  *
  * @param {HTMLVideoElement} video The live video element.
  */
-const populateCameras = async (video) => {
+const populateCameras = async(video) => {
     if (!showCameraSwitcher) {
         return;
     }
@@ -351,7 +351,7 @@ const populateCameras = async (video) => {
  *
  * @param {String} deviceId The chosen camera deviceId.
  */
-const switchCamera = async (deviceId) => {
+const switchCamera = async(deviceId) => {
     if (!deviceId || !zxinglib) {
         return;
     }
@@ -431,7 +431,7 @@ const grabFrame = (video) => {
  */
 const startDecodeLoop = (video) => {
     cancelDecodeLoop();
-    const tick = async () => {
+    const tick = async() => {
         // Camera was stopped: end the loop.
         if (!mediaStream) {
             rafHandle = 0;
@@ -541,19 +541,19 @@ const rosterLinkFor = (outcome) => {
  * @param {Boolean} [isWarning]
  * @returns {Promise<void>}
  */
-const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
+const showInfoModal = async(outcome, scannedValue, isWarning = false) => {
     pauseScanning();
 
     const modal = await InfoModal.create({
         templateContext: {
-            step_name: currentStepName(),
-            user_fullname: outcome.userlabel,
-            user_picture: outcome.userpicture,
-            scan_field_name: currentFieldName(),
-            scan_value: scannedValue,
-            roster_link: rosterLinkFor(outcome),
+            stepName: currentStepName(),
+            userFullname: outcome.userlabel,
+            userPicture: outcome.userpicture,
+            scanFieldName: currentFieldName(),
+            scanValue: scannedValue,
+            rosterLink: rosterLinkFor(outcome),
             message: outcome.message,
-            message_is_warning: isWarning
+            messageIsWarning: isWarning
         },
     });
 
@@ -568,18 +568,18 @@ const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
  * @param {String} scannedValue
  * @returns {Promise<void>}
  */
-const showConfirmationModal = async (outcome, scannedValue) => {
+const showConfirmationModal = async(outcome, scannedValue) => {
     pauseScanning();
 
     /** @var {ConfirmModal} modal */
     const modal = await ConfirmModal.create({
         templateContext: {
-            step_name: currentStepName(),
-            user_fullname: outcome.userlabel,
-            user_picture: outcome.userpicture,
-            scan_field_name: currentFieldName(),
-            scan_value: scannedValue,
-            roster_link: rosterLinkFor(outcome)
+            stepName: currentStepName(),
+            userFullname: outcome.userlabel,
+            userPicture: outcome.userpicture,
+            scanFieldName: currentFieldName(),
+            scanValue: scannedValue,
+            rosterLink: rosterLinkFor(outcome)
         },
     });
 
