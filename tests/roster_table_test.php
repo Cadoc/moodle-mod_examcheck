@@ -30,6 +30,8 @@ use mod_examcheck\table\roster_filterset;
  * @category   test
  * @covers     \mod_examcheck\table\roster
  * @covers     \mod_examcheck\output\dashboard
+ * @covers     \mod_examcheck\output\roster_filter
+ * @covers     \mod_examcheck\table\roster_filterset
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -129,5 +131,91 @@ final class roster_table_test extends \advanced_testcase {
         // Admin can check, so per-step mark/unmark options are present.
         $this->assertStringContainsString('mark:', $context['withselected']);
         $this->assertStringContainsString('unmark:', $context['withselected']);
+    }
+
+    /**
+     * A "userid" filter restricts the roster to that single student (the scanner's
+     * "View in roster" deep link), dropping everyone else.
+     */
+    public function test_userid_filter_limits_to_one_student(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $wanted = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+
+        $filterset = new roster_filterset();
+        $filterset->add_filter_from_params('userid', roster_filterset::JOINTYPE_ANY, [(int) $wanted->id]);
+
+        $table = new roster("examcheck-roster-{$examcheck->cmid}");
+        $table->set_filterset($filterset);
+
+        ob_start();
+        $table->out(1000, false);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Ann Wanted', $html);
+        $this->assertStringNotContainsString('Bob Other', $html);
+    }
+
+    /**
+     * When the dashboard is given a focus userid it seeds the table (body limited to that
+     * student) and exposes the student as a chip option in the filter bar.
+     */
+    public function test_dashboard_focus_user_seeds_chip(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $wanted = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $PAGE->set_context(\context_module::instance($examcheck->cmid));
+        $output = $PAGE->get_renderer('core');
+
+        $context = (new dashboard((int) $examcheck->cmid, (int) $wanted->id))->export_for_template($output);
+
+        // The server-rendered body is already limited to the focus student.
+        $this->assertStringContainsString('Ann Wanted', $context['table']);
+        $this->assertStringNotContainsString('Bob Other', $context['table']);
+        // The filter bar exposes the student as an option so the JS can pre-apply the chip.
+        $this->assertStringContainsString('Ann Wanted', $context['filter']);
+    }
+
+    /**
+     * A userid that is not a reachable roster student is ignored: the roster stays
+     * unfiltered and the user's name is never exposed in the filter bar.
+     */
+    public function test_dashboard_ignores_unreachable_userid(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+        // A user who is not enrolled in this course must not filter the roster or leak in.
+        $stranger = $this->getDataGenerator()->create_user(['firstname' => 'Eve', 'lastname' => 'Stranger']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $PAGE->set_context(\context_module::instance($examcheck->cmid));
+        $output = $PAGE->get_renderer('core');
+
+        $context = (new dashboard((int) $examcheck->cmid, (int) $stranger->id))->export_for_template($output);
+
+        // The roster is unfiltered: both enrolled students remain.
+        $this->assertStringContainsString('Ann Wanted', $context['table']);
+        $this->assertStringContainsString('Bob Other', $context['table']);
+        // The out-of-reach user's name is never rendered into the filter bar.
+        $this->assertStringNotContainsString('Eve Stranger', $context['filter']);
     }
 }
