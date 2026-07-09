@@ -34,7 +34,11 @@
         "userFullname": "Jane Doe",
         "scanFieldName": "User id (internal)",
         "scanValue": "6",
-        "rosterLink": "https://tbd.example.org"
+        "rosterLink": "https://tbd.example.org",
+        "steps": [
+            {"name": "Attendance", "checked": true, "current": false},
+            {"name": "ID verified", "checked": false, "current": true}
+        ]
     }
 }}
 
@@ -43,6 +47,7 @@
     {{$title}}{{#str}} confirm_step, mod_examcheck, {{stepName}} {{/str}}{{/title}}
     {{$body}}
         {{> mod_examcheck/scan_result_modal/user_info }}
+        {{> mod_examcheck/scan_result_modal/step_statuses }}
     {{/body}}
     {{$footer}}
         <button type="button" class="btn btn-secondary flex-grow-1 flex-sm-grow-0" data-action="hide">

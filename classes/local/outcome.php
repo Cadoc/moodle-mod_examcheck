@@ -16,6 +16,7 @@
 
 namespace mod_examcheck\local;
 
+use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use core_user;
@@ -59,6 +60,16 @@ class outcome {
             'checkedbyname' => new external_value(PARAM_TEXT, 'For conflicts: that teacher\'s name.', VALUE_DEFAULT, ''),
             'timecreated' => new external_value(PARAM_INT, 'For conflicts/marks: when it was recorded.', VALUE_DEFAULT, 0),
             'ago'         => new external_value(PARAM_TEXT, 'For conflicts: how long ago, in words.', VALUE_DEFAULT, ''),
+            'steps'       => new external_multiple_structure(
+                new external_single_structure([
+                    'name'    => new external_value(PARAM_TEXT, 'Step name.'),
+                    'checked' => new external_value(PARAM_BOOL, 'Whether the student is checked on this step.'),
+                    'current' => new external_value(PARAM_BOOL, 'Whether this is the step being checked.'),
+                ]),
+                'Per-step check status for the matched student (needsconfirm and found).',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 
@@ -91,6 +102,7 @@ class outcome {
             'checkedbyname' => '',
             'timecreated'   => 0,
             'ago'           => '',
+            'steps'         => [],
         ];
 
         switch ($status) {
@@ -145,6 +157,7 @@ class outcome {
             case 'found':
                 // Reading mode: no marking, just the student's name and check status on every step.
                 $response['userid'] = (int) ($result['userid'] ?? 0);
+                $response['steps'] = self::export_steps($result['steps'] ?? []);
                 $statuses = array_map(fn($step) => get_string(
                     $step['checked'] ? 'checkstatus_optionchecked' : 'checkstatus_optionnotchecked',
                     'mod_examcheck',
@@ -158,6 +171,7 @@ class outcome {
 
             case 'needsconfirm':
                 $response['userid'] = (int) $result['userid'];
+                $response['steps'] = self::export_steps($result['steps'] ?? []);
                 $response['message'] = get_string('result_needsconfirm', 'mod_examcheck', $userlabel);
                 break;
 
@@ -201,5 +215,20 @@ class outcome {
         }
 
         return $response;
+    }
+
+    /**
+     * Normalise the checker's per-step status list into the {@see self::structure()}
+     * shape, casting the flags to booleans for the web service.
+     *
+     * @param array $steps The checker step statuses (name, checked, current).
+     * @return array<int, array{name: string, checked: bool, current: bool}>
+     */
+    private static function export_steps(array $steps): array {
+        return array_map(fn($step) => [
+            'name'    => $step['name'],
+            'checked' => (bool) $step['checked'],
+            'current' => (bool) ($step['current'] ?? false),
+        ], $steps);
     }
 }

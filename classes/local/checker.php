@@ -387,12 +387,15 @@ class checker {
             return $failure;
         }
 
-        // Pause for the teacher to confirm the student before marking.
+        // Pause for the teacher to confirm the student before marking. Carry the
+        // student's per-step status so the confirm modal can show the progress table,
+        // highlighting the step being checked.
         if ($requireconfirm && !$confirm) {
             return [
                 'status' => 'needsconfirm',
                 'userid' => $userid,
                 'user'   => self::user_label($userid),
+                'steps'  => $this->build_step_statuses($userid, $stepid),
             ];
         }
 
@@ -427,21 +430,35 @@ class checker {
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
-        $marks = $this->get_marks();
-        $steps = [];
-        foreach (steps::get_steps($this->examcheck->id) as $step) {
-            $steps[] = [
-                'name'    => format_string($step->name, true, ['context' => $this->context]),
-                'checked' => isset($marks[(int) $step->id][$userid]),
-            ];
-        }
-
         return [
             'status' => 'found',
             'userid' => $userid,
             'user'   => self::user_label($userid),
-            'steps'  => $steps,
+            'steps'  => $this->build_step_statuses($userid),
         ];
+    }
+
+    /**
+     * Build the per-step check status for a student: one entry per step, in order,
+     * with the step name, whether the student is checked on it, and whether it is the
+     * step currently being checked (for highlighting in the scanner modals).
+     *
+     * @param int $userid The student user id.
+     * @param int $currentstepid The step being checked (0 in reading mode, where there
+     *        is no "current" step).
+     * @return array<int, array{name: string, checked: bool, current: bool}>
+     */
+    protected function build_step_statuses(int $userid, int $currentstepid = 0): array {
+        $marks = $this->get_marks();
+        $statuses = [];
+        foreach (steps::get_steps($this->examcheck->id) as $step) {
+            $statuses[] = [
+                'name'    => format_string($step->name, true, ['context' => $this->context]),
+                'checked' => isset($marks[(int) $step->id][$userid]),
+                'current' => (int) $step->id === $currentstepid,
+            ];
+        }
+        return $statuses;
     }
 
     /**

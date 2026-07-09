@@ -129,6 +129,7 @@ let allowedFormats = FORMATS_ALL; // Symbologies the decode loop currently looks
  * @property {String} checkedbyname
  * @property {Number} timecreated
  * @property {String} ago
+ * @property {Array<{name: String, checked: Boolean, current: Boolean}>} steps
  */
 
 /**
@@ -553,24 +554,23 @@ const showConflictToast = async(outcome) => {
 };
 
 /**
+ * Reading mode: show the student's name and a read-only per-step status table.
+ *
  * @param {Outcome} outcome
  * @param {String} scannedValue
- * @param {Boolean} [isWarning]
  * @returns {Promise<void>}
  */
-const showInfoModal = async(outcome, scannedValue, isWarning = false) => {
+const showInfoModal = async(outcome, scannedValue) => {
     pauseScanning();
 
     const modal = await InfoModal.create({
         templateContext: {
-            stepName: currentStepName(),
             userFullname: outcome.userlabel,
             userPicture: outcome.userpicture,
             scanFieldName: currentFieldName(),
             scanValue: scannedValue,
             rosterLink: rosterLinkFor(outcome),
-            message: outcome.message,
-            messageIsWarning: isWarning
+            steps: outcome.steps
         },
     });
 
@@ -596,7 +596,8 @@ const showConfirmationModal = async(outcome, scannedValue) => {
             userPicture: outcome.userpicture,
             scanFieldName: currentFieldName(),
             scanValue: scannedValue,
-            rosterLink: rosterLinkFor(outcome)
+            rosterLink: rosterLinkFor(outcome),
+            steps: outcome.steps
         },
     });
 

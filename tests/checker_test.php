@@ -293,6 +293,29 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * The needs-confirm outcome carries the student's per-step status, flagging the
+     * step being checked as "current" so the confirm modal can highlight it.
+     */
+    public function test_scan_needsconfirm_carries_step_statuses(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $checker = new checker($this->examcheck, $this->context);
+
+        // Student 1 is already checked on the first step.
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id, 'list');
+
+        // Scanning them on the SECOND step (confirmation required) reports both steps.
+        $pending = $checker->scan($second, 'idnumber', 'S1', false, true, $this->teacher->id);
+        $this->assertSame('needsconfirm', $pending['status']);
+        $this->assertCount(2, $pending['steps']);
+
+        // First step: checked, not current. Second step: unchecked, current.
+        $this->assertTrue($pending['steps'][0]['checked']);
+        $this->assertFalse($pending['steps'][0]['current']);
+        $this->assertFalse($pending['steps'][1]['checked']);
+        $this->assertTrue($pending['steps'][1]['current']);
+    }
+
+    /**
      * Reading mode: lookup() resolves a scanned value to a student and reports
      * their status on every step, without recording a mark.
      */
@@ -306,6 +329,8 @@ final class checker_test extends \advanced_testcase {
         $this->assertEquals($this->students[2]->id, $result['userid']);
         $this->assertCount(1, $result['steps']);
         $this->assertTrue($result['steps'][0]['checked']);
+        // Reading mode has no step being checked, so nothing is "current".
+        $this->assertFalse($result['steps'][0]['current']);
         // A fresh instance seeds one step, so marking it doesn't add another.
         $this->assertEquals(1, $this->countmarks());
     }

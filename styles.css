@@ -13,6 +13,12 @@
     white-space: nowrap;
 }
 
+/* Read-only per-step status table shown in the scanner modals. */
+.examcheck-step-statuses .examcheck-currentstep {
+    font-weight: 600;
+    box-shadow: inset 0 3px 0 0 var(--primary, #0f6cbf);
+}
+
 /* Scanner. */
 .mod_examcheck-scanner .examcheck-video-frame {
     position: relative;
