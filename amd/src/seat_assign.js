@@ -227,8 +227,8 @@ const autoAssign = async(root, button, cmid) => {
         getString(short ? 'autoassignshortbutton' : 'autoassignconfirmbutton', 'mod_examcheck'),
     ]);
 
-    // saveCancelPromise rejects on Cancel and on dismiss (Escape, backdrop) alike. Any
-    // rejection means "do not write": that is the safe direction for a bulk action.
+    // Core's saveCancelPromise rejects on Cancel and on dismiss (Escape, backdrop) alike.
+    // Any rejection means "do not write": the safe direction for a bulk action.
     let confirmed = true;
     await saveCancelPromise(title, body, label, {triggerElement: button}).catch(() => {
         confirmed = false;
