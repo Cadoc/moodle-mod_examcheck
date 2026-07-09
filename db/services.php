@@ -60,4 +60,25 @@ $functions = [
         'capabilities' => 'mod/examcheck:view',
         'ajax'        => true,
     ],
+    'mod_examcheck_assign_seat' => [
+        'classname'   => 'mod_examcheck\external\assign_seat',
+        'description' => 'Assign a student to a seat.',
+        'type'        => 'write',
+        'capabilities' => 'mod/examcheck:manageseats',
+        'ajax'        => true,
+    ],
+    'mod_examcheck_unassign_seat' => [
+        'classname'   => 'mod_examcheck\external\unassign_seat',
+        'description' => 'Remove the assignment of a seat.',
+        'type'        => 'write',
+        'capabilities' => 'mod/examcheck:manageseats',
+        'ajax'        => true,
+    ],
+    'mod_examcheck_search_seat_candidates' => [
+        'classname'   => 'mod_examcheck\external\search_seat_candidates',
+        'description' => 'Search students who can still be assigned to a seat.',
+        'type'        => 'read',
+        'capabilities' => 'mod/examcheck:manageseats',
+        'ajax'        => true,
+    ],
 ];

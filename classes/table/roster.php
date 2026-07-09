@@ -165,9 +165,10 @@ class roster extends \table_sql implements dynamic_table {
      *
      * Under separate groups a user without accessallgroups is confined to their own
      * groups: an out-of-reach group selection falls back to one of their groups, and a
-     * user in no group sees no students. This mirrors the dashboard's access control.
+     * user in no group sees no students. The resolution itself is shared with the
+     * web services via {@see checker::resolve_effective_group()}.
      *
-     * @param \cm_info|stdClass $cm The course module.
+     * @param \cm_info|stdClass $cm The course module (unused; kept for signature stability).
      * @param filterset $filterset The request filterset.
      * @return int 0 = all participants, -1 = none, otherwise a group id.
      */
@@ -180,17 +181,7 @@ class roster extends \table_sql implements dynamic_table {
             }
         }
 
-        $separate = groups_get_activity_groupmode($cm) == SEPARATEGROUPS
-            && !has_capability('moodle/site:accessallgroups', $this->context);
-        if (!$separate) {
-            return $requested;
-        }
-
-        $allowed = groups_get_activity_allowed_groups($cm);
-        if ($requested && isset($allowed[$requested])) {
-            return $requested;
-        }
-        return empty($allowed) ? -1 : (int) array_key_first($allowed);
+        return $this->checker->resolve_effective_group($requested);
     }
 
     /**

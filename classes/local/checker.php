@@ -121,6 +121,40 @@ class checker {
     }
 
     /**
+     * Work out which group the current user is effectively restricted to.
+     *
+     * Unlike {@see self::require_group_access()}, which throws on an
+     * out-of-reach selection, this resolves a usable fallback: under separate
+     * groups a user without accessallgroups is confined to their own groups, so
+     * an unreachable request falls back to one of their groups, and a user in
+     * no group reaches nobody. Mirrors the roster table's access control.
+     *
+     * @param int $requested The requested group id (0 = all participants).
+     * @return int 0 = all participants, -1 = none, otherwise a group id.
+     */
+    public function resolve_effective_group(int $requested): int {
+        $cm = get_coursemodule_from_instance(
+            'examcheck',
+            $this->examcheck->id,
+            $this->examcheck->course,
+            false,
+            MUST_EXIST
+        );
+
+        $separate = groups_get_activity_groupmode($cm) == SEPARATEGROUPS
+            && !has_capability('moodle/site:accessallgroups', $this->context);
+        if (!$separate) {
+            return $requested;
+        }
+
+        $allowed = groups_get_activity_allowed_groups($cm);
+        if ($requested && isset($allowed[$requested])) {
+            return $requested;
+        }
+        return empty($allowed) ? -1 : (int) array_key_first($allowed);
+    }
+
+    /**
      * Ensure the current user may act on a specific student.
      *
      * Used where no group id is supplied (e.g. removing a mark): under separate

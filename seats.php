@@ -119,6 +119,9 @@ if (!seats::count_seats((int) $examcheck->id)) {
     $editurl = new moodle_url('/mod/examcheck/seats.php', ['id' => $cm->id, 'action' => 'edit']);
     echo $OUTPUT->notification(get_string('noseatsyet', 'mod_examcheck'), notification::NOTIFY_INFO);
     echo $OUTPUT->single_button($editurl, get_string('editseats', 'mod_examcheck'), 'get');
+} else {
+    $assignpage = new \mod_examcheck\output\seat_assign_page((int) $cm->id, (int) $examcheck->id);
+    echo $OUTPUT->render_from_template('mod_examcheck/seat_assign', $assignpage->export_for_template($OUTPUT));
 }
 
 echo $OUTPUT->footer();
