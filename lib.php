@@ -248,4 +248,14 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
             'mod_examcheck_managesteps'
         ), $beforekey);
     }
+
+    if (has_capability('mod/examcheck:manageseats', $context)) {
+        $examchecknode->add_node(navigation_node::create(
+            get_string('seats', 'mod_examcheck'),
+            new moodle_url('/mod/examcheck/seats.php', ['id' => $cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'mod_examcheck_seats'
+        ), $beforekey);
+    }
 }

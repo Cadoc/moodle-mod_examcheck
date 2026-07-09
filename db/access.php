@@ -79,4 +79,14 @@ $capabilities = [
             'manager'        => CAP_ALLOW,
         ],
     ],
+
+    // Manage the seat list and seat assignments of an instance (the Seats tab).
+    'mod/examcheck:manageseats' => [
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes'   => [
+            'editingteacher' => CAP_ALLOW,
+            'manager'        => CAP_ALLOW,
+        ],
+    ],
 ];
