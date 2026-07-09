@@ -1,0 +1,44 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/conflict_toast
+
+    Body of the "already checked" warning toast shown by the scanner: the conflict
+    message plus a link back to the roster focused on the matched student. Rendered to
+    HTML and passed as the message to core/toast (whose template outputs it unescaped),
+    so all dynamic values are escaped here.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * message string The localised "already checked" sentence.
+    * rosterlink string URL to the roster focused on the matched student.
+
+    Example context (json):
+    {
+        "message": "Already checked: Jane Doe (EX4) was marked by Admin User, 4 seconds ago.",
+        "rosterlink": "https://example.org/mod/examcheck/view.php?id=2&userid=6"
+    }
+}}
+<div>{{ message }}</div>
+<div class="mt-1">
+    <a href="{{ rosterlink }}">{{#str}} view_in_roster, mod_examcheck {{/str}}</a>
+</div>

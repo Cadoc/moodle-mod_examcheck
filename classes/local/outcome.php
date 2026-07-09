@@ -106,11 +106,20 @@ class outcome {
                 $response['checkedbyname'] = $result['by'];
                 $response['timecreated'] = (int) $result['mark']->timecreated;
                 $response['ago'] = $result['ago'];
-                $response['message'] = get_string('result_conflict', 'mod_examcheck', (object) [
+                $args = (object) [
                     'user' => $userlabel,
                     'by'   => $result['by'],
                     'ago'  => $result['ago'],
-                ]);
+                ];
+                // The scanner passes the matched value so the message can show it in
+                // parentheses; manual/list marking has none, so keep the plain string.
+                $matchedvalue = (string) ($result['matchedvalue'] ?? '');
+                if ($matchedvalue !== '') {
+                    $args->value = $matchedvalue;
+                    $response['message'] = get_string('result_conflict_scanned', 'mod_examcheck', $args);
+                } else {
+                    $response['message'] = get_string('result_conflict', 'mod_examcheck', $args);
+                }
                 break;
 
             case 'notinroster':
