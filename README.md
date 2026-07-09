@@ -86,6 +86,11 @@ the result into a completion condition you can use to gate other activities.
   message instead.
 - **Search & filter.** Filter the roster by name / ID number and show only
   not‑yet‑checked students.
+- **Seat numbers.** Give the activity a list of free‑text seat labels and
+  assign each student a seat (instant autocomplete, one student per seat, one
+  seat per student). The roster gains a read‑only, sortable *Seat* column, the
+  scanner pop‑ups show the scanned student's seat, and assignments can be
+  exported / imported as CSV — including a full round trip.
 - **Export.** Download the roster with every step's status, who checked each
   student and when, in CSV / Excel / ODS (any installed data format).
 - **Reset.** Clear the checks for one step or the whole activity to reuse it,
@@ -221,6 +226,7 @@ start the quiz.
 | `mod/examcheck:check`       | teacher, editingteacher, manager | Record / remove checks (list + scanner) |
 | `mod/examcheck:override`    | editingteacher, manager          | Remove a mark made by another teacher   |
 | `mod/examcheck:managesteps` | editingteacher, manager          | Manage steps, clear checks              |
+| `mod/examcheck:manageseats` | editingteacher, manager          | Manage the seat list and assignments    |
 
 Students are **not** given access — the activity is teacher‑facing. The roster is
 every actively enrolled user who cannot themselves check students.

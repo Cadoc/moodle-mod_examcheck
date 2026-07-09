@@ -137,6 +137,11 @@ function examcheck_delete_instance($id) {
 function examcheck_reset_course_form_definition($mform) {
     $mform->addElement('header', 'examcheckheader', get_string('modulenameplural', 'mod_examcheck'));
     $mform->addElement('checkbox', 'reset_examcheck_marks', get_string('resetmarks', 'mod_examcheck'));
+    $mform->addElement(
+        'checkbox',
+        'reset_examcheck_seatassignments',
+        get_string('resetseatassignments', 'mod_examcheck')
+    );
 }
 
 /**
@@ -146,11 +151,14 @@ function examcheck_reset_course_form_definition($mform) {
  * @return array Default settings.
  */
 function examcheck_reset_course_form_defaults($course) {
-    return ['reset_examcheck_marks' => 1];
+    return ['reset_examcheck_marks' => 1, 'reset_examcheck_seatassignments' => 1];
 }
 
 /**
- * Remove recorded checks as part of a course reset.
+ * Remove recorded checks and seat assignments as part of a course reset.
+ *
+ * The seat list itself survives a reset: like the check steps, it is activity
+ * structure rather than user data.
  *
  * @param stdClass $data The course reset data.
  * @return array Status entries for the reset report.
@@ -159,8 +167,9 @@ function examcheck_reset_userdata($data) {
     global $DB;
 
     $status = [];
+    $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
+
     if (!empty($data->reset_examcheck_marks)) {
-        $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
         if ($instances) {
             [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
             $DB->delete_records_select('examcheck_marks', "examcheckid $insql", $params);
@@ -171,6 +180,19 @@ function examcheck_reset_userdata($data) {
             'error'     => false,
         ];
     }
+
+    if (!empty($data->reset_examcheck_seatassignments)) {
+        if ($instances) {
+            [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
+            $DB->delete_records_select('examcheck_seat_users', "examcheckid $insql", $params);
+        }
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_examcheck'),
+            'item'      => get_string('resetseatassignments', 'mod_examcheck'),
+            'error'     => false,
+        ];
+    }
+
     return $status;
 }
 

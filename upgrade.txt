@@ -1,6 +1,27 @@
 This file describes API changes in the examcheck activity module.
 Information provided here is intended especially for developers.
 
+=== 5.1-r2 ===
+
+* New capability mod/examcheck:manageseats (editingteacher, manager) gates the
+  Seats tab (seat assignment, edit seats, CSV import/export).
+* New tables examcheck_seats (the per-activity seat list; structure, always
+  backed up) and examcheck_seat_users (1:1 user/seat assignments; user data,
+  backed up under the userinfo setting, covered by the privacy provider and
+  cleared by course reset — the seat list itself survives reset).
+* New public API \mod_examcheck\local\seats — seat list CRUD (replace_list)
+  and assignment handling (assign/unassign, get_user_seat_labels, counts).
+  Future features (random distribution, check-time seat capture) should build
+  on it.
+* New web services: mod_examcheck_assign_seat, mod_examcheck_unassign_seat,
+  mod_examcheck_search_seat_candidates (all ajax, gated by manageseats).
+* New shared helper \mod_examcheck\local\checker::resolve_effective_group()
+  resolves the group a user is confined to without throwing (used by the
+  roster table and the seat candidate search).
+* The shared scan/mark outcome structure (\mod_examcheck\local\outcome) gained
+  an optional "seatlabel" field, surfaced in the scanner modals.
+* New events: \mod_examcheck\event\seat_assigned, seat_unassigned.
+
 === 5.1-r1 ===
 
 * First public release. Public API:

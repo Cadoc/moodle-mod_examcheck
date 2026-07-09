@@ -5,6 +5,27 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
 
+## [5.1-r2] - 2026-07-09
+
+### Added
+- Seat numbers (#14): a per-activity list of free-text seat labels with a 1:1
+  student/seat assignment.
+  - New gradebook-style **Seats** tab (capability `mod/examcheck:manageseats`,
+    editing teachers and managers) with subpages: *Seat assignment* (instant
+    per-row student autocomplete with conflict handling), *Edit seats* (one
+    label per line; changing the list resets assignments after an explicit
+    acknowledgement), *Import* and *Export* (CSV round trip; students matched
+    by username, email or idnumber; identity columns follow the exporting
+    user's identity-field visibility).
+  - Read-only, sortable (natural order: A2 before A10) and hideable **Seat**
+    column on the roster, visible to anyone who can view the activity, plus a
+    seat column in the roster export.
+  - The scanner info/confirm pop-ups show the scanned student's assigned seat.
+  - AJAX web services: `assign_seat`, `unassign_seat`,
+    `search_seat_candidates`; events `seat_assigned`, `seat_unassigned`.
+  - Backup & restore (assignments as user data), privacy (GDPR) coverage, and
+    course reset (clears assignments, keeps the seat list).
+
 ## [5.1-r1] - 2026-06-10
 
 First public release for Moodle 5.1.

@@ -38,8 +38,13 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
 
         $paths[] = new restore_path_element('examcheck', '/activity/examcheck');
         $paths[] = new restore_path_element('examcheck_step', '/activity/examcheck/steps/step');
+        $paths[] = new restore_path_element('examcheck_seat', '/activity/examcheck/seats/seat');
         if ($userinfo) {
             $paths[] = new restore_path_element('examcheck_mark', '/activity/examcheck/marks/mark');
+            $paths[] = new restore_path_element(
+                'examcheck_seatassignment',
+                '/activity/examcheck/seatassignments/seatassignment'
+            );
         }
 
         return $this->prepare_activity_structure($paths);
@@ -117,6 +122,47 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
         $data->checkedby = $this->get_mappingid('user', $data->checkedby);
 
         $DB->insert_record('examcheck_marks', $data);
+    }
+
+    /**
+     * Restore a seat and remember the id mapping for its assignment.
+     *
+     * @param array $data The seat data.
+     */
+    protected function process_examcheck_seat($data) {
+        global $DB;
+
+        $data = (object) $data;
+        $oldid = $data->id;
+        $data->examcheckid = $this->get_new_parentid('examcheck');
+
+        $newitemid = $DB->insert_record('examcheck_seats', $data);
+        $this->set_mapping('examcheck_seat', $oldid, $newitemid);
+    }
+
+    /**
+     * Restore a seat assignment, remapping the seat and users.
+     *
+     * The seat is always restored before its assignment (document order), so no
+     * after_execute pass is needed. Rows whose seat or student cannot be mapped
+     * are skipped; a missing assigner degrades to 0 (anonymised), matching the
+     * privacy handling.
+     *
+     * @param array $data The seat assignment data.
+     */
+    protected function process_examcheck_seatassignment($data) {
+        global $DB;
+
+        $data = (object) $data;
+        $data->examcheckid = $this->get_new_parentid('examcheck');
+        $data->seatid = $this->get_mappingid('examcheck_seat', $data->seatid);
+        $data->userid = $this->get_mappingid('user', $data->userid);
+        if (empty($data->seatid) || empty($data->userid)) {
+            return;
+        }
+        $data->assignedby = (int) $this->get_mappingid('user', $data->assignedby);
+
+        $DB->insert_record('examcheck_seat_users', $data);
     }
 
     /**
