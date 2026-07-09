@@ -121,6 +121,45 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * A scan conflict carries the matched value (so the message can show it in
+     * parentheses); a manual/list conflict has no scanned value.
+     */
+    public function test_scan_conflict_carries_matched_value(): void {
+        $checker = new checker($this->examcheck, $this->context);
+
+        // First scan of student S1 marks them.
+        $first = $checker->scan($this->stepid, 'idnumber', 'S1', false, false, $this->teacher->id);
+        $this->assertSame('marked', $first['status']);
+
+        // Second scan of the same student is a conflict carrying the matched value.
+        $second = $checker->scan($this->stepid, 'idnumber', 'S1', false, false, $this->teacher->id);
+        $this->assertSame('conflict', $second['status']);
+        $this->assertSame('S1', $second['matchedvalue']);
+
+        // A manual (roster) conflict has no scanned value.
+        $manual = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id, 'list');
+        $this->assertSame('conflict', $manual['status']);
+        $this->assertNull($manual['matchedvalue']);
+    }
+
+    /**
+     * The formatted conflict message includes the scanned value in parentheses for a
+     * scan, but stays plain (no value) for manual marking.
+     */
+    public function test_conflict_message_includes_scanned_value(): void {
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->scan($this->stepid, 'idnumber', 'S1', false, false, $this->teacher->id);
+
+        $scanconflict = $checker->scan($this->stepid, 'idnumber', 'S1', false, false, $this->teacher->id);
+        $scanmessage = \mod_examcheck\local\outcome::format($scanconflict, $this->stepid)['message'];
+        $this->assertStringContainsString('(S1)', $scanmessage);
+
+        $manualconflict = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id, 'list');
+        $manualmessage = \mod_examcheck\local\outcome::format($manualconflict, $this->stepid)['message'];
+        $this->assertStringNotContainsString('(', $manualmessage);
+    }
+
+    /**
      * Marking refuses students who are not on the roster.
      */
     public function test_mark_rejects_non_roster_user(): void {

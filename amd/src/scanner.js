@@ -29,6 +29,7 @@
 
 import Ajax from 'core/ajax';
 import Url from 'core/url';
+import Templates from 'core/templates';
 import {add as addToast} from 'core/toast';
 import {getString} from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
@@ -536,6 +537,22 @@ const rosterLinkFor = (outcome) => {
 };
 
 /**
+ * Show the "already checked" conflict as a warning toast, carrying the server message
+ * (which already includes the scanned value) plus a "View in roster" link. The toast
+ * auto-hides after a longer-than-default delay so the link is clickable for a while.
+ *
+ * @param {Outcome} outcome The scan-lookup outcome.
+ * @returns {Promise<void>}
+ */
+const showConflictToast = async(outcome) => {
+    const {html} = await Templates.renderForPromise('mod_examcheck/conflict_toast', {
+        message: outcome.message,
+        rosterlink: rosterLinkFor(outcome),
+    });
+    addToast(html, {type: 'warning', delay: 8000});
+};
+
+/**
  * @param {Outcome} outcome
  * @param {String} scannedValue
  * @param {Boolean} [isWarning]
@@ -607,7 +624,7 @@ const showConfirmationModal = async(outcome, scannedValue) => {
             if (outcome.status === 'marked') {
                 addToast(outcome.message, {type: 'success'});
             } else if (outcome.status === 'conflict') {
-                addToast(outcome.message, {type: 'warning'});
+                showConflictToast(outcome);
             } else if (outcome.status === 'requirementnotmet') {
                 // Defensive: scan() fails fast before needsconfirm, so we should never get
                 // here for the gate — but if a step is reconfigured mid-session it could.
@@ -645,7 +662,10 @@ const handleOutcome = (outcome, value) => {
             resumeScanning();
             break;
         case 'conflict':
-            showInfoModal(outcome, value, true);
+            // Already checked: a non-blocking warning toast (with the scanned value and
+            // a roster link), not a modal, so scanning can carry on.
+            showConflictToast(outcome);
+            resumeScanning();
             break;
         case 'notfound':
             // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.

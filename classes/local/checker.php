@@ -371,9 +371,10 @@ class checker {
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
-        // Already checked? Report the conflict regardless of the confirm setting.
+        // Already checked? Report the conflict regardless of the confirm setting,
+        // carrying the value that matched so the message can show it in parentheses.
         if ($existing = $this->get_mark($stepid, $userid)) {
-            return $this->conflict_result($existing, $userid);
+            return $this->conflict_result($existing, $userid, $needle);
         }
 
         // Fail fast on the gates so the teacher never sees a "Confirm" prompt for a
@@ -774,17 +775,21 @@ class checker {
      *
      * @param stdClass $mark The existing mark.
      * @param int $userid The student user id.
+     * @param string|null $matchedvalue The scanned value that matched this student, when
+     *        the conflict came from the scanner. Null for manual/list marking, which has
+     *        no scanned value to show.
      * @return array
      */
-    protected function conflict_result(stdClass $mark, int $userid): array {
+    protected function conflict_result(stdClass $mark, int $userid, ?string $matchedvalue = null): array {
         return [
-            'status'    => 'conflict',
-            'mark'      => $mark,
-            'userid'    => $userid,
-            'user'      => self::user_label($userid),
-            'by'        => self::user_label((int) $mark->checkedby),
-            'ago'       => self::relative_time((int) $mark->timecreated),
-            'timestamp' => (int) $mark->timecreated,
+            'status'       => 'conflict',
+            'mark'         => $mark,
+            'userid'       => $userid,
+            'user'         => self::user_label($userid),
+            'by'           => self::user_label((int) $mark->checkedby),
+            'ago'          => self::relative_time((int) $mark->timecreated),
+            'timestamp'    => (int) $mark->timecreated,
+            'matchedvalue' => $matchedvalue,
         ];
     }
 

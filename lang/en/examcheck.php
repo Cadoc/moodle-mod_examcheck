@@ -160,6 +160,7 @@ $string['requiresequential_help'] = 'When enabled, a student can only be checked
 $string['resetallchecks'] = 'Clear all checks';
 $string['resetmarks'] = 'Delete all recorded checks';
 $string['result_conflict'] = 'Already checked: {$a->user} was marked by {$a->by}, {$a->ago}.';
+$string['result_conflict_scanned'] = 'Already checked: {$a->user} ({$a->value}) was marked by {$a->by}, {$a->ago}.';
 $string['result_marked'] = '{$a} marked as checked.';
 $string['result_needsconfirm'] = 'Found {$a}. Confirm to mark them as checked.';
 $string['result_notchecked'] = '{$a} was not checked.';
