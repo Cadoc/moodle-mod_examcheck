@@ -55,6 +55,10 @@ final class step_statuses_test extends \advanced_testcase {
         // background), not the old Bootstrap table-active accent.
         $this->assertStringContainsString('examcheck-currentstep', $html);
         $this->assertStringNotContainsString('table-active', $html);
+
+        // Compact + framed: only as wide as its content (w-auto), with a grey grid.
+        $this->assertStringContainsString('w-auto', $html);
+        $this->assertStringContainsString('table-bordered', $html);
     }
 
     /**
