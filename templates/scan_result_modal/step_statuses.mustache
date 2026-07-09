@@ -33,9 +33,9 @@
     Example context (json):
     {
         "steps": [
-            {"name": "Attendance", "checked": true, "current": false},
-            {"name": "ID verified", "checked": false, "current": true},
-            {"name": "Paper submitted", "checked": true, "current": false}
+            {"name": "Attendance", "abbr": "A", "checked": true, "current": false},
+            {"name": "Identity verification", "abbr": "IV", "checked": false, "current": true},
+            {"name": "Paper submitted", "abbr": "PS", "checked": true, "current": false}
         ]
     }
 }}
@@ -45,14 +45,17 @@
         <thead>
             <tr>
                 {{#steps}}
-                    <th scope="col" class="{{#current}}table-active fw-bold examcheck-currentstep{{/current}}">{{name}}</th>
+                    <th scope="col" title="{{name}}" class="{{#current}}examcheck-currentstep{{/current}}">
+                        <span aria-hidden="true" class="examcheck-stepabbr">{{abbr}}</span>
+                        <span class="visually-hidden">{{name}}</span>
+                    </th>
                 {{/steps}}
             </tr>
         </thead>
         <tbody>
             <tr>
                 {{#steps}}
-                    <td class="{{#current}}table-active examcheck-currentstep{{/current}}">
+                    <td class="{{#current}}examcheck-currentstep{{/current}}">
                         {{#checked}}
                             <i class="fa fa-check text-success" aria-hidden="true"></i>
                             <span class="visually-hidden">{{#str}} checked, mod_examcheck {{/str}}</span>
