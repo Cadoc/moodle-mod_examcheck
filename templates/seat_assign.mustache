@@ -1,0 +1,96 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template mod_examcheck/seat_assign
+
+    Seat assignment page: the assignment count, the auto-assign trigger, and the seat
+    dynamic table. Each row of the table server-renders a select holding only the
+    currently assigned student; the JS enhances it into an AJAX autocomplete, saves
+    changes instantly, and re-enhances every row after the table body reloads on sort
+    or paging.
+
+    The two counts on the root let the JS size the auto-assign confirmation without a
+    roundtrip, and keep the count line live: assigning a student consumes one free seat
+    and one unseated student, unassigning returns one of each.
+
+    Never let two closing braces meet inside a comment such as this one. Mustache closes
+    a comment at the first pair it meets, and the rest of the block would then be rendered
+    as literal text. Keep the example context flat, with no nested objects.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * data-region="examcheck-seat-assign" - the page root, carries the cmid and the counts
+    * data-region="examcheck-seat-count" - the seat and student count text
+    * data-region="examcheck-autoassign" - wraps the trigger, hidden when nothing to assign
+    * data-action="examcheck-autoassign" - the trigger itself
+
+    Context variables required for this template:
+    * cmid - course module id
+    * assignedcount - number of assigned seats
+    * seatcount - total number of seats
+    * freeseats - number of seats with no student
+    * rostercount - reachable roster students, seated or not
+    * studentsassigned - reachable roster students who have a seat
+    * unseatedstudents - reachable roster students with no seat
+    * canautoassign - whether there is at least one free seat and one unseated student
+    * table - the rendered seat_assign dynamic table
+
+    Example context (json):
+    {
+        "cmid": 12,
+        "assignedcount": 1,
+        "seatcount": 2,
+        "freeseats": 1,
+        "rostercount": 4,
+        "studentsassigned": 1,
+        "unseatedstudents": 3,
+        "canautoassign": true,
+        "table": "<table class=\"generaltable\"><tbody><tr><td>A1</td></tr></tbody></table>"
+    }
+}}
+<div data-region="examcheck-seat-assign"
+     data-cmid="{{cmid}}"
+     data-seatcount="{{seatcount}}"
+     data-freeseats="{{freeseats}}"
+     data-rostercount="{{rostercount}}"
+     data-unseatedstudents="{{unseatedstudents}}">
+    <p class="text-muted">
+        <span data-region="examcheck-seat-count">
+            {{#str}}
+                seatandstudentcount, mod_examcheck,
+                { "seats": {{assignedcount}}, "seatstotal": {{seatcount}},
+                  "students": {{studentsassigned}}, "studentstotal": {{rostercount}} }
+            {{/str}}
+        </span>
+        <span data-region="examcheck-autoassign" class="{{^canautoassign}}d-none{{/canautoassign}}">
+            &ndash;
+            <button type="button"
+                    class="btn btn-link p-0 align-baseline"
+                    data-action="examcheck-autoassign">
+                {{#str}} autoassign, mod_examcheck {{/str}}
+            </button>
+        </span>
+    </p>
+    {{{table}}}
+</div>
+{{#js}}
+require(['mod_examcheck/seat_assign'], function(SeatAssign) {
+    SeatAssign.init({{cmid}});
+});
+{{/js}}

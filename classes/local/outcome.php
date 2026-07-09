@@ -60,6 +60,7 @@ class outcome {
             'checkedbyname' => new external_value(PARAM_TEXT, 'For conflicts: that teacher\'s name.', VALUE_DEFAULT, ''),
             'timecreated' => new external_value(PARAM_INT, 'For conflicts/marks: when it was recorded.', VALUE_DEFAULT, 0),
             'ago'         => new external_value(PARAM_TEXT, 'For conflicts: how long ago, in words.', VALUE_DEFAULT, ''),
+            'seatlabel'   => new external_value(PARAM_TEXT, 'The student\'s assigned seat label, when any.', VALUE_DEFAULT, ''),
             'steps'       => new external_multiple_structure(
                 new external_single_structure([
                     'name'    => new external_value(PARAM_TEXT, 'Step name.'),
@@ -103,6 +104,7 @@ class outcome {
             'checkedbyname' => '',
             'timecreated'   => 0,
             'ago'           => '',
+            'seatlabel'     => (string) ($result['seatlabel'] ?? ''),
             'steps'         => [],
         ];
 

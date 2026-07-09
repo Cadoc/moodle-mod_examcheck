@@ -50,28 +50,36 @@ class mod_examcheck_mod_form extends moodleform_mod {
 
         $this->standard_intro_elements();
 
-        // Attendance settings section.
-        $mform->addElement('header', 'attendanceheader', get_string('attendancesettings', 'mod_examcheck'));
+        // General settings section.
+        $mform->addElement('header', 'generalsettingsheader', get_string('generalsettings', 'mod_examcheck'));
 
         $mform->addElement('selectyesno', 'requiresequential', get_string('requiresequential', 'mod_examcheck'));
         $mform->setDefault('requiresequential', (int) get_config('mod_examcheck', 'defaultrequiresequential'));
         $mform->addHelpButton('requiresequential', 'requiresequential', 'mod_examcheck');
 
-        // Scanning defaults section.
+        // Master toggle: when off, the scanner is fully disabled (no tab, scan.php blocked).
+        $mform->addElement('selectyesno', 'enablescanner', get_string('enablescanner', 'mod_examcheck'));
+        $mform->setDefault('enablescanner', (int) get_config('mod_examcheck', 'defaultenablescanner'));
+        $mform->addHelpButton('enablescanner', 'enablescanner', 'mod_examcheck');
+
+        // Master toggle: when off, the seats feature is fully disabled (no tab,
+        // seats.php and the seat web services blocked, no roster/export column).
+        $mform->addElement('selectyesno', 'enableseats', get_string('enableseats', 'mod_examcheck'));
+        $mform->setDefault('enableseats', (int) get_config('mod_examcheck', 'defaultenableseats'));
+        $mform->addHelpButton('enableseats', 'enableseats', 'mod_examcheck');
+
+        // Scanning defaults section: every field only matters (and only shows) when
+        // the scanner is enabled.
         $mform->addElement('header', 'scanningheader', get_string('scanningsettings', 'mod_examcheck'));
 
         $options = \mod_examcheck\local\scanfield::get_field_menu();
         $mform->addElement('select', 'scanfield', get_string('scanfield', 'mod_examcheck'), $options);
         $mform->setDefault('scanfield', get_config('mod_examcheck', 'defaultscanfield') ?: 'idnumber');
         $mform->addHelpButton('scanfield', 'scanfield', 'mod_examcheck');
+        $mform->hideIf('scanfield', 'enablescanner', 'eq', 0);
 
         // The scan extraction pattern is a single site-wide admin setting (see settings.php),
         // applied server-side, so it is not configured per activity.
-
-        // Master toggle: when off, the scanner is fully disabled (no tab, scan.php blocked).
-        $mform->addElement('selectyesno', 'enablescanner', get_string('enablescanner', 'mod_examcheck'));
-        $mform->setDefault('enablescanner', (int) get_config('mod_examcheck', 'defaultenablescanner'));
-        $mform->addHelpButton('enablescanner', 'enablescanner', 'mod_examcheck');
 
         $mform->addElement('selectyesno', 'requireconfirm', get_string('requireconfirm', 'mod_examcheck'));
         $mform->setDefault('requireconfirm', (int) get_config('mod_examcheck', 'defaultrequireconfirm'));

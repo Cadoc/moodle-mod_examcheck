@@ -26,7 +26,7 @@
     * none
 
     Context variables required for this template:
-    * userFullname, userPicture, scanFieldName, scanValue, rosterLink - see the user_info partial.
+    * userFullname, userPicture, scanFieldName, scanValue, seatLabel, rosterLink - see the user_info partial.
     * steps - per-step status; see the step_statuses partial.
 
     Example context (json):
@@ -35,6 +35,7 @@
         "userFullname": "Jane Doe",
         "scanFieldName": "User id (internal)",
         "scanValue": "6",
+        "seatLabel": "A12",
         "rosterLink": "https://tbd.example.org",
         "steps": [
             {"name": "Attendance", "checked": true, "current": false},

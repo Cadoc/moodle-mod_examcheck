@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/examcheck/db" VERSION="20260709" COMMENT="XMLDB file for Moodle mod/examcheck"
+<XMLDB PATH="mod/examcheck/db" VERSION="20260710" COMMENT="XMLDB file for Moodle mod/examcheck"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -18,6 +18,7 @@
         <FIELD NAME="completionchecked" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the student completes the activity once they are checked as required."/>
         <FIELD NAME="completionstep" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = student must be checked on ALL steps; otherwise the single step id that completes the activity."/>
         <FIELD NAME="requiresequential" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, a student can only be checked on a step once they are already checked on the immediately preceding step."/>
+        <FIELD NAME="enableseats" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 0, the seats feature is disabled for this activity (no tab, no roster/export column, pages and web services blocked). Seat data is kept."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
@@ -65,6 +66,40 @@
       <INDEXES>
         <INDEX NAME="examcheckid-userid" UNIQUE="false" FIELDS="examcheckid, userid"/>
       </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_seats" COMMENT="Ordered list of free-text seat labels for an examcheck instance.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="label" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Free-text seat label, e.g. A1 or Room 2 - 14."/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+        <KEY NAME="examcheckid-label" TYPE="unique" FIELDS="examcheckid, label"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="examcheckid-sortorder" UNIQUE="false" FIELDS="examcheckid, sortorder"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="examcheck_seat_users" COMMENT="A single 1:1 seat assignment per student. Records which teacher assigned the seat and when.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="examcheckid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="seatid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The student sitting on the seat."/>
+        <FIELD NAME="assignedby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="The teacher who recorded the assignment (0 when anonymised)."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="examcheckid" TYPE="foreign" FIELDS="examcheckid" REFTABLE="examcheck" REFFIELDS="id"/>
+        <KEY NAME="seatid" TYPE="foreign-unique" FIELDS="seatid" REFTABLE="examcheck_seats" REFFIELDS="id"/>
+        <KEY NAME="examcheckid-userid" TYPE="unique" FIELDS="examcheckid, userid"/>
+      </KEYS>
     </TABLE>
   </TABLES>
 </XMLDB>

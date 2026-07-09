@@ -57,11 +57,11 @@ class secondary extends core_secondary {
     }
 
     /**
-     * Order the day-to-day action tabs (Scanner, Manage steps) ahead of Settings.
+     * Order the day-to-day action tabs (Scanner, Manage steps, Seats) ahead of Settings.
      *
      * Core weights "Settings" (modedit) at 1 and leaves our tabs unmapped, so they
      * would otherwise be appended after Settings. We add them to the map and bump
-     * modedit so the final order is: Roster, Scanner, Manage steps, Settings.
+     * modedit so the final order is: Roster, Scanner, Manage steps, Seats, Settings.
      *
      * Weights must be integers: core treats a fractional weight as a nested child
      * (e.g. 7.1 nests under node 7), which would drop these from the top-level tabs.
@@ -74,7 +74,8 @@ class secondary extends core_secondary {
         $mapping[self::TYPE_SETTING] = [
             'mod_examcheck_scanner' => 0,
             'mod_examcheck_managesteps' => 1,
-            'modedit' => 2,
+            'mod_examcheck_seats' => 2,
+            'modedit' => 3,
         ] + $mapping[self::TYPE_SETTING];
 
         return $mapping;

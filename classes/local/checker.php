@@ -39,6 +39,9 @@ class checker {
     /** @var context_module The module context. */
     protected context_module $context;
 
+    /** @var array<int, string>|null Lazy cache of user id => assigned seat label. */
+    protected ?array $seatlabels = null;
+
     /**
      * Constructor.
      *
@@ -118,6 +121,40 @@ class checker {
                 ''
             );
         }
+    }
+
+    /**
+     * Work out which group the current user is effectively restricted to.
+     *
+     * Unlike {@see self::require_group_access()}, which throws on an
+     * out-of-reach selection, this resolves a usable fallback: under separate
+     * groups a user without accessallgroups is confined to their own groups, so
+     * an unreachable request falls back to one of their groups, and a user in
+     * no group reaches nobody. Mirrors the roster table's access control.
+     *
+     * @param int $requested The requested group id (0 = all participants).
+     * @return int 0 = all participants, -1 = none, otherwise a group id.
+     */
+    public function resolve_effective_group(int $requested): int {
+        $cm = get_coursemodule_from_instance(
+            'examcheck',
+            $this->examcheck->id,
+            $this->examcheck->course,
+            false,
+            MUST_EXIST
+        );
+
+        $separate = groups_get_activity_groupmode($cm) == SEPARATEGROUPS
+            && !has_capability('moodle/site:accessallgroups', $this->context);
+        if (!$separate) {
+            return $requested;
+        }
+
+        $allowed = groups_get_activity_allowed_groups($cm);
+        if ($requested && isset($allowed[$requested])) {
+            return $requested;
+        }
+        return empty($allowed) ? -1 : (int) array_key_first($allowed);
     }
 
     /**
@@ -292,7 +329,12 @@ class checker {
         \mod_examcheck\event\user_marked::create_from_mark($this->context, $mark, $step)->trigger();
         $this->update_completion_for_user($userid);
 
-        return ['status' => 'marked', 'mark' => $mark, 'user' => self::user_label($userid)];
+        return [
+            'status'    => 'marked',
+            'mark'      => $mark,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+        ];
     }
 
     /**
@@ -392,10 +434,11 @@ class checker {
         // highlighting the step being checked.
         if ($requireconfirm && !$confirm) {
             return [
-                'status' => 'needsconfirm',
-                'userid' => $userid,
-                'user'   => self::user_label($userid),
-                'steps'  => $this->build_step_statuses($userid, $stepid),
+                'status'    => 'needsconfirm',
+                'userid'    => $userid,
+                'user'      => self::user_label($userid),
+                'seatlabel' => $this->seat_label($userid),
+                'steps'     => $this->build_step_statuses($userid, $stepid),
             ];
         }
 
@@ -431,10 +474,11 @@ class checker {
         }
 
         return [
-            'status' => 'found',
-            'userid' => $userid,
-            'user'   => self::user_label($userid),
-            'steps'  => $this->build_step_statuses($userid),
+            'status'    => 'found',
+            'userid'    => $userid,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+            'steps'     => $this->build_step_statuses($userid),
         ];
     }
 
@@ -807,7 +851,28 @@ class checker {
             'ago'          => self::relative_time((int) $mark->timecreated),
             'timestamp'    => (int) $mark->timecreated,
             'matchedvalue' => $matchedvalue,
+            'seatlabel'    => $this->seat_label($userid),
         ];
+    }
+
+    /**
+     * The student's assigned seat label, or an empty string when unseated
+     * or when the seats feature is disabled for the activity.
+     *
+     * The full map is loaded lazily and cached: one query serves every result
+     * built during the request.
+     *
+     * @param int $userid The student user id.
+     * @return string
+     */
+    protected function seat_label(int $userid): string {
+        if (empty($this->examcheck->enableseats)) {
+            return '';
+        }
+        if ($this->seatlabels === null) {
+            $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
+        }
+        return $this->seatlabels[$userid] ?? '';
     }
 
     /**

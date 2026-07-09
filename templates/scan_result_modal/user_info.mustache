@@ -34,6 +34,7 @@
         "userFullname": "Jane Doe",
         "scanFieldName": "User id (internal)",
         "scanValue": "6",
+        "seatLabel": "A12",
         "rosterLink": "https://tbd.example.org"
     }
 }}
@@ -43,6 +44,9 @@
     <div class="d-flex flex-column">
         <div class="font-bold">{{ userFullname }}</div>
         <small class="text-muted">{{ scanFieldName }}: {{ scanValue }}</small>
+        {{#seatLabel}}
+            <small class="text-muted">{{#str}} seatcolon, mod_examcheck, {{seatLabel}} {{/str}}</small>
+        {{/seatLabel}}
         <a href="{{ rosterLink }}"><small class="text-muted link-underline">{{#str}} view_in_roster, mod_examcheck {{/str}}</small></a>
     </div>
 </div>

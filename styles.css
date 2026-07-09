@@ -13,6 +13,13 @@
     white-space: nowrap;
 }
 
+/* Seat assignment: once a seat is taken, its row shows the student plus the
+   autocomplete's remove control, so the search field is redundant. Removing the
+   student drops the class and the field comes back. */
+.examcheck-seat-assign .examcheck-seat-taken [data-region="form_autocomplete-input"] {
+    display: none;
+}
+
 /* Read-only per-step status table shown in the scanner modals: compact, framed and
    only as wide as it needs to be (centered by the template's w-auto mx-auto). */
 .examcheck-step-statuses th,

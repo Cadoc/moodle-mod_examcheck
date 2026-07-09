@@ -35,7 +35,7 @@ the result into a completion condition you can use to gate other activities.
 - **Custom, ordered check steps.** Every activity starts with one *Attendance*
   step; add as many more as you like with your own names (*Identity verified*,
   *Copy submitted*, …) and reorder them.
-- **Require step-by-step completion.** An activity-wide *Attendance settings*
+- **Require step-by-step completion.** An activity-wide *General settings*
   toggle that, when enabled, only lets a student be checked on a step once
   they're already checked on the immediately preceding one. Combines with a
   step's own requirement below — both must be satisfied.
@@ -84,8 +84,21 @@ the result into a completion condition you can use to gate other activities.
   dashboard, the scanner and the bulk check action all refuse to tick the
   student off until their own requirement is satisfied, and show a clear red
   message instead.
-- **Search & filter.** Filter the roster by name / ID number and show only
-  not‑yet‑checked students.
+- **Identity columns.** The roster shows the identity fields configured for
+  the site (ID number, email, custom profile fields, …), respecting each
+  viewer's permission to see them.
+- **Search & filter.** Filter the roster by name or any visible identity
+  field and show only not‑yet‑checked students.
+- **Seat numbers.** Give the activity a list of free‑text seat labels and
+  assign each student a seat (sortable table, inline autocomplete, one student
+  per seat, one seat per student), or let **Auto‑assign students** seat
+  everybody left at random. The roster gains a read‑only, sortable *Seat*
+  column and the scanner pop‑ups show the scanned student's seat. Export the
+  seat list as CSV, or the seat list plus the roster as two CSV files in a zip;
+  fill the empty seats into `students.csv`, import it back, and the cohort is
+  seated in one pass. The whole feature can be switched off per activity
+  (*General settings*, with a site default); disabling hides everything but
+  keeps the seat data.
 - **Export.** Download the roster with every step's status, who checked each
   student and when, in CSV / Excel / ODS (any installed data format).
 - **Reset.** Clear the checks for one step or the whole activity to reuse it,
@@ -123,14 +136,16 @@ the result into a completion condition you can use to gate other activities.
 
 3. (Optional) Review **Site administration → Plugins → Activity modules → Exam
    check** for site defaults (default scan field, default scanner mode,
-   confirm‑before‑marking, live refresh interval).
+   confirm‑before‑marking, seat numbers, live refresh interval).
 
 ## Usage
 
 ### Create the activity
 
-Add an **Exam check** activity to your course. In the form you can set the
-default **scan match field** and whether scanning **confirms before marking**.
+Add an **Exam check** activity to your course. *General settings* holds the
+**step‑by‑step completion**, **scanner** and **seat numbers** toggles;
+*Scanning defaults* (shown while the scanner is enabled) holds the default
+**scan match field** and whether scanning **confirms before marking**.
 The activity is created with a single **Attendance** step.
 
 ### Manage steps
@@ -221,6 +236,7 @@ start the quiz.
 | `mod/examcheck:check`       | teacher, editingteacher, manager | Record / remove checks (list + scanner) |
 | `mod/examcheck:override`    | editingteacher, manager          | Remove a mark made by another teacher   |
 | `mod/examcheck:managesteps` | editingteacher, manager          | Manage steps, clear checks              |
+| `mod/examcheck:manageseats` | editingteacher, manager          | Manage the seat list and assignments    |
 
 Students are **not** given access — the activity is teacher‑facing. The roster is
 every actively enrolled user who cannot themselves check students.
@@ -261,7 +277,7 @@ access guard, completion (all‑steps and single‑step), the web services, even
 and the privacy provider.
 A data generator is provided at `tests/generator/lib.php`.
 
-**Status:** the suite passes — **76 tests, 185 assertions, 0 failures** (verified
+**Status:** the suite passes — **153 tests, 453 assertions, 0 failures** (verified
 on Moodle 5.1.4+ with PostgreSQL 16). On PHP 8.2–8.4 it is green by default. On
 PHP 8.5 (newer than Moodle 5.1 officially supports) core code emits PHP 8.5
 deprecations, so add `--do-not-fail-on-deprecation` to avoid Moodle's
@@ -302,7 +318,11 @@ release history.
 
 ## AI assistance
 
-Parts of this plugin were drafted with the help of AI coding assistants — Claude by Anthropic, Gemini by Google, and Codex by OpenAI. Every generated snippet — PHP, JavaScript, templates, and tests — was read, understood, and validated by the author before being committed. Design decisions, architecture, and test coverage remain the responsibility of the human author.
+Parts of this plugin were drafted with the help of AI coding assistants —
+Claude by Anthropic, Gemini by Google, and Codex by OpenAI. Every generated
+snippet — PHP, JavaScript, templates, and tests — was read, understood, and
+validated by the author before being committed. Design decisions,
+architecture, and test coverage remain the responsibility of the human author.
 
 ## Licence
 
