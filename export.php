@@ -25,6 +25,7 @@
 require(__DIR__ . '/../../config.php');
 
 use mod_examcheck\local\checker;
+use mod_examcheck\local\roster_exporter;
 use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 
@@ -68,37 +69,8 @@ if ($userids) {
 $hasseats = !empty($examcheck->enableseats) && seats::count_seats($examcheck->id) > 0;
 $seatlabels = $hasseats ? seats::get_user_seat_labels($examcheck->id) : [];
 
-// Column headers: identity (and seat), then three columns per step.
-$columns = [
-    get_string('lastname'),
-    get_string('firstname'),
-    get_string('idnumber'),
-];
-if ($hasseats) {
-    $columns[] = get_string('seat', 'mod_examcheck');
-}
-foreach ($steplist as $step) {
-    $name = format_string($step->name);
-    $columns[] = get_string('col_checked', 'mod_examcheck', $name);
-    $columns[] = get_string('col_checkedby', 'mod_examcheck', $name);
-    $columns[] = get_string('col_checkedat', 'mod_examcheck', $name);
-}
-
-// One row per student.
-$rows = [];
-foreach ($roster as $user) {
-    $row = [$user->lastname, $user->firstname, (string) $user->idnumber];
-    if ($hasseats) {
-        $row[] = $seatlabels[$user->id] ?? '';
-    }
-    foreach ($steplist as $step) {
-        $mark = $marks[$step->id][$user->id] ?? null;
-        $row[] = $mark ? get_string('yes') : get_string('no');
-        $row[] = $mark ? checker::user_label((int) $mark->checkedby) : '';
-        $row[] = $mark ? userdate((int) $mark->timecreated, get_string('strftimedatetimeshort', 'langconfig')) : '';
-    }
-    $rows[] = $row;
-}
+// Name, the identity fields this viewer may see, the seat, then three columns per step.
+[$columns, $rows] = roster_exporter::columns_and_rows($roster, $steplist, $marks, $hasseats, $seatlabels, $context);
 
 $filename = clean_filename(get_string('exportfilename', 'mod_examcheck') . '_' . format_string($examcheck->name));
 
