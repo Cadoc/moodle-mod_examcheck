@@ -55,6 +55,17 @@ $PAGE->set_context($context);
 // Keep the Seats tab highlighted on every subpage.
 $PAGE->set_secondary_active_tab('mod_examcheck_seats');
 
+// Export download branch: must run before any output.
+if ($action === 'export' && ($dataformat = optional_param('dataformat', '', PARAM_ALPHA)) !== '') {
+    require_sesskey();
+    [$columns, $rows] = \mod_examcheck\local\seats_exporter::columns_and_rows((int) $examcheck->id, $context);
+    $filename = clean_filename(
+        get_string('exportfilename', 'mod_examcheck') . '_' . format_string($examcheck->name) . '_seats'
+    );
+    \core\dataformat::download_data($filename, $dataformat, $columns, $rows);
+    exit;
+}
+
 $actionbar = new seats_action_bar((int) $cm->id, $action);
 $actionbarhtml = $OUTPUT->render_from_template(
     'mod_examcheck/seats_action_bar',
@@ -98,14 +109,89 @@ if ($action === 'edit') {
     exit;
 }
 
-if ($action === 'import' || $action === 'export') {
-    // Import and export land in a later increment of this feature.
+if ($action === 'import') {
+    // CSV import of seats and assignments: validate the entire file first and
+    // apply nothing unless every line is clean.
+    $mform = new \mod_examcheck\form\seats_import_form($baseurl);
+
+    if ($mform->is_cancelled()) {
+        redirect($assignurl);
+    } else if ($data = $mform->get_data()) {
+        require_once($CFG->libdir . '/csvlib.class.php');
+
+        $text = $mform->get_file_content('seatsfile');
+        $importid = csv_import_reader::get_new_iid('examcheckseats');
+        $cir = new csv_import_reader($importid, 'examcheckseats');
+        $readcount = $cir->load_csv_content($text, $data->encoding, $data->delimiter_name);
+
+        if ($readcount === false || $readcount <= 1) {
+            $cir->cleanup();
+            redirect($baseurl, get_string('importemptyfile', 'mod_examcheck'), null, notification::NOTIFY_ERROR);
+        }
+
+        $importer = new \mod_examcheck\local\seats_importer(
+            (int) $examcheck->id,
+            $context,
+            !empty($data->overrideseats)
+        );
+        $errors = $importer->validate($cir);
+
+        echo $OUTPUT->header();
+        echo $actionbarhtml;
+        echo $OUTPUT->heading(get_string('importseats', 'mod_examcheck'));
+
+        if ($errors) {
+            echo $OUTPUT->notification(get_string('importfailed', 'mod_examcheck'), notification::NOTIFY_ERROR);
+            echo html_writer::start_tag('ul');
+            foreach ($errors as $line => $messages) {
+                foreach ($messages as $message) {
+                    echo html_writer::tag('li', get_string('importlineerror', 'mod_examcheck', (object) [
+                        'line'  => $line,
+                        'error' => $message,
+                    ]));
+                }
+            }
+            echo html_writer::end_tag('ul');
+        } else {
+            $counts = $importer->apply();
+            echo $OUTPUT->notification(
+                get_string('importresult', 'mod_examcheck', (object) $counts),
+                notification::NOTIFY_SUCCESS
+            );
+        }
+        $cir->cleanup();
+
+        echo $OUTPUT->single_button($assignurl, get_string('continue'), 'get');
+        echo $OUTPUT->footer();
+        exit;
+    }
+
+    $mform->set_data(['id' => $cm->id, 'action' => 'import']);
+
     echo $OUTPUT->header();
     echo $actionbarhtml;
-    echo $OUTPUT->heading(get_string(
-        $action === 'import' ? 'importseats' : 'exportseats',
-        'mod_examcheck'
-    ));
+    echo $OUTPUT->heading(get_string('importseats', 'mod_examcheck'));
+    echo html_writer::tag('p', get_string('importseatsintro', 'mod_examcheck'), ['class' => 'text-muted']);
+    $mform->display();
+    echo $OUTPUT->footer();
+    exit;
+}
+
+if ($action === 'export') {
+    // Landing page: pick a download format (the download branch above streams it).
+    echo $OUTPUT->header();
+    echo $actionbarhtml;
+    echo $OUTPUT->heading(get_string('exportseats', 'mod_examcheck'));
+    if (!seats::count_seats((int) $examcheck->id)) {
+        echo $OUTPUT->notification(get_string('noseatsyet', 'mod_examcheck'), notification::NOTIFY_INFO);
+    } else {
+        echo $OUTPUT->download_dataformat_selector(
+            get_string('exportas', 'mod_examcheck'),
+            $baseurl->out_omit_querystring(true),
+            'dataformat',
+            ['id' => $cm->id, 'action' => 'export', 'sesskey' => sesskey()]
+        );
+    }
     echo $OUTPUT->footer();
     exit;
 }
