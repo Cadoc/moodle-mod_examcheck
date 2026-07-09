@@ -66,11 +66,11 @@ if ($action === 'export' && ($dataformat = optional_param('dataformat', '', PARA
     exit;
 }
 
+// Render through $OUTPUT->render(): before header() the global $OUTPUT is still the
+// bootstrap placeholder, so passing it to export_for_template() here would fail its
+// renderer_base type; render() forwards to the real renderer and hands that over.
 $actionbar = new seats_action_bar((int) $cm->id, $action);
-$actionbarhtml = $OUTPUT->render_from_template(
-    'mod_examcheck/seats_action_bar',
-    $actionbar->export_for_template($OUTPUT)
-);
+$actionbarhtml = $OUTPUT->render($actionbar);
 
 if ($action === 'edit') {
     // Edit the seat list: one label per line, with an explicit acknowledgement
