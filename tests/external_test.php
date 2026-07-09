@@ -139,6 +139,20 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
+     * scan_lookup in needs-confirm mode returns the per-step status table through the
+     * external structure, with the scanned step flagged as current.
+     */
+    public function test_scan_lookup_needsconfirm_returns_steps(): void {
+        $result = scan_lookup::execute($this->examcheck->cmid, $this->stepid, 'idnumber', 'EX1', false, true, 0);
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+
+        $this->assertSame('needsconfirm', $result['status']);
+        $this->assertCount(1, $result['steps']);
+        $this->assertFalse($result['steps'][0]['checked']);
+        $this->assertTrue($result['steps'][0]['current']);
+    }
+
+    /**
      * scan_lookup distinguishes a value matching a real, unenrolled account
      * from a value matching no account at all.
      */
