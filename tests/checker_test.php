@@ -671,6 +671,129 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * Marking is blocked while the required prerequisite step has not been checked
+     * for that student.
+     */
+    public function test_mark_blocked_when_required_step_unchecked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->configure_step_gate($second, $this->stepid);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('stepunchecked', $result['reason']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
+     * Marking succeeds once the required prerequisite step is checked for the student.
+     */
+    public function test_mark_passes_when_required_step_checked(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->configure_step_gate($second, $this->stepid);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+        $result = $checker->mark_user($second, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('marked', $result['status']);
+        $this->assertEquals(2, $this->countmarks());
+    }
+
+    /**
+     * The prerequisite is per student: checking it for one student does not unlock
+     * the dependent step for another.
+     */
+    public function test_required_step_is_per_student(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->configure_step_gate($second, $this->stepid);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        // Student 2 has not been checked on the prerequisite step.
+        $result = $checker->mark_user($second, $this->students[2]->id, $this->teacher->id);
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('stepunchecked', $result['reason']);
+    }
+
+    /**
+     * A prerequisite step that no longer exists is reported as missing, not fatal.
+     */
+    public function test_mark_blocked_when_required_step_missing(): void {
+        $this->configure_step_gate($this->stepid, $this->stepid + 99999);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('stepmissing', $result['reason']);
+    }
+
+    /**
+     * A prerequisite pointing at a step of a different instance is treated as
+     * missing: requirements can never reach across instances.
+     */
+    public function test_mark_blocked_when_required_step_in_other_instance(): void {
+        $other = $this->getDataGenerator()->create_module('examcheck', ['course' => $this->course->id]);
+        $otherstepid = (int) array_values(steps::get_steps($other->id))[0]->id;
+        $this->configure_step_gate($this->stepid, $otherstepid);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('stepmissing', $result['reason']);
+    }
+
+    /**
+     * The gate is on but no prerequisite was picked: reported as misconfigured.
+     */
+    public function test_mark_blocked_when_step_requirement_misconfigured(): void {
+        global $DB;
+        $DB->update_record('examcheck_steps', (object) [
+            'id'                => $this->stepid,
+            'requirementtype'   => 'step',
+            'requirementstepid' => null,
+            'timemodified'      => time(),
+        ]);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('misconfigured', $result['reason']);
+    }
+
+    /**
+     * A step can never gate on itself; a tampered self-reference is misconfigured.
+     */
+    public function test_step_self_reference_is_misconfigured(): void {
+        $this->configure_step_gate($this->stepid, $this->stepid);
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->mark_user($this->stepid, $this->students[1]->id, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertSame('misconfigured', $result['reason']);
+    }
+
+    /**
+     * The scanner fails fast before "needs confirm" when the step gate refuses.
+     */
+    public function test_scan_fails_fast_before_needsconfirm_step_gate(): void {
+        $second = steps::add_step($this->examcheck->id, 'Identity');
+        $this->configure_step_gate($second, $this->stepid); // Prerequisite not checked.
+
+        $checker = new checker($this->examcheck, $this->context);
+        $result = $checker->scan($second, 'idnumber', 'S1', false, true, $this->teacher->id);
+
+        $this->assertSame('requirementnotmet', $result['status']);
+        $this->assertEquals(0, $this->countmarks());
+    }
+
+    /**
      * Enable "require step-by-step completion" on the instance under test.
      */
     protected function enable_sequential(): void {
@@ -727,6 +850,22 @@ final class checker_test extends \advanced_testcase {
         rebuild_course_cache($this->course->id, true);
 
         return get_fast_modinfo($this->course->id)->get_cm($page->cmid);
+    }
+
+    /**
+     * Wire a step to require another step being checked first for the same student.
+     *
+     * @param int $stepid The dependent step being configured.
+     * @param int $prerequisitestepid The step that must be checked first.
+     */
+    protected function configure_step_gate(int $stepid, int $prerequisitestepid): void {
+        global $DB;
+        $DB->update_record('examcheck_steps', (object) [
+            'id'                => $stepid,
+            'requirementtype'   => 'step',
+            'requirementstepid' => $prerequisitestepid,
+            'timemodified'      => time(),
+        ]);
     }
 
     /**

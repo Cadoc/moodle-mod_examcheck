@@ -104,6 +104,7 @@ $string['exportfilename'] = 'examcheck';
 $string['field_idnumber'] = 'ID number';
 $string['field_profile'] = 'Profile field: {$a}';
 $string['field_userid'] = 'User id (internal)';
+$string['invalidrequirementstep'] = 'Choose one of the listed steps of this activity.';
 $string['justnow'] = 'just now';
 $string['managesteps'] = 'Manage check steps';
 $string['managestepslink'] = 'Manage steps';
@@ -142,14 +143,18 @@ $string['quizactivity'] = 'Quiz activity';
 $string['quizactivity_help'] = 'The quiz this step verifies. This restriction is not customisable: the student must have no attempt in progress, and a minimum of one completed (submitted) attempt, before they can be marked on this step.';
 $string['requireconfirm'] = 'Confirm before marking';
 $string['requireconfirm_help'] = 'When enabled, the scanner shows the matched student\'s name and waits for the teacher to press a button before recording the check. When disabled, a scan marks the student immediately and returns to scanning the next student. Teachers can override this for their own session.';
+$string['requirementstep'] = 'Required step';
+$string['requirementstep_help'] = 'The step that must already be checked for a student before an invigilator can check them on this step. Only the other steps of this activity are listed.';
 $string['requirementtype'] = 'Requirements for checking';
 $string['requirementtype_completion'] = 'Activity completion';
 $string['requirementtype_help'] = 'Optionally require students to satisfy an extra condition before an invigilator can check them on this step:
 
 * **Submitted quiz attempt** — the student must have a finished attempt (and none in progress) on a chosen course quiz. Useful for an "Exam copy submitted" step backed by a real Moodle quiz.
-* **Activity completion** — the student must have completion recorded on any other chosen activity in the course.';
+* **Activity completion** — the student must have completion recorded on any other chosen activity in the course.
+* **Another step checked** — the student must already be checked on another chosen step of this activity.';
 $string['requirementtype_none'] = 'No requirement';
 $string['requirementtype_quiz'] = 'Submitted quiz attempt';
+$string['requirementtype_step'] = 'Another step checked';
 $string['requiresequential'] = 'Require step-by-step completion';
 $string['requiresequential_help'] = 'When enabled, a student can only be checked on a step once they have already been checked on the immediately preceding step (steps are checked in the order shown in Manage steps). This applies in addition to any custom requirement configured on the step itself — both must be satisfied.';
 $string['resetallchecks'] = 'Clear all checks';
@@ -164,9 +169,10 @@ $string['result_notinroster'] = '{$a} is not in the selected group for this acti
 $string['result_read'] = '{$a->user}: {$a->statuses}';
 $string['result_requirementnotmet_incomplete'] = '{$a->user} cannot be checked yet: they still need to complete "{$a->activity}" first.';
 $string['result_requirementnotmet_inprogress'] = '{$a->user} still has an attempt in progress on "{$a->quiz}". Ask them to submit before checking.';
-$string['result_requirementnotmet_misconfigured'] = 'This step has a requirement configured, but the linked quiz or activity is missing, no longer exists, or no longer tracks completion. Edit the step to fix it.';
+$string['result_requirementnotmet_misconfigured'] = 'This step has a requirement configured, but the linked quiz, activity or step is missing, no longer exists, or no longer tracks completion. Edit the step to fix it.';
 $string['result_requirementnotmet_nosubmission'] = '{$a->user} has not submitted any attempt on "{$a->quiz}" yet.';
 $string['result_requirementnotmet_sequential'] = '{$a->user} must be checked on the previous step, "{$a->previousstep}", before this one.';
+$string['result_requirementnotmet_stepunchecked'] = '{$a->user} cannot be checked yet: "{$a->requiredstep}" must be checked first.';
 $string['result_unmarked'] = 'Check removed for {$a}.';
 $string['roster'] = 'Roster';
 $string['scancodetype'] = 'Code type';

@@ -154,8 +154,15 @@ class outcome {
 
             case 'requirementnotmet':
                 $reason = $result['reason'] ?? 'misconfigured';
-                if (in_array($reason, ['misconfigured', 'missingactivity', 'nocompletion'], true)) {
+                if (in_array($reason, ['misconfigured', 'missingactivity', 'nocompletion', 'stepmissing'], true)) {
                     $response['message'] = get_string('result_requirementnotmet_misconfigured', 'mod_examcheck');
+                    break;
+                }
+                if ($reason === 'stepunchecked') {
+                    $response['message'] = get_string('result_requirementnotmet_stepunchecked', 'mod_examcheck', (object) [
+                        'user'         => $userlabel,
+                        'requiredstep' => $result['requiredstep'] ?? '',
+                    ]);
                     break;
                 }
                 if ($reason === 'incomplete') {

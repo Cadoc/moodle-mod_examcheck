@@ -74,17 +74,27 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
 
         $data->requirementtype = $data->requirementtype ?? 'none';
         $data->requirementcmid = $data->requirementcmid ?? null;
+        $data->requirementstepid = $data->requirementstepid ?? null;
 
-        if (in_array($data->requirementtype, ['quiz', 'completion'], true) && !empty($data->requirementcmid)) {
-            // Remap the linked cmid to its restored counterpart. Clear the requirement
-            // when the target activity is not part of this restore so we never carry a
-            // dangling cmid.
-            $newcmid = $this->get_mappingid('course_module', (int) $data->requirementcmid);
-            $data->requirementcmid = $newcmid ?: null;
+        if (in_array($data->requirementtype, ['quiz', 'completion'], true)) {
+            if (!empty($data->requirementcmid)) {
+                // Remap the linked cmid to its restored counterpart. Clear the requirement
+                // when the target activity is not part of this restore so we never carry a
+                // dangling cmid.
+                $newcmid = $this->get_mappingid('course_module', (int) $data->requirementcmid);
+                $data->requirementcmid = $newcmid ?: null;
+            }
             if (empty($data->requirementcmid)) {
                 $data->requirementtype = 'none';
             }
-        } else if (!in_array($data->requirementtype, ['quiz', 'completion'], true)) {
+        } else if ($data->requirementtype === 'step') {
+            // The prerequisite step id is remapped in after_execute(): the step it
+            // points at may not have been restored yet at this point (forward
+            // reference), so its mapping is only guaranteed once every step is in.
+            if (empty($data->requirementstepid)) {
+                $data->requirementtype = 'none';
+            }
+        } else {
             $data->requirementtype = 'none';
         }
 
@@ -122,6 +132,32 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
             if ($examcheck && !empty($examcheck->completionstep)) {
                 $newstepid = $this->get_mappingid('examcheck_step', $examcheck->completionstep);
                 $DB->set_field('examcheck', 'completionstep', (int) $newstepid, ['id' => $examcheckid]);
+            }
+
+            // Re-map each "another step checked" prerequisite to its restored step.
+            // Deferred to here (not process_examcheck_step) because a step may depend on
+            // a step restored after it, whose mapping only exists once every step is in.
+            $stepgates = $DB->get_records(
+                'examcheck_steps',
+                ['examcheckid' => $examcheckid, 'requirementtype' => 'step'],
+                '',
+                'id, requirementstepid'
+            );
+            foreach ($stepgates as $gate) {
+                $newstepid = empty($gate->requirementstepid)
+                    ? 0
+                    : (int) $this->get_mappingid('examcheck_step', (int) $gate->requirementstepid);
+                if ($newstepid) {
+                    $DB->set_field('examcheck_steps', 'requirementstepid', $newstepid, ['id' => $gate->id]);
+                } else {
+                    // The prerequisite wasn't part of this restore (e.g. a partial
+                    // restore): drop the gate rather than keep a dangling reference.
+                    $DB->update_record('examcheck_steps', (object) [
+                        'id'                => $gate->id,
+                        'requirementtype'   => 'none',
+                        'requirementstepid' => null,
+                    ]);
+                }
             }
         }
 

@@ -168,5 +168,28 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026070102, 'examcheck');
     }
 
+    if ($oldversion < 2026070900) {
+        // Per-step "another specific step must be checked first" requirement. Stored in
+        // its own column because it references an examcheck_steps.id, not a course
+        // module id (unlike requirementcmid, which the backup framework remaps as a
+        // course_module).
+        $table = new xmldb_table('examcheck_steps');
+        $field = new xmldb_field(
+            'requirementstepid',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'requirementcmid'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026070900, 'examcheck');
+    }
+
     return true;
 }

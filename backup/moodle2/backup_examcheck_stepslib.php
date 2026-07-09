@@ -45,7 +45,7 @@ class backup_examcheck_activity_structure_step extends backup_activity_structure
 
         $steps = new backup_nested_element('steps');
         $step = new backup_nested_element('step', ['id'], [
-            'name', 'requirementtype', 'requirementcmid',
+            'name', 'requirementtype', 'requirementcmid', 'requirementstepid',
             'sortorder', 'timecreated', 'timemodified',
         ]);
 
@@ -69,6 +69,8 @@ class backup_examcheck_activity_structure_step extends backup_activity_structure
 
         // Define id annotations.
         // requirementcmid references another course module; let the restore framework remap it.
+        // requirementstepid references another step of THIS activity, so it is not a
+        // course_module and is instead remapped in the restore step's after_execute().
         $step->annotate_ids('course_module', 'requirementcmid');
         $mark->annotate_ids('user', 'userid');
         $mark->annotate_ids('user', 'checkedby');

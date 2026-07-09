@@ -39,18 +39,29 @@ class step_form extends moodleform {
         $mform = $this->_form;
         $courseid = (int) ($this->_customdata['courseid'] ?? 0);
         $examcheckcmid = (int) ($this->_customdata['cmid'] ?? 0);
+        $examcheckid = (int) ($this->_customdata['examcheckid'] ?? 0);
+        $currentstepid = (int) ($this->_customdata['currentstepid'] ?? 0);
 
         $mform->addElement('text', 'name', get_string('stepname', 'mod_examcheck'), ['size' => 48]);
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', get_string('required'), 'required', null, 'client');
         $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
 
+        // The other steps of this activity that this step could depend on. Built up
+        // front so the "another step" requirement type is only offered when there is
+        // at least one other step to point at.
+        $othersteps = self::list_other_steps($examcheckid, $currentstepid);
+
         // The requirement type: only the teacher needs to know it's optional; default off.
-        $mform->addElement('select', 'requirementtype', get_string('requirementtype', 'mod_examcheck'), [
+        $typeoptions = [
             'none'       => get_string('requirementtype_none', 'mod_examcheck'),
             'quiz'       => get_string('requirementtype_quiz', 'mod_examcheck'),
             'completion' => get_string('requirementtype_completion', 'mod_examcheck'),
-        ]);
+        ];
+        if (!empty($othersteps)) {
+            $typeoptions['step'] = get_string('requirementtype_step', 'mod_examcheck');
+        }
+        $mform->addElement('select', 'requirementtype', get_string('requirementtype', 'mod_examcheck'), $typeoptions);
         $mform->setType('requirementtype', PARAM_ALPHA);
         $mform->addHelpButton('requirementtype', 'requirementtype', 'mod_examcheck');
 
@@ -112,6 +123,27 @@ class step_form extends moodleform {
             $mform->disabledIf('completioncmid', 'requirementtype', 'neq', 'completion');
         }
 
+        // The "Another step checked" picker, shown only when requirementtype is "step".
+        // Lists the other steps of this activity (never the step being edited). When
+        // there is no other step the "step" type isn't offered at all, so we just
+        // register a hidden field to keep the save/validation paths uniform.
+        if (empty($othersteps)) {
+            $mform->addElement('hidden', 'requirementstepid', 0);
+            $mform->setType('requirementstepid', PARAM_INT);
+        } else {
+            $options = [0 => get_string('choosedots')] + $othersteps;
+            $mform->addElement(
+                'select',
+                'requirementstepid',
+                get_string('requirementstep', 'mod_examcheck'),
+                $options
+            );
+            $mform->setType('requirementstepid', PARAM_INT);
+            $mform->addHelpButton('requirementstepid', 'requirementstep', 'mod_examcheck');
+            $mform->hideIf('requirementstepid', 'requirementtype', 'neq', 'step');
+            $mform->disabledIf('requirementstepid', 'requirementtype', 'neq', 'step');
+        }
+
         $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
         $mform->addElement('hidden', 'stepid');
@@ -158,6 +190,22 @@ class step_form extends moodleform {
                 );
                 if (!isset($allowed[$completioncmid])) {
                     $errors['completioncmid'] = get_string('invalidcoursemodule', 'error');
+                }
+            }
+        } else if ($type === 'step') {
+            $requirementstepid = (int) ($data['requirementstepid'] ?? 0);
+            if ($requirementstepid <= 0) {
+                $errors['requirementstepid'] = get_string('required');
+            } else {
+                // The list_other_steps() options only ever hold other steps of this
+                // instance, so this single membership check rejects self-references,
+                // cross-instance ids and deleted steps in one go.
+                $allowed = self::list_other_steps(
+                    (int) ($this->_customdata['examcheckid'] ?? 0),
+                    (int) ($this->_customdata['currentstepid'] ?? 0)
+                );
+                if (!isset($allowed[$requirementstepid])) {
+                    $errors['requirementstepid'] = get_string('invalidrequirementstep', 'mod_examcheck');
                 }
             }
         }
@@ -219,6 +267,31 @@ class step_form extends moodleform {
             $options[(int) $cm->id] = $cm->get_formatted_name() . ' (' . $cm->get_module_type_name() . ')';
         }
         \core_collator::asort($options);
+        return $options;
+    }
+
+    /**
+     * Build the step id -> formatted name list of the OTHER steps of this activity,
+     * i.e. every step except the one being edited. The step order (sortorder) is
+     * preserved rather than alphabetised, matching the completion-step selector, so a
+     * teacher reads the steps in the same order shown on the Manage steps page.
+     *
+     * @param int $examcheckid The instance id.
+     * @param int $excludestepid Step id to leave out (the step being edited; 0 when adding).
+     * @return array<int,string> Step id => formatted name, in sortorder.
+     */
+    protected static function list_other_steps(int $examcheckid, int $excludestepid): array {
+        if ($examcheckid <= 0) {
+            return [];
+        }
+
+        $options = [];
+        foreach (\mod_examcheck\local\steps::get_steps($examcheckid) as $step) {
+            if ((int) $step->id === $excludestepid) {
+                continue;
+            }
+            $options[(int) $step->id] = format_string($step->name);
+        }
         return $options;
     }
 }

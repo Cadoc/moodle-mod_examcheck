@@ -543,6 +543,8 @@ class checker {
                 return $this->validate_quiz_requirement($step, $userid);
             case 'completion':
                 return $this->validate_completion_requirement($step, $userid);
+            case 'step':
+                return $this->validate_step_requirement($step, $userid);
             default:
                 return null;
         }
@@ -693,6 +695,74 @@ class checker {
                 'reason'   => 'incomplete',
                 'user'     => self::user_label($userid),
                 'activity' => format_string($cm->name, true, ['context' => $this->context]),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Enforce the "another step checked first" requirement type: the student being
+     * checked must already be checked on another chosen step of this same activity.
+     *
+     * The reason code drives the localised message in {@see outcome::format()}:
+     *
+     * - misconfigured: requirement enabled but no prerequisite step picked, or the
+     *   step somehow references itself (only reachable via a tampered submission —
+     *   the form never offers the current step).
+     * - stepmissing:   the configured prerequisite step no longer resolves within
+     *   this instance (deleted, or an id smuggled in from another instance).
+     * - stepunchecked: the prerequisite step exists but the student is not yet
+     *   checked on it.
+     *
+     * @param stdClass $step The step record (must include requirementstepid).
+     * @param int $userid The student user id being checked.
+     * @return array|null Requirementnotmet result, or null when the requirement passes.
+     */
+    protected function validate_step_requirement(stdClass $step, int $userid): ?array {
+        global $DB;
+
+        if (empty($step->requirementstepid)) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        $targetid = (int) $step->requirementstepid;
+
+        // A step can never gate on itself: the prerequisite would need to be checked
+        // before it can be checked. Unreachable through the form, guarded here anyway.
+        if ($targetid === (int) $step->id) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        // The prerequisite must be a real step of THIS instance. Scoping by
+        // examcheckid rejects both a deleted step and any step id pointing at a
+        // different examcheck instance (e.g. via a tampered form submission).
+        $target = $DB->get_record(
+            'examcheck_steps',
+            ['id' => $targetid, 'examcheckid' => $this->examcheck->id]
+        );
+        if (!$target) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'stepmissing',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        if (!$this->get_mark($targetid, $userid)) {
+            return [
+                'status'       => 'requirementnotmet',
+                'reason'       => 'stepunchecked',
+                'user'         => self::user_label($userid),
+                'requiredstep' => format_string($target->name, true, ['context' => $this->context]),
             ];
         }
 
