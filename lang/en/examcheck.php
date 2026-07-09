@@ -234,6 +234,7 @@ $string['searchstudents'] = 'Search by name or ID number';
 $string['seat'] = 'Seat';
 $string['seatassignedcount'] = '{$a->assigned} of {$a->total} seats assigned';
 $string['seatassignment'] = 'Seat assignment';
+$string['seatcolon'] = 'Seat: {$a}';
 $string['seatlist'] = 'Seats';
 $string['seatlist_help'] = 'Enter one seat per line, in the order they should be listed (for example "A1", "A2", "B1"). Labels are free text, limited to 100 characters, and must be unique within the activity.
 

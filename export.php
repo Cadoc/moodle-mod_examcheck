@@ -25,6 +25,7 @@
 require(__DIR__ . '/../../config.php');
 
 use mod_examcheck\local\checker;
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 
 $id = required_param('id', PARAM_INT);              // Course module id.
@@ -62,12 +63,20 @@ if ($userids) {
     $roster = $checker->get_roster($groupid);
 }
 
-// Column headers: identity, then three columns per step.
+// The assigned seats (one map lookup per row below); no seat column when the
+// activity has no seats.
+$seatlabels = seats::get_user_seat_labels($examcheck->id);
+$hasseats = seats::count_seats($examcheck->id) > 0;
+
+// Column headers: identity (and seat), then three columns per step.
 $columns = [
     get_string('lastname'),
     get_string('firstname'),
     get_string('idnumber'),
 ];
+if ($hasseats) {
+    $columns[] = get_string('seat', 'mod_examcheck');
+}
 foreach ($steplist as $step) {
     $name = format_string($step->name);
     $columns[] = get_string('col_checked', 'mod_examcheck', $name);
@@ -79,6 +88,9 @@ foreach ($steplist as $step) {
 $rows = [];
 foreach ($roster as $user) {
     $row = [$user->lastname, $user->firstname, (string) $user->idnumber];
+    if ($hasseats) {
+        $row[] = $seatlabels[$user->id] ?? '';
+    }
     foreach ($steplist as $step) {
         $mark = $marks[$step->id][$user->id] ?? null;
         $row[] = $mark ? get_string('yes') : get_string('no');

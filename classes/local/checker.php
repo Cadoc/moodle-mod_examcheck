@@ -39,6 +39,9 @@ class checker {
     /** @var context_module The module context. */
     protected context_module $context;
 
+    /** @var array<int, string>|null Lazy cache of user id => assigned seat label. */
+    protected ?array $seatlabels = null;
+
     /**
      * Constructor.
      *
@@ -326,7 +329,12 @@ class checker {
         \mod_examcheck\event\user_marked::create_from_mark($this->context, $mark, $step)->trigger();
         $this->update_completion_for_user($userid);
 
-        return ['status' => 'marked', 'mark' => $mark, 'user' => self::user_label($userid)];
+        return [
+            'status'    => 'marked',
+            'mark'      => $mark,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+        ];
     }
 
     /**
@@ -426,10 +434,11 @@ class checker {
         // highlighting the step being checked.
         if ($requireconfirm && !$confirm) {
             return [
-                'status' => 'needsconfirm',
-                'userid' => $userid,
-                'user'   => self::user_label($userid),
-                'steps'  => $this->build_step_statuses($userid, $stepid),
+                'status'    => 'needsconfirm',
+                'userid'    => $userid,
+                'user'      => self::user_label($userid),
+                'seatlabel' => $this->seat_label($userid),
+                'steps'     => $this->build_step_statuses($userid, $stepid),
             ];
         }
 
@@ -465,10 +474,11 @@ class checker {
         }
 
         return [
-            'status' => 'found',
-            'userid' => $userid,
-            'user'   => self::user_label($userid),
-            'steps'  => $this->build_step_statuses($userid),
+            'status'    => 'found',
+            'userid'    => $userid,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+            'steps'     => $this->build_step_statuses($userid),
         ];
     }
 
@@ -841,7 +851,24 @@ class checker {
             'ago'          => self::relative_time((int) $mark->timecreated),
             'timestamp'    => (int) $mark->timecreated,
             'matchedvalue' => $matchedvalue,
+            'seatlabel'    => $this->seat_label($userid),
         ];
+    }
+
+    /**
+     * The student's assigned seat label, or an empty string when unseated.
+     *
+     * The full map is loaded lazily and cached: one query serves every result
+     * built during the request.
+     *
+     * @param int $userid The student user id.
+     * @return string
+     */
+    protected function seat_label(int $userid): string {
+        if ($this->seatlabels === null) {
+            $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
+        }
+        return $this->seatlabels[$userid] ?? '';
     }
 
     /**

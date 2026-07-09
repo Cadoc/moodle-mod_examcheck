@@ -569,6 +569,7 @@ const showInfoModal = async(outcome, scannedValue) => {
             userPicture: outcome.userpicture,
             scanFieldName: currentFieldName(),
             scanValue: scannedValue,
+            seatLabel: outcome.seatlabel,
             rosterLink: rosterLinkFor(outcome),
             steps: outcome.steps
         },
@@ -596,6 +597,7 @@ const showConfirmationModal = async(outcome, scannedValue) => {
             userPicture: outcome.userpicture,
             scanFieldName: currentFieldName(),
             scanValue: scannedValue,
+            seatLabel: outcome.seatlabel,
             rosterLink: rosterLinkFor(outcome),
             steps: outcome.steps
         },

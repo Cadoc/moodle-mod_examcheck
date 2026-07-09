@@ -21,6 +21,7 @@ use mod_examcheck\external\get_marks;
 use mod_examcheck\external\mark_user;
 use mod_examcheck\external\scan_lookup;
 use mod_examcheck\external\unmark_user;
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 
 /**
@@ -197,5 +198,58 @@ final class external_test extends \advanced_testcase {
         $this->setUser($student);
         $this->expectException(\moodle_exception::class);
         mark_user::execute($this->examcheck->cmid, $this->stepid, $student->id, 0, 'list');
+    }
+
+    /**
+     * Once a student is assigned a seat, every scan/mark outcome carries the
+     * seat label so the scanner modals can show it; unseated students carry
+     * the empty default.
+     */
+    public function test_outcomes_carry_seat_label(): void {
+        seats::replace_list($this->examcheck->id, ['A12']);
+        $seatid = (int) array_key_first(seats::get_seats($this->examcheck->id));
+        seats::assign($seatid, (int) $this->student->id, (int) $this->teacher->id);
+
+        // Reading mode lookup.
+        $result = scan_lookup::execute(
+            $this->examcheck->cmid,
+            $this->stepid,
+            'idnumber',
+            'EX1',
+            false,
+            false,
+            0,
+            'reading'
+        );
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('A12', $result['seatlabel']);
+
+        // Needs-confirm outcome.
+        $result = scan_lookup::execute($this->examcheck->cmid, $this->stepid, 'idnumber', 'EX1', false, true, 0);
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('needsconfirm', $result['status']);
+        $this->assertSame('A12', $result['seatlabel']);
+
+        // Marked outcome, then the conflict on a re-mark.
+        $result = mark_user::execute($this->examcheck->cmid, $this->stepid, $this->student->id, 0, 'list');
+        $result = external_api::clean_returnvalue(mark_user::execute_returns(), $result);
+        $this->assertSame('marked', $result['status']);
+        $this->assertSame('A12', $result['seatlabel']);
+
+        $result = mark_user::execute($this->examcheck->cmid, $this->stepid, $this->student->id, 0, 'list');
+        $result = external_api::clean_returnvalue(mark_user::execute_returns(), $result);
+        $this->assertSame('conflict', $result['status']);
+        $this->assertSame('A12', $result['seatlabel']);
+
+        // A student without a seat yields the empty default.
+        $unseated = $this->getDataGenerator()->create_and_enrol(
+            get_course($this->examcheck->course),
+            'student',
+            ['idnumber' => 'EX2']
+        );
+        $result = scan_lookup::execute($this->examcheck->cmid, $this->stepid, 'idnumber', 'EX2', false, false, 0);
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('marked', $result['status']);
+        $this->assertSame('', $result['seatlabel']);
     }
 }

@@ -26,6 +26,7 @@ use core_table\local\filter\filterset;
 use html_writer;
 use mod_examcheck\local\checker;
 use mod_examcheck\local\scanfield;
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 use moodle_url;
 use stdClass;
@@ -90,6 +91,12 @@ class roster extends \table_sql implements dynamic_table {
     /** @var array<int, string[]> User id => group names for the current page, populated when groups exist. */
     protected array $usergroups = [];
 
+    /** @var array<int, string> User id => assigned seat label. */
+    protected array $seatlabels = [];
+
+    /** @var bool Whether the activity has any seats (drives the seat column). */
+    protected bool $hasseats = false;
+
     /**
      * Constructor: derive the course module id from the unique id.
      *
@@ -137,6 +144,12 @@ class roster extends \table_sql implements dynamic_table {
         foreach ($this->steps as $step) {
             // Pass the context explicitly: the AJAX endpoint has not set $PAGE->context yet.
             $this->stepnames[(int) $step->id] = format_string($step->name, true, ['context' => $this->context]);
+        }
+
+        // Seat assignments: the column only shows when the activity has seats.
+        $this->hasseats = seats::count_seats((int) $this->examcheck->id) > 0;
+        if ($this->hasseats) {
+            $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
         }
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
@@ -214,6 +227,13 @@ class roster extends \table_sql implements dynamic_table {
             $headers[] = get_string('groups');
         }
 
+        // The assigned seat, shown to anyone who may view the roster but only
+        // once the activity actually has seats.
+        if ($this->hasseats) {
+            $columns[] = 'seat';
+            $headers[] = get_string('seat', 'mod_examcheck');
+        }
+
         foreach ($this->steps as $step) {
             $key = 'step_' . (int) $step->id;
             $columns[] = $key;
@@ -263,8 +283,8 @@ class roster extends \table_sql implements dynamic_table {
                 continue;
             }
             foreach ($users as $id => $user) {
-                // Match name, the match field, and the visible identity fields.
-                $parts = [fullname($user), $this->matchvalues[$id] ?? ''];
+                // Match name, the match field, the seat and the visible identity fields.
+                $parts = [fullname($user), $this->matchvalues[$id] ?? '', $this->seatlabels[$id] ?? ''];
                 foreach ($this->extrafields as $field) {
                     $parts[] = (string) ($user->$field ?? '');
                 }
@@ -289,6 +309,13 @@ class roster extends \table_sql implements dynamic_table {
             uasort($users, fn($a, $b) => $dir * strnatcasecmp(
                 $this->matchvalues[$a->id] ?? '',
                 $this->matchvalues[$b->id] ?? ''
+            ));
+        } else if (isset($sortcolumns['seat'])) {
+            // Natural order so A2 sorts before A10.
+            $dir = (int) $sortcolumns['seat'] === SORT_DESC ? -1 : 1;
+            uasort($users, fn($a, $b) => $dir * strnatcasecmp(
+                $this->seatlabels[(int) $a->id] ?? '',
+                $this->seatlabels[(int) $b->id] ?? ''
             ));
         } else {
             foreach ($sortcolumns as $col => $dir) {
@@ -538,6 +565,16 @@ class roster extends \table_sql implements dynamic_table {
     public function col_groups($row): string {
         $names = $this->usergroups[(int) $row->id] ?? [];
         return s(implode(', ', $names));
+    }
+
+    /**
+     * The seat column: the student's assigned seat label, if any.
+     *
+     * @param stdClass $row The user record.
+     * @return string
+     */
+    public function col_seat($row): string {
+        return s($this->seatlabels[(int) $row->id] ?? '');
     }
 
     /**
