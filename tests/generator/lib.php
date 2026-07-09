@@ -23,6 +23,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 
 /**
@@ -70,5 +71,27 @@ class mod_examcheck_generator extends testing_module_generator {
      */
     public function create_step(int $examcheckid, string $name): int {
         return steps::add_step($examcheckid, $name);
+    }
+
+    /**
+     * Replace the seat list of an instance.
+     *
+     * @param int $examcheckid The instance id.
+     * @param string[] $labels The seat labels, in display order.
+     */
+    public function set_seats(int $examcheckid, array $labels): void {
+        seats::replace_list($examcheckid, $labels);
+    }
+
+    /**
+     * Assign a student to a seat.
+     *
+     * @param int $seatid The seat id.
+     * @param int $userid The student user id.
+     * @param int $assignedby The teacher recording the assignment.
+     * @return array The {@see seats::assign()} result.
+     */
+    public function assign_seat(int $seatid, int $userid, int $assignedby): array {
+        return seats::assign($seatid, $userid, $assignedby);
     }
 }

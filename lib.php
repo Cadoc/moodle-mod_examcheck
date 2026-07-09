@@ -108,7 +108,7 @@ function examcheck_prepare_completion_fields($data) {
 }
 
 /**
- * Delete an examcheck instance and all of its steps and marks.
+ * Delete an examcheck instance and all of its steps, marks and seats.
  *
  * @param int $id The instance id.
  * @return bool True on success, false if the instance does not exist.
@@ -122,6 +122,8 @@ function examcheck_delete_instance($id) {
 
     $DB->delete_records('examcheck_marks', ['examcheckid' => $id]);
     $DB->delete_records('examcheck_steps', ['examcheckid' => $id]);
+    $DB->delete_records('examcheck_seat_users', ['examcheckid' => $id]);
+    $DB->delete_records('examcheck_seats', ['examcheckid' => $id]);
     $DB->delete_records('examcheck', ['id' => $id]);
 
     return true;

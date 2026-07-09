@@ -191,5 +191,44 @@ function xmldb_examcheck_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026070900, 'examcheck');
     }
 
+    if ($oldversion < 2026071000) {
+        // Seat numbers (issue #14): a per-activity list of free-text seat labels
+        // plus a 1:1 user/seat assignment. The two unique keys on the assignment
+        // table (one user per seat, one seat per user) double as the backstop
+        // against concurrent assignments; all columns are NOT NULL so the unique
+        // indexes are MSSQL-safe.
+        $table = new xmldb_table('examcheck_seats');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('examcheckid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('label', XMLDB_TYPE_CHAR, '100', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('sortorder', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('examcheckid', XMLDB_KEY_FOREIGN, ['examcheckid'], 'examcheck', ['id']);
+        $table->add_key('examcheckid-label', XMLDB_KEY_UNIQUE, ['examcheckid', 'label']);
+        $table->add_index('examcheckid-sortorder', XMLDB_INDEX_NOTUNIQUE, ['examcheckid', 'sortorder']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $table = new xmldb_table('examcheck_seat_users');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('examcheckid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('seatid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('assignedby', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('examcheckid', XMLDB_KEY_FOREIGN, ['examcheckid'], 'examcheck', ['id']);
+        $table->add_key('seatid', XMLDB_KEY_FOREIGN_UNIQUE, ['seatid'], 'examcheck_seats', ['id']);
+        $table->add_key('examcheckid-userid', XMLDB_KEY_UNIQUE, ['examcheckid', 'userid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_mod_savepoint(true, 2026071000, 'examcheck');
+    }
+
     return true;
 }
