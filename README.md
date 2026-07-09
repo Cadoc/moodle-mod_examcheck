@@ -91,11 +91,12 @@ the result into a completion condition you can use to gate other activities.
   field and show only not‑yet‑checked students.
 - **Seat numbers.** Give the activity a list of free‑text seat labels and
   assign each student a seat (sortable table, inline autocomplete, one student
-  per seat, one seat per student). The roster gains a read‑only, sortable
-  *Seat* column and the scanner pop‑ups show the scanned student's seat. Export
-  the seat list as CSV, or the seat list plus the roster as two CSV files in a
-  zip; fill the empty seats into `students.csv`, import it back, and the cohort
-  is seated in one pass. The whole feature can be switched off per activity
+  per seat, one seat per student), or let **Auto‑assign students** seat
+  everybody left at random. The roster gains a read‑only, sortable *Seat*
+  column and the scanner pop‑ups show the scanned student's seat. Export the
+  seat list as CSV, or the seat list plus the roster as two CSV files in a zip;
+  fill the empty seats into `students.csv`, import it back, and the cohort is
+  seated in one pass. The whole feature can be switched off per activity
   (*General settings*, with a site default); disabling hides everything but
   keeps the seat data.
 - **Export.** Download the roster with every step's status, who checked each

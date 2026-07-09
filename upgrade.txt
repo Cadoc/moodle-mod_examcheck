@@ -61,6 +61,20 @@ Information provided here is intended especially for developers.
 * Lang strings importseats, exportseats and importseatsintro were removed in
   favour of import, export and importintro; exportscope, exportscope_seats,
   exportscope_seatsandstudents and exportscope_help were added.
+* New \mod_examcheck\local\seats::auto_assign(int $examcheckid, array $userids,
+  int $assignedby): int shuffles the given students and seats them on the free
+  seats, taken in sortorder. Students already seated are dropped from the pool
+  and never moved; a student seated concurrently by someone else is skipped
+  rather than aborting the batch. Returns the number actually seated.
+* New web service mod_examcheck_auto_assign_seats (ajax, write, gated by
+  manageseats and enableseats). It seats only the caller's reachable roster, so
+  a separate-groups teacher never seats another group's students. Returns
+  assigned, unseatedstudents, freeseats, seatcount and a localised message
+  rather than the per-seat \mod_examcheck\local\seat_outcome structure.
+* \mod_examcheck\output\seat_assign_page::export_for_template() gained
+  freeseats, unseatedstudents and canautoassign. The two counts are not
+  derivable from one another: under separate groups the assignment count
+  includes students the caller cannot reach.
 
 === 5.1-r1 ===
 

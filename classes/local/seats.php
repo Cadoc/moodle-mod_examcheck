@@ -264,6 +264,64 @@ class seats {
     }
 
     /**
+     * Seat a pool of students on the free seats, at random.
+     *
+     * The students are shuffled and the free seats are taken in the order the
+     * teacher authored them, so the seat list keeps its meaning ("fill the room
+     * from the front") while nobody can predict who lands where. Students
+     * already sitting somewhere are dropped from the pool and never moved.
+     *
+     * When the pool is larger than the number of free seats, only as many
+     * students as there are seats get one; the caller decides what to tell the
+     * teacher about the rest.
+     *
+     * A student who was seated by someone else between the free-seat read and
+     * the write is skipped rather than aborting the batch, mirroring
+     * {@see \mod_examcheck\external\bulk_action} rather than
+     * {@see seats_importer::apply()}: a half-seated room is still progress.
+     *
+     * @param int $examcheckid The instance id.
+     * @param int[] $userids The candidate students, in any order.
+     * @param int $assignedby The teacher recording the assignments.
+     * @return int The number of students actually seated.
+     */
+    public static function auto_assign(int $examcheckid, array $userids, int $assignedby): int {
+        global $DB;
+
+        $transaction = $DB->start_delegated_transaction();
+
+        // Free seats, still in "sortorder ASC, id ASC" order.
+        $assignments = self::get_assignments($examcheckid);
+        $freeseats = [];
+        foreach (self::get_seats($examcheckid) as $seat) {
+            if (!isset($assignments[(int) $seat->id])) {
+                $freeseats[] = (int) $seat->id;
+            }
+        }
+
+        // Never move a student who already sits somewhere.
+        $seated = self::get_user_seat_labels($examcheckid);
+        $pool = array_values(array_filter(
+            array_map('intval', $userids),
+            fn($userid) => !isset($seated[$userid])
+        ));
+
+        shuffle($pool);
+
+        $assigned = 0;
+        $count = min(count($freeseats), count($pool));
+        for ($i = 0; $i < $count; $i++) {
+            if (self::assign($freeseats[$i], $pool[$i], $assignedby)['status'] === 'assigned') {
+                $assigned++;
+            }
+        }
+
+        $transaction->allow_commit();
+
+        return $assigned;
+    }
+
+    /**
      * Normalise and validate a raw list of seat labels.
      *
      * @param string[] $labels Raw labels (e.g. textarea lines).

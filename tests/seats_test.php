@@ -245,6 +245,141 @@ final class seats_test extends \advanced_testcase {
     }
 
     /**
+     * Auto-assign seats every student, filling the free seats from the top of the
+     * authored seat list. Which student lands where is random, so assert invariants.
+     */
+    public function test_auto_assign_fills_free_seats_in_order(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2', 'A3', 'A4']);
+        $students = $this->extra_students(2);
+
+        $assigned = seats::auto_assign(
+            (int) $this->examcheck->id,
+            array_map(fn($user) => (int) $user->id, $students),
+            (int) $this->teacher->id
+        );
+
+        $this->assertSame(2, $assigned);
+
+        // The two free seats taken are the first two in the list; A3 and A4 stay empty.
+        $labels = seats::get_user_seat_labels($this->examcheck->id);
+        $this->assertEqualsCanonicalizing(['A1', 'A2'], array_values($labels));
+        // Every student got exactly one seat, and no seat holds two students.
+        $this->assertEqualsCanonicalizing(
+            array_map(fn($user) => (int) $user->id, $students),
+            array_keys($labels)
+        );
+        $this->assertSame(2, seats::count_assignments($this->examcheck->id));
+    }
+
+    /**
+     * Students who already sit somewhere are never moved, and the seats they hold
+     * are never handed to anybody else.
+     */
+    public function test_auto_assign_leaves_existing_assignments(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2', 'A3', 'A4']);
+        $seatids = array_map('intval', array_keys(seats::get_seats($this->examcheck->id)));
+        // Seat the first student on A2, out of order on purpose.
+        seats::assign($seatids[1], (int) $this->student->id, (int) $this->teacher->id);
+
+        $students = $this->extra_students(2);
+        // Pass the already-seated student too: auto_assign must drop them from the pool.
+        $pool = array_map(fn($user) => (int) $user->id, $students);
+        $pool[] = (int) $this->student->id;
+
+        $this->assertSame(2, seats::auto_assign((int) $this->examcheck->id, $pool, (int) $this->teacher->id));
+
+        $labels = seats::get_user_seat_labels($this->examcheck->id);
+        // The pre-seated student kept A2 exactly.
+        $this->assertSame('A2', $labels[(int) $this->student->id]);
+        // The free seats were taken in order: A1 and A3, leaving A4 empty.
+        $this->assertEqualsCanonicalizing(['A1', 'A2', 'A3'], array_values($labels));
+        $this->assertSame(3, seats::count_assignments($this->examcheck->id));
+    }
+
+    /**
+     * With fewer seats than students, every seat is filled and the surplus students
+     * are simply left without one.
+     */
+    public function test_auto_assign_caps_at_the_free_seats(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2']);
+        $students = $this->extra_students(4);
+
+        $assigned = seats::auto_assign(
+            (int) $this->examcheck->id,
+            array_map(fn($user) => (int) $user->id, $students),
+            (int) $this->teacher->id
+        );
+
+        $this->assertSame(2, $assigned);
+        $labels = seats::get_user_seat_labels($this->examcheck->id);
+        $this->assertCount(2, $labels);
+        $this->assertEqualsCanonicalizing(['A1', 'A2'], array_values($labels));
+        // The two seated students are drawn from the pool, and each sits once.
+        foreach (array_keys($labels) as $userid) {
+            $this->assertContains($userid, array_map(fn($user) => (int) $user->id, $students));
+        }
+    }
+
+    /**
+     * Nothing to do is not an error: no free seat, or no candidate, seats nobody.
+     */
+    public function test_auto_assign_with_nothing_to_do(): void {
+        seats::replace_list($this->examcheck->id, ['A1']);
+
+        // No candidates.
+        $this->assertSame(0, seats::auto_assign((int) $this->examcheck->id, [], (int) $this->teacher->id));
+
+        // No free seat: the only one is taken, and its occupant is the only candidate.
+        $seatid = (int) array_key_first(seats::get_seats($this->examcheck->id));
+        seats::assign($seatid, (int) $this->student->id, (int) $this->teacher->id);
+        $this->assertSame(
+            0,
+            seats::auto_assign((int) $this->examcheck->id, [(int) $this->student->id], (int) $this->teacher->id)
+        );
+        $this->assertSame('A1', seats::get_user_seat_labels($this->examcheck->id)[(int) $this->student->id]);
+    }
+
+    /**
+     * One seat_assigned event per student actually seated.
+     */
+    public function test_auto_assign_fires_an_event_per_student(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2', 'A3']);
+        $students = $this->extra_students(2);
+
+        $sink = $this->redirectEvents();
+        seats::auto_assign(
+            (int) $this->examcheck->id,
+            array_map(fn($user) => (int) $user->id, $students),
+            (int) $this->teacher->id
+        );
+        $events = $sink->get_events();
+        $sink->close();
+
+        $assignedevents = array_filter(
+            $events,
+            fn($event) => $event instanceof \mod_examcheck\event\seat_assigned
+        );
+        $this->assertCount(2, $assignedevents);
+    }
+
+    /**
+     * Enrol extra students on the instance's course.
+     *
+     * @param int $count How many.
+     * @return \stdClass[]
+     */
+    private function extra_students(int $count): array {
+        $students = [];
+        for ($i = 0; $i < $count; $i++) {
+            $students[] = $this->getDataGenerator()->create_and_enrol(
+                get_course($this->examcheck->course),
+                'student'
+            );
+        }
+        return $students;
+    }
+
+    /**
      * The generator helpers create seats and assignments through the API.
      */
     public function test_generator_helpers(): void {

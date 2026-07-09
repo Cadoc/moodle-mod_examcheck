@@ -19,15 +19,23 @@ namespace mod_examcheck\output;
 use core\output\renderable;
 use core\output\renderer_base;
 use core\output\templatable;
+use mod_examcheck\local\checker;
 use mod_examcheck\local\seats;
 use mod_examcheck\table\seat_assign;
 use mod_examcheck\table\seat_assign_filterset;
 
 /**
- * Renderable for the seat assignment page: the assignment count and the seat table.
+ * Renderable for the seat assignment page: the assignment count, the auto-assign
+ * trigger and the seat table.
  *
  * The table itself is the {@see seat_assign} dynamic table, captured here the same way
  * {@see dashboard} captures the roster, so its body reloads over AJAX on sort and paging.
+ *
+ * The free-seat and unseated-student counts are handed to the page so the JS can size the
+ * auto-assign confirmation without a roundtrip, and keep them current as seats are filled.
+ * They are not derivable from each other: under separate groups the assignment count
+ * includes students the caller cannot reach, so the unseated count is measured against
+ * the caller's own roster.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -67,11 +75,25 @@ class seat_assign_page implements renderable, templatable {
         $table->out(self::PAGE_SIZE, false);
         $tablehtml = ob_get_clean();
 
+        $assignedcount = seats::count_assignments($this->examcheckid);
+        $seatcount = seats::count_seats($this->examcheckid);
+        $freeseats = $seatcount - $assignedcount;
+
+        // The students this caller may seat: their reachable roster, minus whoever
+        // already sits somewhere. A group-restricted teacher sees only their own.
+        $checker = checker::from_cmid($this->cmid);
+        $group = $checker->resolve_effective_group(0);
+        $roster = $group === -1 ? [] : $checker->get_roster($group);
+        $unseatedstudents = count(array_diff_key($roster, seats::get_user_seat_labels($this->examcheckid)));
+
         return [
-            'cmid'          => $this->cmid,
-            'assignedcount' => seats::count_assignments($this->examcheckid),
-            'seatcount'     => seats::count_seats($this->examcheckid),
-            'table'         => $tablehtml,
+            'cmid'             => $this->cmid,
+            'assignedcount'    => $assignedcount,
+            'seatcount'        => $seatcount,
+            'freeseats'        => $freeseats,
+            'unseatedstudents' => $unseatedstudents,
+            'canautoassign'    => $unseatedstudents > 0 && $freeseats > 0,
+            'table'            => $tablehtml,
         ];
     }
 }

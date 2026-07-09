@@ -81,4 +81,11 @@ $functions = [
         'capabilities' => 'mod/examcheck:manageseats',
         'ajax'        => true,
     ],
+    'mod_examcheck_auto_assign_seats' => [
+        'classname'   => 'mod_examcheck\external\auto_assign_seats',
+        'description' => 'Assign the remaining students to the remaining seats, at random.',
+        'type'        => 'write',
+        'capabilities' => 'mod/examcheck:manageseats',
+        'ajax'        => true,
+    ],
 ];

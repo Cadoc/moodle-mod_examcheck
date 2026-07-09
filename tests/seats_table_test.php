@@ -208,6 +208,7 @@ final class seats_table_test extends \advanced_testcase {
         global $PAGE;
 
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $seatids = $this->create_seats(['A1', 'A2', 'A3']);
         seats::assign($seatids[0], (int) $student->id, (int) $this->teacher->id);
 
@@ -217,7 +218,41 @@ final class seats_table_test extends \advanced_testcase {
         $this->assertSame((int) $this->examcheck->cmid, $context['cmid']);
         $this->assertSame(1, $context['assignedcount']);
         $this->assertSame(3, $context['seatcount']);
+        $this->assertSame(2, $context['freeseats']);
+        // Two students on the roster, one already seated.
+        $this->assertSame(1, $context['unseatedstudents']);
+        $this->assertTrue($context['canautoassign']);
         $this->assertStringContainsString('data-region="examcheck-seat-cell"', $context['table']);
+    }
+
+    /**
+     * The auto-assign trigger is offered only when there is both a free seat and a
+     * student without one.
+     */
+    public function test_seat_assign_page_hides_the_trigger_when_idle(): void {
+        global $PAGE;
+
+        $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        $seatids = $this->create_seats(['A1', 'A2']);
+
+        // A free seat, but nobody left to sit on it.
+        seats::assign($seatids[0], (int) $student->id, (int) $this->teacher->id);
+        $page = new seat_assign_page((int) $this->examcheck->cmid, (int) $this->examcheck->id);
+        $context = $page->export_for_template($PAGE->get_renderer('core'));
+        $this->assertSame(1, $context['freeseats']);
+        $this->assertSame(0, $context['unseatedstudents']);
+        $this->assertFalse($context['canautoassign']);
+
+        // An unseated student, but no seat free.
+        $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        seats::replace_list((int) $this->examcheck->id, ['A1']);
+        $seatid = (int) array_key_first(seats::get_seats((int) $this->examcheck->id));
+        seats::assign($seatid, (int) $student->id, (int) $this->teacher->id);
+        $page = new seat_assign_page((int) $this->examcheck->cmid, (int) $this->examcheck->id);
+        $context = $page->export_for_template($PAGE->get_renderer('core'));
+        $this->assertSame(0, $context['freeseats']);
+        $this->assertSame(1, $context['unseatedstudents']);
+        $this->assertFalse($context['canautoassign']);
     }
 
     /**

@@ -17,6 +17,11 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
   - *Seat assignment* is a sortable table, one row per seat: sort by seat or by
     the assigned student, and search a student inline. The search field hides
     once the seat is taken and returns when the student is removed.
+  - **Auto-assign students** seats every remaining student at random, on the
+    remaining seats taken in the authored seat order. A confirmation states how
+    many students go on how many seats, and warns when there are not enough
+    seats for everyone before seating as many as fit. Students already seated
+    are never moved.
   - *Edit seats*: one label per line; changing the list resets assignments
     after an explicit acknowledgement.
   - *Export* downloads either the seat list as one CSV, or the seat list plus
@@ -32,7 +37,8 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
     seat column in the roster export.
   - The scanner info/confirm pop-ups show the scanned student's assigned seat.
   - AJAX web services: `assign_seat`, `unassign_seat`,
-    `search_seat_candidates`; events `seat_assigned`, `seat_unassigned`.
+    `search_seat_candidates`, `auto_assign_seats`; events `seat_assigned`,
+    `seat_unassigned`.
   - Backup & restore (assignments as user data), privacy (GDPR) coverage, and
     course reset (clears assignments, keeps the seat list).
   - Per-activity **Enable seat numbers** toggle (site default
