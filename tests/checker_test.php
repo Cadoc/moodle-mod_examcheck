@@ -316,6 +316,21 @@ final class checker_test extends \advanced_testcase {
     }
 
     /**
+     * The formatted step statuses abbreviate the step name to its word initials for
+     * the compact column headers (full name kept for hover / screen readers).
+     */
+    public function test_step_status_header_uses_word_initials(): void {
+        steps::rename_step($this->stepid, 'Identity Verification');
+        $checker = new checker($this->examcheck, $this->context);
+
+        $pending = $checker->scan($this->stepid, 'idnumber', 'S1', false, true, $this->teacher->id);
+        $formatted = \mod_examcheck\local\outcome::format($pending, $this->stepid);
+
+        $this->assertSame('IV', $formatted['steps'][0]['abbr']);
+        $this->assertSame('Identity Verification', $formatted['steps'][0]['name']);
+    }
+
+    /**
      * Reading mode: lookup() resolves a scanned value to a student and reports
      * their status on every step, without recording a mark.
      */

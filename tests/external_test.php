@@ -150,6 +150,8 @@ final class external_test extends \advanced_testcase {
         $this->assertCount(1, $result['steps']);
         $this->assertFalse($result['steps'][0]['checked']);
         $this->assertTrue($result['steps'][0]['current']);
+        // The seeded "Attendance" step abbreviates to its initial for the column header.
+        $this->assertSame('A', $result['steps'][0]['abbr']);
     }
 
     /**

@@ -63,6 +63,7 @@ class outcome {
             'steps'       => new external_multiple_structure(
                 new external_single_structure([
                     'name'    => new external_value(PARAM_TEXT, 'Step name.'),
+                    'abbr'    => new external_value(PARAM_TEXT, 'Short label (word initials) for the column header.'),
                     'checked' => new external_value(PARAM_BOOL, 'Whether the student is checked on this step.'),
                     'current' => new external_value(PARAM_BOOL, 'Whether this is the step being checked.'),
                 ]),
@@ -227,8 +228,26 @@ class outcome {
     private static function export_steps(array $steps): array {
         return array_map(fn($step) => [
             'name'    => $step['name'],
+            'abbr'    => self::step_abbr($step['name']),
             'checked' => (bool) $step['checked'],
             'current' => (bool) ($step['current'] ?? false),
         ], $steps);
+    }
+
+    /**
+     * Derive a short column label from a step name: the upper-cased first letter of
+     * each word (e.g. "Identity Verification" becomes "IV", "Attendance" becomes "A").
+     * The full name is still shown on hover and to screen readers.
+     *
+     * @param string $name The step name.
+     * @return string The initials, or the first letter when the name has no words.
+     */
+    private static function step_abbr(string $name): string {
+        $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY);
+        $abbr = '';
+        foreach ($words as $word) {
+            $abbr .= \core_text::strtoupper(\core_text::substr($word, 0, 1));
+        }
+        return $abbr !== '' ? $abbr : \core_text::strtoupper(\core_text::substr(trim($name), 0, 1));
     }
 }
