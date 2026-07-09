@@ -8,10 +8,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    # ubuntu-22.04 is deprecated from 2026-09-17 and unsupported from 2027-04-17.
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
+        # Moodle 5.2 raised the PostgreSQL minimum to 16.
         image: postgres:16
         env:
           POSTGRES_USER: 'postgres'
@@ -21,7 +23,8 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
 
       mariadb:
-        image: mariadb:10
+        # Pinned: the floating "10" tag drifts, and Moodle 5.0+ requires 10.11.0.
+        image: mariadb:10.11
         env:
           MYSQL_USER: 'root'
           MYSQL_ALLOW_EMPTY_PASSWORD: "true"
@@ -40,7 +43,7 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: plugin
 

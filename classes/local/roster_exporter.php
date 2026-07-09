@@ -40,9 +40,9 @@ class roster_exporter {
      *
      * @param stdClass[] $roster Roster users keyed by id, in display order.
      * @param stdClass[] $steplist Ordered step records.
-     * @param array<int, array<int, stdClass>> $marks Marks indexed [stepid][userid].
+     * @param array $marks Marks indexed [stepid][userid].
      * @param bool $hasseats Whether to include the seat column (seats exist, even if none are assigned).
-     * @param array<int, string> $seatlabels User id => seat label.
+     * @param array $seatlabels User id => seat label.
      * @param context_module $context The module context (identity visibility is evaluated
      *        for the current user in this context).
      * @return array Two elements: string[] $columns and string[][] $rows.
