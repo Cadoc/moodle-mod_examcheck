@@ -64,9 +64,9 @@ if ($userids) {
 }
 
 // The assigned seats (one map lookup per row below); no seat column when the
-// activity has no seats.
-$seatlabels = seats::get_user_seat_labels($examcheck->id);
-$hasseats = seats::count_seats($examcheck->id) > 0;
+// feature is disabled or the activity has no seats.
+$hasseats = !empty($examcheck->enableseats) && seats::count_seats($examcheck->id) > 0;
+$seatlabels = $hasseats ? seats::get_user_seat_labels($examcheck->id) : [];
 
 // Column headers: identity (and seat), then three columns per step.
 $columns = [

@@ -96,6 +96,24 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * Duplicating an activity preserves the seats toggle: a copy of a
+     * seats-disabled activity stays disabled.
+     */
+    public function test_duplicate_preserves_enableseats(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enableseats' => 0]);
+
+        $cm = get_coursemodule_from_instance('examcheck', $examcheck->id, $course->id, false, MUST_EXIST);
+        $newcm = duplicate_module($course, $cm);
+
+        $this->assertSame(0, (int) $DB->get_field('examcheck', 'enableseats', ['id' => $newcm->instance]));
+    }
+
+    /**
      * A full backup and restore with user data carries the assignments across,
      * remapped to the restored seats with the assigner preserved.
      */

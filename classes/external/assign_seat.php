@@ -65,6 +65,10 @@ class assign_seat extends external_api {
         self::validate_context($checker->get_context());
         require_capability('mod/examcheck:manageseats', $checker->get_context());
 
+        if (empty($checker->get_instance()->enableseats)) {
+            throw new moodle_exception('seatsdisabled', 'mod_examcheck');
+        }
+
         // The seat must belong to this instance.
         $DB->get_record(
             'examcheck_seats',

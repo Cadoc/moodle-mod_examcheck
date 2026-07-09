@@ -252,4 +252,24 @@ final class external_test extends \advanced_testcase {
         $this->assertSame('marked', $result['status']);
         $this->assertSame('', $result['seatlabel']);
     }
+
+    /**
+     * With the seats feature disabled, outcomes suppress the seat label even
+     * for a student who has an assignment, so the scanner modals show nothing.
+     */
+    public function test_outcomes_hide_seat_label_when_seats_disabled(): void {
+        $disabled = $this->getDataGenerator()->create_module(
+            'examcheck',
+            ['course' => $this->examcheck->course, 'enableseats' => 0]
+        );
+        $stepid = (int) array_values(steps::get_steps($disabled->id))[0]->id;
+
+        seats::replace_list($disabled->id, ['A12']);
+        $seatid = (int) array_key_first(seats::get_seats($disabled->id));
+        seats::assign($seatid, (int) $this->student->id, (int) $this->teacher->id);
+
+        $result = scan_lookup::execute($disabled->cmid, $stepid, 'idnumber', 'EX1', false, false, 0, 'reading');
+        $result = external_api::clean_returnvalue(scan_lookup::execute_returns(), $result);
+        $this->assertSame('', $result['seatlabel']);
+    }
 }

@@ -1,0 +1,9 @@
+{
+  // Lint config for the plugin's Markdown files (run: npx markdownlint-cli2 "*.md").
+  "config": {
+    // Markdown tables can't wrap; prose keeps the 80-char default.
+    "MD013": { "tables": false },
+    // Keep a Changelog repeats "### Added"/"### Changed" per release.
+    "MD024": { "siblings_only": true }
+  }
+}

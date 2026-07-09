@@ -23,6 +23,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use mod_examcheck\local\checker;
 use mod_examcheck\local\seats;
+use moodle_exception;
 
 /**
  * Web service: search students who can still be assigned to a seat.
@@ -67,6 +68,10 @@ class search_seat_candidates extends external_api {
         $context = $checker->get_context();
         self::validate_context($context);
         require_capability('mod/examcheck:manageseats', $context);
+
+        if (empty($checker->get_instance()->enableseats)) {
+            throw new moodle_exception('seatsdisabled', 'mod_examcheck');
+        }
 
         // Resolve the group the caller is effectively confined to. Never call
         // require_group_access(0) here: it throws for group-restricted teachers.

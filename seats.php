@@ -41,6 +41,16 @@ require_capability('mod/examcheck:manageseats', $context);
 
 $examcheck = $DB->get_record('examcheck', ['id' => $cm->instance], '*', MUST_EXIST);
 
+// Seats can be disabled per activity; block direct access to every subpage when off.
+if (empty($examcheck->enableseats)) {
+    redirect(
+        new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]),
+        get_string('seatsdisabled', 'mod_examcheck'),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
+}
+
 if (!in_array($action, ['assign', 'edit', 'import', 'export'], true)) {
     $action = 'assign';
 }

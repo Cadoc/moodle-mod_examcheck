@@ -49,6 +49,7 @@ class mod_examcheck_generator extends testing_module_generator {
             'scanfield'          => 'idnumber',
             'requireconfirm'     => 0,
             'enablescanner'      => 1,
+            'enableseats'        => 1,
             'showcameraswitcher' => 1,
             'completionchecked'  => 0,
             'completionstep'     => 0,

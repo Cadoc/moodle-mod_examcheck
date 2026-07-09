@@ -23,6 +23,7 @@ use core_external\external_value;
 use mod_examcheck\local\checker;
 use mod_examcheck\local\seat_outcome;
 use mod_examcheck\local\seats;
+use moodle_exception;
 
 /**
  * Web service: remove the assignment of a seat.
@@ -61,6 +62,10 @@ class unassign_seat extends external_api {
         $checker = checker::from_cmid($params['cmid']);
         self::validate_context($checker->get_context());
         require_capability('mod/examcheck:manageseats', $checker->get_context());
+
+        if (empty($checker->get_instance()->enableseats)) {
+            throw new moodle_exception('seatsdisabled', 'mod_examcheck');
+        }
 
         // The seat must belong to this instance.
         $DB->get_record(

@@ -249,9 +249,10 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
     $i = array_search('modedit', $keys, true);
     $beforekey = $i !== false ? $keys[$i] : (array_key_exists(0, $keys) ? $keys[0] : null);
 
+    $instance = $DB->get_record('examcheck', ['id' => $cm->instance], 'id, enablescanner, enableseats');
+
     // Only when the activity has the scanner enabled and the user may check.
-    $scannerenabled = $DB->get_field('examcheck', 'enablescanner', ['id' => $cm->instance]);
-    if ($scannerenabled && has_capability('mod/examcheck:check', $context)) {
+    if ($instance && $instance->enablescanner && has_capability('mod/examcheck:check', $context)) {
         $examchecknode->add_node(navigation_node::create(
             get_string('scanner', 'mod_examcheck'),
             new moodle_url('/mod/examcheck/scan.php', ['id' => $cm->id]),
@@ -271,7 +272,7 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
         ), $beforekey);
     }
 
-    if (has_capability('mod/examcheck:manageseats', $context)) {
+    if ($instance && $instance->enableseats && has_capability('mod/examcheck:manageseats', $context)) {
         $examchecknode->add_node(navigation_node::create(
             get_string('seats', 'mod_examcheck'),
             new moodle_url('/mod/examcheck/seats.php', ['id' => $cm->id]),

@@ -21,6 +21,21 @@ Information provided here is intended especially for developers.
 * The shared scan/mark outcome structure (\mod_examcheck\local\outcome) gained
   an optional "seatlabel" field, surfaced in the scanner modals.
 * New events: \mod_examcheck\event\seat_assigned, seat_unassigned.
+* New examcheck.enableseats column (default 1) with the defaultenableseats
+  admin setting: a per-activity toggle for the whole seats feature. When 0 the
+  Seats tab, seats.php and the roster/export seat columns are hidden/blocked,
+  the outcome "seatlabel" is always empty, and the three seat web services
+  throw a "seatsdisabled" moodle_exception. Seat data is never deleted; the
+  column is included in backups.
+* The activity form's "Attendance settings" section was renamed to "General
+  settings" (lang string attendancesettings removed, generalsettings added)
+  and now hosts the enablescanner and enableseats toggles; every field in
+  "Scanning defaults" (including scanfield) is hidden while the scanner is
+  disabled.
+* The roster table no longer renders a dedicated scan-match-field column: it
+  shows the site's configured identity fields (core_user\fields, now including
+  custom profile fields) per the viewer's permissions. scanfield now only
+  affects the scanner lookup.
 
 === 5.1-r1 ===
 

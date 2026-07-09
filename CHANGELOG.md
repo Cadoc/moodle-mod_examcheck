@@ -8,6 +8,7 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
 ## [5.1-r2] - 2026-07-09
 
 ### Added
+
 - Seat numbers (#14): a per-activity list of free-text seat labels with a 1:1
   student/seat assignment.
   - New gradebook-style **Seats** tab (capability `mod/examcheck:manageseats`,
@@ -25,12 +26,28 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
     `search_seat_candidates`; events `seat_assigned`, `seat_unassigned`.
   - Backup & restore (assignments as user data), privacy (GDPR) coverage, and
     course reset (clears assignments, keeps the seat list).
+  - Per-activity **Enable seat numbers** toggle (site default
+    `defaultenableseats`, enabled by default). Disabling hides the Seats tab
+    and the roster/export seat columns, blocks the seat pages and web
+    services, and keeps all seat data for when it is re-enabled.
+
+### Changed
+
+- The activity form's *Attendance settings* section is now *General settings*
+  and hosts the *Enable scanner* and *Enable seat numbers* toggles; every
+  *Scanning defaults* field (including the scan match field) is hidden while
+  the scanner is disabled.
+- The roster no longer shows a dedicated scan-match-field column. It now
+  shows the identity fields configured for the site — including custom
+  profile fields — respecting each viewer's permission to see them; the scan
+  match field only affects the scanner.
 
 ## [5.1-r1] - 2026-06-10
 
 First public release for Moodle 5.1.
 
 ### Added
+
 - Checking dashboard: roster grid with one toggle per check step, live
   multi-teacher refresh, client-side search and a "show only not-yet-checked"
   filter, and group selection.

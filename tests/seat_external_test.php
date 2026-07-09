@@ -158,6 +158,32 @@ final class seat_external_test extends \advanced_testcase {
     }
 
     /**
+     * Every seat service refuses when the seats feature is disabled for the activity.
+     */
+    public function test_services_refuse_when_seats_disabled(): void {
+        $disabled = $this->getDataGenerator()->create_module(
+            'examcheck',
+            ['course' => $this->course->id, 'enableseats' => 0]
+        );
+        seats::replace_list($disabled->id, ['D1']);
+        $seatid = (int) array_key_first(seats::get_seats($disabled->id));
+
+        $calls = [
+            fn() => assign_seat::execute($disabled->cmid, $seatid, $this->student->id),
+            fn() => unassign_seat::execute($disabled->cmid, $seatid),
+            fn() => search_seat_candidates::execute($disabled->cmid, ''),
+        ];
+        foreach ($calls as $call) {
+            try {
+                $call();
+                $this->fail('Expected the seatsdisabled moodle_exception.');
+            } catch (\moodle_exception $e) {
+                $this->assertSame('seatsdisabled', $e->errorcode);
+            }
+        }
+    }
+
+    /**
      * unassign_seat clears the assignment; a second call reports notassigned.
      */
     public function test_unassign_seat(): void {

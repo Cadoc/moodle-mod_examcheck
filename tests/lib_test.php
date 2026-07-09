@@ -213,18 +213,34 @@ final class lib_test extends \advanced_testcase {
         $enabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enablescanner' => 1]);
         $disabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enablescanner' => 0]);
 
-        $this->assertTrue($this->has_scanner_node($course, $enabled));
-        $this->assertFalse($this->has_scanner_node($course, $disabled));
+        $this->assertTrue($this->has_settings_node($course, $enabled, 'mod_examcheck_scanner'));
+        $this->assertFalse($this->has_settings_node($course, $disabled, 'mod_examcheck_scanner'));
     }
 
     /**
-     * Whether examcheck_extend_settings_navigation adds the Scanner node for an instance.
+     * The Seats secondary-nav node appears only when the activity enables seats.
+     */
+    public function test_settings_navigation_seats_gated(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+
+        $enabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enableseats' => 1]);
+        $disabled = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enableseats' => 0]);
+
+        $this->assertTrue($this->has_settings_node($course, $enabled, 'mod_examcheck_seats'));
+        $this->assertFalse($this->has_settings_node($course, $disabled, 'mod_examcheck_seats'));
+    }
+
+    /**
+     * Whether examcheck_extend_settings_navigation adds the given node for an instance.
      *
      * @param \stdClass $course The course.
      * @param \stdClass $examcheck The instance stub with ->cmid.
+     * @param string $nodekey The navigation node key (e.g. mod_examcheck_scanner).
      * @return bool
      */
-    protected function has_scanner_node(\stdClass $course, \stdClass $examcheck): bool {
+    protected function has_settings_node(\stdClass $course, \stdClass $examcheck, string $nodekey): bool {
         $cm = get_fast_modinfo($course)->get_cm($examcheck->cmid);
         $page = new \moodle_page();
         $page->set_course($course);
@@ -235,7 +251,7 @@ final class lib_test extends \advanced_testcase {
         $node = \navigation_node::create('examcheck', null, \navigation_node::TYPE_SETTING, null, 'modulesettings');
         examcheck_extend_settings_navigation($settingsnav, $node);
 
-        return (bool) $node->find('mod_examcheck_scanner', \navigation_node::TYPE_SETTING);
+        return (bool) $node->find($nodekey, \navigation_node::TYPE_SETTING);
     }
 
     /**

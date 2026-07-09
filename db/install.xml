@@ -18,6 +18,7 @@
         <FIELD NAME="completionchecked" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, the student completes the activity once they are checked as required."/>
         <FIELD NAME="completionstep" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = student must be checked on ALL steps; otherwise the single step id that completes the activity."/>
         <FIELD NAME="requiresequential" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="When 1, a student can only be checked on a step once they are already checked on the immediately preceding step."/>
+        <FIELD NAME="enableseats" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="When 0, the seats feature is disabled for this activity (no tab, no roster/export column, pages and web services blocked). Seat data is kept."/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>

@@ -856,7 +856,8 @@ class checker {
     }
 
     /**
-     * The student's assigned seat label, or an empty string when unseated.
+     * The student's assigned seat label, or an empty string when unseated
+     * or when the seats feature is disabled for the activity.
      *
      * The full map is loaded lazily and cached: one query serves every result
      * built during the request.
@@ -865,6 +866,9 @@ class checker {
      * @return string
      */
     protected function seat_label(int $userid): string {
+        if (empty($this->examcheck->enableseats)) {
+            return '';
+        }
         if ($this->seatlabels === null) {
             $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
         }
