@@ -220,9 +220,36 @@ final class seats_table_test extends \advanced_testcase {
         $this->assertSame(3, $context['seatcount']);
         $this->assertSame(2, $context['freeseats']);
         // Two students on the roster, one already seated.
+        $this->assertSame(2, $context['rostercount']);
+        $this->assertSame(1, $context['studentsassigned']);
         $this->assertSame(1, $context['unseatedstudents']);
         $this->assertTrue($context['canautoassign']);
         $this->assertStringContainsString('data-region="examcheck-seat-cell"', $context['table']);
+    }
+
+    /**
+     * The student half of the count line is measured against the caller's roster, not
+     * against the seats: more students than seats means it outruns the seat count.
+     */
+    public function test_seat_assign_page_counts_students_against_the_roster(): void {
+        global $PAGE;
+
+        $seated = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        for ($i = 0; $i < 4; $i++) {
+            $this->getDataGenerator()->create_and_enrol($this->course, 'student');
+        }
+        $seatids = $this->create_seats(['A1', 'A2']);
+        seats::assign($seatids[0], (int) $seated->id, (int) $this->teacher->id);
+
+        $page = new seat_assign_page((int) $this->examcheck->cmid, (int) $this->examcheck->id);
+        $context = $page->export_for_template($PAGE->get_renderer('core'));
+
+        // Reads "1 of 2 seats assigned / 1 of 5 students assigned".
+        $this->assertSame(1, $context['assignedcount']);
+        $this->assertSame(2, $context['seatcount']);
+        $this->assertSame(1, $context['studentsassigned']);
+        $this->assertSame(5, $context['rostercount']);
+        $this->assertSame(4, $context['unseatedstudents']);
     }
 
     /**
@@ -235,15 +262,17 @@ final class seats_table_test extends \advanced_testcase {
         $student = $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         $seatids = $this->create_seats(['A1', 'A2']);
 
-        // A free seat, but nobody left to sit on it.
+        // A free seat, but nobody left to sit on it: "1 of 2 seats / 1 of 1 students".
         seats::assign($seatids[0], (int) $student->id, (int) $this->teacher->id);
         $page = new seat_assign_page((int) $this->examcheck->cmid, (int) $this->examcheck->id);
         $context = $page->export_for_template($PAGE->get_renderer('core'));
         $this->assertSame(1, $context['freeseats']);
         $this->assertSame(0, $context['unseatedstudents']);
+        $this->assertSame(1, $context['studentsassigned']);
+        $this->assertSame(1, $context['rostercount']);
         $this->assertFalse($context['canautoassign']);
 
-        // An unseated student, but no seat free.
+        // An unseated student, but no seat free: "1 of 1 seats / 1 of 2 students".
         $this->getDataGenerator()->create_and_enrol($this->course, 'student');
         seats::replace_list((int) $this->examcheck->id, ['A1']);
         $seatid = (int) array_key_first(seats::get_seats((int) $this->examcheck->id));
@@ -252,6 +281,8 @@ final class seats_table_test extends \advanced_testcase {
         $context = $page->export_for_template($PAGE->get_renderer('core'));
         $this->assertSame(0, $context['freeseats']);
         $this->assertSame(1, $context['unseatedstudents']);
+        $this->assertSame(1, $context['studentsassigned']);
+        $this->assertSame(2, $context['rostercount']);
         $this->assertFalse($context['canautoassign']);
     }
 

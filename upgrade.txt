@@ -72,9 +72,14 @@ Information provided here is intended especially for developers.
   assigned, unseatedstudents, freeseats, seatcount and a localised message
   rather than the per-seat \mod_examcheck\local\seat_outcome structure.
 * \mod_examcheck\output\seat_assign_page::export_for_template() gained
-  freeseats, unseatedstudents and canautoassign. The two counts are not
-  derivable from one another: under separate groups the assignment count
-  includes students the caller cannot reach.
+  freeseats, rostercount, studentsassigned, unseatedstudents and
+  canautoassign. The seat and student counts are not derivable from one
+  another: under separate groups the assignment count includes students the
+  caller cannot reach.
+* Lang string seatassignedcount was replaced by seatandstudentcount, which
+  reports both halves of the seat assignment page's count line ("N of M seats
+  assigned / X of Y students assigned") and takes the placeholders seats,
+  seatstotal, students and studentstotal.
 
 === 5.1-r1 ===
 

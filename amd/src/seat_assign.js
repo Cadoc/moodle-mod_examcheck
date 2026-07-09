@@ -23,10 +23,12 @@
  * user sorts or pages. That destroys the enhanced autocompletes, so we re-enhance
  * on the table's tableContentRefreshed event.
  *
- * The free-seat and unseated-student counts live on the page root. Assigning a
- * student consumes exactly one of each and unassigning returns one of each, so the
- * counts stay honest without asking the server, and size the auto-assign
- * confirmation. Only the server decides what is actually seated.
+ * The free-seat and unseated-student counts live on the page root, alongside the two
+ * totals (seats, and the caller's reachable roster) which never change while the page
+ * is open. Assigning a student consumes exactly one free seat and one unseated student,
+ * and unassigning returns one of each, so the counts stay honest without asking the
+ * server: they keep the "N of M seats / X of Y students" line live and size the
+ * auto-assign confirmation. Only the server decides what is actually seated.
  *
  * Note: core/ajax returns jQuery promises without .finally, so the handlers use
  * async/await with try/finally instead.
@@ -165,8 +167,8 @@ const shiftCounts = async(root, step) => {
 };
 
 /**
- * Store the counters on the root, repaint the count line, and show the trigger only
- * while there is both a free seat and a student to put on it.
+ * Store the counters on the root, repaint the "N of M seats / X of Y students" line, and
+ * show the trigger only while there is both a free seat and a student to put on it.
  *
  * @param {HTMLElement} root The page root.
  * @param {Number} freeseats Seats with no student.
@@ -174,15 +176,19 @@ const shiftCounts = async(root, step) => {
  * @returns {Promise<void>}
  */
 const setCounts = async(root, freeseats, unseatedstudents) => {
+    // Both totals are fixed for the page's life; only the two "assigned" halves move.
     const seatcount = parseInt(root.dataset.seatcount || '0', 10);
+    const rostercount = parseInt(root.dataset.rostercount || '0', 10);
     root.dataset.freeseats = String(freeseats);
     root.dataset.unseatedstudents = String(unseatedstudents);
 
     const count = root.querySelector(SELECTORS.count);
     if (count) {
-        count.textContent = await getString('seatassignedcount', 'mod_examcheck', {
-            assigned: seatcount - freeseats,
-            total: seatcount,
+        count.textContent = await getString('seatandstudentcount', 'mod_examcheck', {
+            seats: seatcount - freeseats,
+            seatstotal: seatcount,
+            students: rostercount - unseatedstudents,
+            studentstotal: rostercount,
         });
     }
 

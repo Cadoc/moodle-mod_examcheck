@@ -31,11 +31,12 @@ use mod_examcheck\table\seat_assign_filterset;
  * The table itself is the {@see seat_assign} dynamic table, captured here the same way
  * {@see dashboard} captures the roster, so its body reloads over AJAX on sort and paging.
  *
- * The free-seat and unseated-student counts are handed to the page so the JS can size the
- * auto-assign confirmation without a roundtrip, and keep them current as seats are filled.
- * They are not derivable from each other: under separate groups the assignment count
- * includes students the caller cannot reach, so the unseated count is measured against
- * the caller's own roster.
+ * The seat and student counts are handed to the page so the JS can size the auto-assign
+ * confirmation without a roundtrip, and keep the count line current as seats are filled.
+ * The two halves are not derivable from each other: seats belong to the activity, while
+ * the roster is only what this caller may reach, so under separate groups the assignment
+ * count includes students the caller cannot see. Without groups the two "assigned"
+ * figures always agree, since a seat can only ever hold a roster student.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -84,6 +85,7 @@ class seat_assign_page implements renderable, templatable {
         $checker = checker::from_cmid($this->cmid);
         $group = $checker->resolve_effective_group(0);
         $roster = $group === -1 ? [] : $checker->get_roster($group);
+        $rostercount = count($roster);
         $unseatedstudents = count(array_diff_key($roster, seats::get_user_seat_labels($this->examcheckid)));
 
         return [
@@ -91,6 +93,8 @@ class seat_assign_page implements renderable, templatable {
             'assignedcount'    => $assignedcount,
             'seatcount'        => $seatcount,
             'freeseats'        => $freeseats,
+            'rostercount'      => $rostercount,
+            'studentsassigned' => $rostercount - $unseatedstudents,
             'unseatedstudents' => $unseatedstudents,
             'canautoassign'    => $unseatedstudents > 0 && $freeseats > 0,
             'table'            => $tablehtml,

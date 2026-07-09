@@ -36,7 +36,7 @@
 
     Data attributes required for JS:
     * data-region="examcheck-seat-assign" - the page root, carries the cmid and the counts
-    * data-region="examcheck-seat-count" - the "N of M seats assigned" text
+    * data-region="examcheck-seat-count" - the seat and student count text
     * data-region="examcheck-autoassign" - wraps the trigger, hidden when nothing to assign
     * data-action="examcheck-autoassign" - the trigger itself
 
@@ -45,6 +45,8 @@
     * assignedcount - number of assigned seats
     * seatcount - total number of seats
     * freeseats - number of seats with no student
+    * rostercount - reachable roster students, seated or not
+    * studentsassigned - reachable roster students who have a seat
     * unseatedstudents - reachable roster students with no seat
     * canautoassign - whether there is at least one free seat and one unseated student
     * table - the rendered seat_assign dynamic table
@@ -55,6 +57,8 @@
         "assignedcount": 1,
         "seatcount": 2,
         "freeseats": 1,
+        "rostercount": 4,
+        "studentsassigned": 1,
         "unseatedstudents": 3,
         "canautoassign": true,
         "table": "<table class=\"generaltable\"><tbody><tr><td>A1</td></tr></tbody></table>"
@@ -64,10 +68,15 @@
      data-cmid="{{cmid}}"
      data-seatcount="{{seatcount}}"
      data-freeseats="{{freeseats}}"
+     data-rostercount="{{rostercount}}"
      data-unseatedstudents="{{unseatedstudents}}">
     <p class="text-muted">
         <span data-region="examcheck-seat-count">
-            {{#str}} seatassignedcount, mod_examcheck, { "assigned": {{assignedcount}}, "total": {{seatcount}} } {{/str}}
+            {{#str}}
+                seatandstudentcount, mod_examcheck,
+                { "seats": {{assignedcount}}, "seatstotal": {{seatcount}},
+                  "students": {{studentsassigned}}, "studentstotal": {{rostercount}} }
+            {{/str}}
         </span>
         <span data-region="examcheck-autoassign" class="{{^canautoassign}}d-none{{/canautoassign}}">
             &ndash;
