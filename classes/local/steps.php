@@ -118,27 +118,38 @@ class steps {
     /**
      * Persist a step's "requirements for checking" configuration.
      *
-     * The requirement type and its linked course module are mutually exclusive.
-     * When the type is "none", the cmid is forced to null so we never carry a
-     * stale link that would surface as a misconfiguration if the type is later
-     * switched back on.
+     * The requirement type and its linked target are mutually exclusive, and only
+     * one target column is ever populated: "quiz"/"completion" use $requirementcmid
+     * (a course module id), "step" uses $requirementstepid (another examcheck_steps
+     * id). Every unused target is forced to null so we never carry a stale link that
+     * would surface as a misconfiguration if the type is later switched back on.
      *
      * @param int $stepid The step id.
-     * @param string $requirementtype One of "none", "quiz" or "completion".
+     * @param string $requirementtype One of "none", "quiz", "completion" or "step".
      * @param int|null $requirementcmid The course module id the requirement checks against.
+     * @param int|null $requirementstepid The examcheck_steps id that must be checked first.
      */
-    public static function save_step_requirement(int $stepid, string $requirementtype, ?int $requirementcmid): void {
+    public static function save_step_requirement(
+        int $stepid,
+        string $requirementtype,
+        ?int $requirementcmid,
+        ?int $requirementstepid = null
+    ): void {
         global $DB;
 
-        if (!in_array($requirementtype, ['none', 'quiz', 'completion'], true)) {
+        if (!in_array($requirementtype, ['none', 'quiz', 'completion', 'step'], true)) {
             $requirementtype = 'none';
         }
 
+        $usescmid  = in_array($requirementtype, ['quiz', 'completion'], true);
+        $usesstepid = $requirementtype === 'step';
+
         $DB->update_record('examcheck_steps', (object) [
-            'id'              => $stepid,
-            'requirementtype' => $requirementtype,
-            'requirementcmid' => $requirementtype === 'none' ? null : $requirementcmid,
-            'timemodified'    => time(),
+            'id'                => $stepid,
+            'requirementtype'   => $requirementtype,
+            'requirementcmid'   => $usescmid ? $requirementcmid : null,
+            'requirementstepid' => $usesstepid ? $requirementstepid : null,
+            'timemodified'      => time(),
         ]);
     }
 

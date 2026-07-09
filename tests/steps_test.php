@@ -112,4 +112,47 @@ final class steps_test extends \advanced_testcase {
         $order = array_map(fn($s) => (int) $s->id, array_values(steps::get_steps($this->examcheck->id)));
         $this->assertSame([$second, (int) $first], $order);
     }
+
+    /**
+     * Saving a "step" requirement stores the prerequisite step id and leaves the
+     * course-module target empty.
+     */
+    public function test_save_step_requirement_step(): void {
+        global $DB;
+        $prereq = (int) array_values(steps::get_steps($this->examcheck->id))[0]->id;
+        $dependent = steps::add_step($this->examcheck->id, 'Identity');
+
+        steps::save_step_requirement($dependent, 'step', null, $prereq);
+
+        $record = $DB->get_record('examcheck_steps', ['id' => $dependent]);
+        $this->assertSame('step', $record->requirementtype);
+        $this->assertEquals($prereq, (int) $record->requirementstepid);
+        $this->assertNull($record->requirementcmid);
+    }
+
+    /**
+     * The two requirement targets are mutually exclusive: switching to a
+     * course-module type clears the step id, and switching off clears everything.
+     */
+    public function test_save_step_requirement_clears_stepid_on_switch(): void {
+        global $DB;
+        $prereq = (int) array_values(steps::get_steps($this->examcheck->id))[0]->id;
+        $dependent = steps::add_step($this->examcheck->id, 'Identity');
+
+        steps::save_step_requirement($dependent, 'step', null, $prereq);
+
+        // Switching to a course-module requirement drops the step id.
+        steps::save_step_requirement($dependent, 'quiz', 42, $prereq);
+        $record = $DB->get_record('examcheck_steps', ['id' => $dependent]);
+        $this->assertSame('quiz', $record->requirementtype);
+        $this->assertEquals(42, (int) $record->requirementcmid);
+        $this->assertNull($record->requirementstepid);
+
+        // Switching back off drops both targets.
+        steps::save_step_requirement($dependent, 'none', null, null);
+        $record = $DB->get_record('examcheck_steps', ['id' => $dependent]);
+        $this->assertSame('none', $record->requirementtype);
+        $this->assertNull($record->requirementcmid);
+        $this->assertNull($record->requirementstepid);
+    }
 }
