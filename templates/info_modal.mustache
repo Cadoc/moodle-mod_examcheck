@@ -26,10 +26,21 @@
     * none
 
     Context variables required for this template:
-    * none
+    * userFullname, userPicture, scanFieldName, scanValue, seatLabel, rosterLink - see the user_info partial.
+    * steps - per-step status; see the step_statuses partial.
 
     Example context (json):
     {
+        "userPicture": "<img src=\"https://example.org/user.jpg\" alt=\"Jane Doe\" class=\"userpicture\">",
+        "userFullname": "Jane Doe",
+        "scanFieldName": "User id (internal)",
+        "scanValue": "6",
+        "seatLabel": "A12",
+        "rosterLink": "https://tbd.example.org",
+        "steps": [
+            {"name": "Attendance", "checked": true, "current": false},
+            {"name": "ID verified", "checked": false, "current": false}
+        ]
     }
 }}
 
@@ -38,13 +49,7 @@
     {{$title}}{{#str}} participant_status, mod_examcheck {{/str}}{{/title}}
     {{$body}}
         {{> mod_examcheck/scan_result_modal/user_info }}
-
-        {{#message}}
-            <div class="d-flex flex-row align-items-center {{#message_is_warning}} text-warning {{/message_is_warning}}">
-                {{#pix}} i/circleinfo {{/pix}}
-                <div>{{.}}</div>
-            </div>
-        {{/message}}
+        {{> mod_examcheck/scan_result_modal/step_statuses }}
     {{/body}}
     {{$footer}}
         <button type="button" class="btn btn-secondary flex-grow-1 flex-sm-grow-0" data-action="hide">

@@ -21,12 +21,17 @@ use navigation_node;
 use settings_navigation;
 
 /**
- * Secondary navigation override: rename the default first tab to "Roster".
+ * Secondary navigation override: rename the default first tab and order our tabs.
  *
- * Moodle's core secondary view labels the first activity tab with
- * get_string('modulename', 'mod_examcheck') ("Exam check"). We keep that string
- * for the activity chooser and breadcrumbs but show "Roster" on the tab itself,
- * since that's what the page actually displays.
+ * Two customisations:
+ *  - Moodle's core secondary view labels the first activity tab with
+ *    get_string('modulename', 'mod_examcheck') ("Exam check"). We keep that string
+ *    for the activity chooser and breadcrumbs but show "Roster" on the tab itself,
+ *    since that's what the page actually displays.
+ *  - The tab order is driven by {@see core_secondary::get_default_module_mapping()},
+ *    where core gives "Settings" (modedit) weight 1. Our Scanner / Manage steps
+ *    tabs are not in that map, so by default they land after Settings. We override
+ *    the map to place them before Settings.
  *
  * Discovered automatically by {@see \moodle_page::magic_get_secondarynav()}.
  *
@@ -49,5 +54,30 @@ class secondary extends core_secondary {
         if ($node) {
             $node->text = get_string('roster', 'mod_examcheck');
         }
+    }
+
+    /**
+     * Order the day-to-day action tabs (Scanner, Manage steps, Seats) ahead of Settings.
+     *
+     * Core weights "Settings" (modedit) at 1 and leaves our tabs unmapped, so they
+     * would otherwise be appended after Settings. We add them to the map and bump
+     * modedit so the final order is: Roster, Scanner, Manage steps, Seats, Settings.
+     *
+     * Weights must be integers: core treats a fractional weight as a nested child
+     * (e.g. 7.1 nests under node 7), which would drop these from the top-level tabs.
+     *
+     * @return array
+     */
+    protected function get_default_module_mapping(): array {
+        $mapping = parent::get_default_module_mapping();
+
+        $mapping[self::TYPE_SETTING] = [
+            'mod_examcheck_scanner' => 0,
+            'mod_examcheck_managesteps' => 1,
+            'mod_examcheck_seats' => 2,
+            'modedit' => 3,
+        ] + $mapping[self::TYPE_SETTING];
+
+        return $mapping;
     }
 }

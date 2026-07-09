@@ -44,8 +44,12 @@ $dashboardurl = new moodle_url('/mod/examcheck/view.php', ['id' => $cm->id]);
 
 // The scanner can be disabled per activity; block direct access to this page when off.
 if (empty($examcheck->enablescanner)) {
-    redirect($dashboardurl, get_string('scannerdisabled', 'mod_examcheck'), null,
-        \core\output\notification::NOTIFY_ERROR);
+    redirect(
+        $dashboardurl,
+        get_string('scannerdisabled', 'mod_examcheck'),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
 }
 
 $steps = array_values(steps::get_steps($examcheck->id));

@@ -35,16 +35,22 @@ class roster_filter extends \core\output\datafilter {
     /** @var int Course module id. */
     protected int $cmid;
 
+    /** @var stdClass|null A single student to pre-apply as a removable chip (0/null = none). */
+    protected ?stdClass $focususer;
+
     /**
      * Constructor.
      *
      * @param context $context The module context.
      * @param string|null $tableregionid The dynamic table region id.
      * @param int $cmid The course module id.
+     * @param stdClass|null $focususer Optional student (with name fields) to deep-link to,
+     *      pre-applied as a removable "Student" chip. Must already be access-validated.
      */
-    public function __construct(context $context, ?string $tableregionid, int $cmid) {
+    public function __construct(context $context, ?string $tableregionid, int $cmid, ?stdClass $focususer = null) {
         parent::__construct($context, $tableregionid);
         $this->cmid = $cmid;
+        $this->focususer = $focususer;
         $this->course = get_course($context->get_course_context()->instanceid);
     }
 
@@ -61,7 +67,38 @@ class roster_filter extends \core\output\datafilter {
         if ($statusfilter = $this->get_checkstatus_filter()) {
             $filtertypes[] = $statusfilter;
         }
+        if ($studentfilter = $this->get_student_filter()) {
+            $filtertypes[] = $studentfilter;
+        }
         return $filtertypes;
+    }
+
+    /**
+     * A single-student filter, present only when deep-linking to one student.
+     *
+     * Offered with just the focus student as its option: enough for the datafilter
+     * bar to render (and let JS pre-apply) a removable "Student: <name>" chip. When
+     * no student is being focused this returns null, so the type never shows up as an
+     * empty selectable option in the bar.
+     *
+     * @return stdClass|null
+     */
+    protected function get_student_filter(): ?stdClass {
+        if (empty($this->focususer)) {
+            return null;
+        }
+
+        return $this->get_filter_object(
+            'userid',
+            get_string('student', 'mod_examcheck'),
+            false,
+            false,
+            null,
+            [(object) [
+                'value' => (int) $this->focususer->id,
+                'title' => fullname($this->focususer),
+            ]]
+        );
     }
 
     /**
@@ -166,6 +203,8 @@ class roster_filter extends \core\output\datafilter {
             'courseid'      => $this->course->id,
             'filtertypes'   => $this->get_filtertypes(),
             'rownumber'     => 1,
+            // The student id to pre-apply as a chip on load, or 0 for none.
+            'initialuserid' => $this->focususer ? (int) $this->focususer->id : 0,
         ];
     }
 }

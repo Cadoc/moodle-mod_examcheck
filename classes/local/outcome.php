@@ -16,6 +16,7 @@
 
 namespace mod_examcheck\local;
 
+use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use core_user;
@@ -59,6 +60,18 @@ class outcome {
             'checkedbyname' => new external_value(PARAM_TEXT, 'For conflicts: that teacher\'s name.', VALUE_DEFAULT, ''),
             'timecreated' => new external_value(PARAM_INT, 'For conflicts/marks: when it was recorded.', VALUE_DEFAULT, 0),
             'ago'         => new external_value(PARAM_TEXT, 'For conflicts: how long ago, in words.', VALUE_DEFAULT, ''),
+            'seatlabel'   => new external_value(PARAM_TEXT, 'The student\'s assigned seat label, when any.', VALUE_DEFAULT, ''),
+            'steps'       => new external_multiple_structure(
+                new external_single_structure([
+                    'name'    => new external_value(PARAM_TEXT, 'Step name.'),
+                    'abbr'    => new external_value(PARAM_TEXT, 'Short label (word initials) for the column header.'),
+                    'checked' => new external_value(PARAM_BOOL, 'Whether the student is checked on this step.'),
+                    'current' => new external_value(PARAM_BOOL, 'Whether this is the step being checked.'),
+                ]),
+                'Per-step check status for the matched student (needsconfirm and found).',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 
@@ -91,6 +104,8 @@ class outcome {
             'checkedbyname' => '',
             'timecreated'   => 0,
             'ago'           => '',
+            'seatlabel'     => (string) ($result['seatlabel'] ?? ''),
+            'steps'         => [],
         ];
 
         switch ($status) {
@@ -106,11 +121,20 @@ class outcome {
                 $response['checkedbyname'] = $result['by'];
                 $response['timecreated'] = (int) $result['mark']->timecreated;
                 $response['ago'] = $result['ago'];
-                $response['message'] = get_string('result_conflict', 'mod_examcheck', (object) [
+                $args = (object) [
                     'user' => $userlabel,
                     'by'   => $result['by'],
                     'ago'  => $result['ago'],
-                ]);
+                ];
+                // The scanner passes the matched value so the message can show it in
+                // parentheses; manual/list marking has none, so keep the plain string.
+                $matchedvalue = (string) ($result['matchedvalue'] ?? '');
+                if ($matchedvalue !== '') {
+                    $args->value = $matchedvalue;
+                    $response['message'] = get_string('result_conflict_scanned', 'mod_examcheck', $args);
+                } else {
+                    $response['message'] = get_string('result_conflict', 'mod_examcheck', $args);
+                }
                 break;
 
             case 'notinroster':
@@ -136,6 +160,7 @@ class outcome {
             case 'found':
                 // Reading mode: no marking, just the student's name and check status on every step.
                 $response['userid'] = (int) ($result['userid'] ?? 0);
+                $response['steps'] = self::export_steps($result['steps'] ?? []);
                 $statuses = array_map(fn($step) => get_string(
                     $step['checked'] ? 'checkstatus_optionchecked' : 'checkstatus_optionnotchecked',
                     'mod_examcheck',
@@ -149,13 +174,21 @@ class outcome {
 
             case 'needsconfirm':
                 $response['userid'] = (int) $result['userid'];
+                $response['steps'] = self::export_steps($result['steps'] ?? []);
                 $response['message'] = get_string('result_needsconfirm', 'mod_examcheck', $userlabel);
                 break;
 
             case 'requirementnotmet':
                 $reason = $result['reason'] ?? 'misconfigured';
-                if (in_array($reason, ['misconfigured', 'missingactivity', 'nocompletion'], true)) {
+                if (in_array($reason, ['misconfigured', 'missingactivity', 'nocompletion', 'stepmissing'], true)) {
                     $response['message'] = get_string('result_requirementnotmet_misconfigured', 'mod_examcheck');
+                    break;
+                }
+                if ($reason === 'stepunchecked') {
+                    $response['message'] = get_string('result_requirementnotmet_stepunchecked', 'mod_examcheck', (object) [
+                        'user'         => $userlabel,
+                        'requiredstep' => $result['requiredstep'] ?? '',
+                    ]);
                     break;
                 }
                 if ($reason === 'incomplete') {
@@ -185,5 +218,38 @@ class outcome {
         }
 
         return $response;
+    }
+
+    /**
+     * Normalise the checker's per-step status list into the {@see self::structure()}
+     * shape, casting the flags to booleans for the web service.
+     *
+     * @param array $steps The checker step statuses (name, checked, current).
+     * @return array<int, array{name: string, checked: bool, current: bool}>
+     */
+    private static function export_steps(array $steps): array {
+        return array_map(fn($step) => [
+            'name'    => $step['name'],
+            'abbr'    => self::step_abbr($step['name']),
+            'checked' => (bool) $step['checked'],
+            'current' => (bool) ($step['current'] ?? false),
+        ], $steps);
+    }
+
+    /**
+     * Derive a short column label from a step name: the upper-cased first letter of
+     * each word (e.g. "Identity Verification" becomes "IV", "Attendance" becomes "A").
+     * The full name is still shown on hover and to screen readers.
+     *
+     * @param string $name The step name.
+     * @return string The initials, or the first letter when the name has no words.
+     */
+    private static function step_abbr(string $name): string {
+        $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY);
+        $abbr = '';
+        foreach ($words as $word) {
+            $abbr .= \core_text::strtoupper(\core_text::substr($word, 0, 1));
+        }
+        return $abbr !== '' ? $abbr : \core_text::strtoupper(\core_text::substr(trim($name), 0, 1));
     }
 }

@@ -33,20 +33,28 @@ class backup_examcheck_activity_structure_step extends backup_activity_structure
      * @return backup_nested_element The wrapped activity structure.
      */
     protected function define_structure() {
-        // Marks are user-specific data.
+        // Marks and seat assignments are user-specific data.
         $userinfo = $this->get_setting_value('userinfo');
 
         $examcheck = new backup_nested_element('examcheck', ['id'], [
             'name', 'intro', 'introformat',
             'scanfield', 'requireconfirm', 'enablescanner', 'showcameraswitcher',
-            'completionchecked', 'completionstep', 'requiresequential',
+            'completionchecked', 'completionstep', 'requiresequential', 'enableseats',
             'timecreated', 'timemodified',
         ]);
 
         $steps = new backup_nested_element('steps');
         $step = new backup_nested_element('step', ['id'], [
-            'name', 'requirementtype', 'requirementcmid',
+            'name', 'requirementtype', 'requirementcmid', 'requirementstepid',
             'sortorder', 'timecreated', 'timemodified',
+        ]);
+
+        // The seat list is structure (always backed up); assignments are user
+        // data. Seats must precede seatassignments in document order so the
+        // seat id mapping exists before assignments are restored.
+        $seats = new backup_nested_element('seats');
+        $seat = new backup_nested_element('seat', ['id'], [
+            'label', 'sortorder', 'timecreated', 'timemodified',
         ]);
 
         $marks = new backup_nested_element('marks');
@@ -54,24 +62,39 @@ class backup_examcheck_activity_structure_step extends backup_activity_structure
             'stepid', 'userid', 'checkedby', 'method', 'timecreated',
         ]);
 
+        $seatassignments = new backup_nested_element('seatassignments');
+        $seatassignment = new backup_nested_element('seatassignment', ['id'], [
+            'seatid', 'userid', 'assignedby', 'timecreated',
+        ]);
+
         // Build the tree.
         $examcheck->add_child($steps);
         $steps->add_child($step);
+        $examcheck->add_child($seats);
+        $seats->add_child($seat);
         $examcheck->add_child($marks);
         $marks->add_child($mark);
+        $examcheck->add_child($seatassignments);
+        $seatassignments->add_child($seatassignment);
 
         // Define sources.
         $examcheck->set_source_table('examcheck', ['id' => backup::VAR_ACTIVITYID]);
         $step->set_source_table('examcheck_steps', ['examcheckid' => backup::VAR_PARENTID], 'sortorder ASC, id ASC');
+        $seat->set_source_table('examcheck_seats', ['examcheckid' => backup::VAR_PARENTID], 'sortorder ASC, id ASC');
         if ($userinfo) {
             $mark->set_source_table('examcheck_marks', ['examcheckid' => '../../id']);
+            $seatassignment->set_source_table('examcheck_seat_users', ['examcheckid' => '../../id']);
         }
 
         // Define id annotations.
         // requirementcmid references another course module; let the restore framework remap it.
+        // requirementstepid references another step of THIS activity, so it is not a
+        // course_module and is instead remapped in the restore step's after_execute().
         $step->annotate_ids('course_module', 'requirementcmid');
         $mark->annotate_ids('user', 'userid');
         $mark->annotate_ids('user', 'checkedby');
+        $seatassignment->annotate_ids('user', 'userid');
+        $seatassignment->annotate_ids('user', 'assignedby');
 
         // Define file annotations.
         $examcheck->annotate_files('mod_examcheck', 'intro', null);

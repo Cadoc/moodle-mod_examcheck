@@ -82,6 +82,14 @@ if ($ADMIN->fulltree) {
         1
     ));
 
+    // Default "enable seat numbers" for new instances.
+    $settings->add(new admin_setting_configcheckbox(
+        'mod_examcheck/defaultenableseats',
+        get_string('defaultenableseats', 'mod_examcheck'),
+        get_string('defaultenableseats_desc', 'mod_examcheck'),
+        1
+    ));
+
     // Default "show camera switcher" for new instances.
     $settings->add(new admin_setting_configcheckbox(
         'mod_examcheck/defaultshowcameraswitcher',

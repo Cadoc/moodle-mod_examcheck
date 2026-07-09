@@ -39,6 +39,9 @@ class checker {
     /** @var context_module The module context. */
     protected context_module $context;
 
+    /** @var array<int, string>|null Lazy cache of user id => assigned seat label. */
+    protected ?array $seatlabels = null;
+
     /**
      * Constructor.
      *
@@ -118,6 +121,40 @@ class checker {
                 ''
             );
         }
+    }
+
+    /**
+     * Work out which group the current user is effectively restricted to.
+     *
+     * Unlike {@see self::require_group_access()}, which throws on an
+     * out-of-reach selection, this resolves a usable fallback: under separate
+     * groups a user without accessallgroups is confined to their own groups, so
+     * an unreachable request falls back to one of their groups, and a user in
+     * no group reaches nobody. Mirrors the roster table's access control.
+     *
+     * @param int $requested The requested group id (0 = all participants).
+     * @return int 0 = all participants, -1 = none, otherwise a group id.
+     */
+    public function resolve_effective_group(int $requested): int {
+        $cm = get_coursemodule_from_instance(
+            'examcheck',
+            $this->examcheck->id,
+            $this->examcheck->course,
+            false,
+            MUST_EXIST
+        );
+
+        $separate = groups_get_activity_groupmode($cm) == SEPARATEGROUPS
+            && !has_capability('moodle/site:accessallgroups', $this->context);
+        if (!$separate) {
+            return $requested;
+        }
+
+        $allowed = groups_get_activity_allowed_groups($cm);
+        if ($requested && isset($allowed[$requested])) {
+            return $requested;
+        }
+        return empty($allowed) ? -1 : (int) array_key_first($allowed);
     }
 
     /**
@@ -292,7 +329,12 @@ class checker {
         \mod_examcheck\event\user_marked::create_from_mark($this->context, $mark, $step)->trigger();
         $this->update_completion_for_user($userid);
 
-        return ['status' => 'marked', 'mark' => $mark, 'user' => self::user_label($userid)];
+        return [
+            'status'    => 'marked',
+            'mark'      => $mark,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+        ];
     }
 
     /**
@@ -371,9 +413,10 @@ class checker {
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
-        // Already checked? Report the conflict regardless of the confirm setting.
+        // Already checked? Report the conflict regardless of the confirm setting,
+        // carrying the value that matched so the message can show it in parentheses.
         if ($existing = $this->get_mark($stepid, $userid)) {
-            return $this->conflict_result($existing, $userid);
+            return $this->conflict_result($existing, $userid, $needle);
         }
 
         // Fail fast on the gates so the teacher never sees a "Confirm" prompt for a
@@ -386,12 +429,16 @@ class checker {
             return $failure;
         }
 
-        // Pause for the teacher to confirm the student before marking.
+        // Pause for the teacher to confirm the student before marking. Carry the
+        // student's per-step status so the confirm modal can show the progress table,
+        // highlighting the step being checked.
         if ($requireconfirm && !$confirm) {
             return [
-                'status' => 'needsconfirm',
-                'userid' => $userid,
-                'user'   => self::user_label($userid),
+                'status'    => 'needsconfirm',
+                'userid'    => $userid,
+                'user'      => self::user_label($userid),
+                'seatlabel' => $this->seat_label($userid),
+                'steps'     => $this->build_step_statuses($userid, $stepid),
             ];
         }
 
@@ -426,21 +473,36 @@ class checker {
             return ['status' => 'notfound', 'value' => trim($value)];
         }
 
+        return [
+            'status'    => 'found',
+            'userid'    => $userid,
+            'user'      => self::user_label($userid),
+            'seatlabel' => $this->seat_label($userid),
+            'steps'     => $this->build_step_statuses($userid),
+        ];
+    }
+
+    /**
+     * Build the per-step check status for a student: one entry per step, in order,
+     * with the step name, whether the student is checked on it, and whether it is the
+     * step currently being checked (for highlighting in the scanner modals).
+     *
+     * @param int $userid The student user id.
+     * @param int $currentstepid The step being checked (0 in reading mode, where there
+     *        is no "current" step).
+     * @return array<int, array{name: string, checked: bool, current: bool}>
+     */
+    protected function build_step_statuses(int $userid, int $currentstepid = 0): array {
         $marks = $this->get_marks();
-        $steps = [];
+        $statuses = [];
         foreach (steps::get_steps($this->examcheck->id) as $step) {
-            $steps[] = [
+            $statuses[] = [
                 'name'    => format_string($step->name, true, ['context' => $this->context]),
                 'checked' => isset($marks[(int) $step->id][$userid]),
+                'current' => (int) $step->id === $currentstepid,
             ];
         }
-
-        return [
-            'status' => 'found',
-            'userid' => $userid,
-            'user'   => self::user_label($userid),
-            'steps'  => $steps,
-        ];
+        return $statuses;
     }
 
     /**
@@ -543,6 +605,8 @@ class checker {
                 return $this->validate_quiz_requirement($step, $userid);
             case 'completion':
                 return $this->validate_completion_requirement($step, $userid);
+            case 'step':
+                return $this->validate_step_requirement($step, $userid);
             default:
                 return null;
         }
@@ -700,22 +764,115 @@ class checker {
     }
 
     /**
+     * Enforce the "another step checked first" requirement type: the student being
+     * checked must already be checked on another chosen step of this same activity.
+     *
+     * The reason code drives the localised message in {@see outcome::format()}:
+     *
+     * - misconfigured: requirement enabled but no prerequisite step picked, or the
+     *   step somehow references itself (only reachable via a tampered submission —
+     *   the form never offers the current step).
+     * - stepmissing:   the configured prerequisite step no longer resolves within
+     *   this instance (deleted, or an id smuggled in from another instance).
+     * - stepunchecked: the prerequisite step exists but the student is not yet
+     *   checked on it.
+     *
+     * @param stdClass $step The step record (must include requirementstepid).
+     * @param int $userid The student user id being checked.
+     * @return array|null Requirementnotmet result, or null when the requirement passes.
+     */
+    protected function validate_step_requirement(stdClass $step, int $userid): ?array {
+        global $DB;
+
+        if (empty($step->requirementstepid)) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        $targetid = (int) $step->requirementstepid;
+
+        // A step can never gate on itself: the prerequisite would need to be checked
+        // before it can be checked. Unreachable through the form, guarded here anyway.
+        if ($targetid === (int) $step->id) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'misconfigured',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        // The prerequisite must be a real step of THIS instance. Scoping by
+        // examcheckid rejects both a deleted step and any step id pointing at a
+        // different examcheck instance (e.g. via a tampered form submission).
+        $target = $DB->get_record(
+            'examcheck_steps',
+            ['id' => $targetid, 'examcheckid' => $this->examcheck->id]
+        );
+        if (!$target) {
+            return [
+                'status' => 'requirementnotmet',
+                'reason' => 'stepmissing',
+                'user'   => self::user_label($userid),
+            ];
+        }
+
+        if (!$this->get_mark($targetid, $userid)) {
+            return [
+                'status'       => 'requirementnotmet',
+                'reason'       => 'stepunchecked',
+                'user'         => self::user_label($userid),
+                'requiredstep' => format_string($target->name, true, ['context' => $this->context]),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Build a structured conflict result for an existing mark.
      *
      * @param stdClass $mark The existing mark.
      * @param int $userid The student user id.
+     * @param string|null $matchedvalue The scanned value that matched this student, when
+     *        the conflict came from the scanner. Null for manual/list marking, which has
+     *        no scanned value to show.
      * @return array
      */
-    protected function conflict_result(stdClass $mark, int $userid): array {
+    protected function conflict_result(stdClass $mark, int $userid, ?string $matchedvalue = null): array {
         return [
-            'status'    => 'conflict',
-            'mark'      => $mark,
-            'userid'    => $userid,
-            'user'      => self::user_label($userid),
-            'by'        => self::user_label((int) $mark->checkedby),
-            'ago'       => self::relative_time((int) $mark->timecreated),
-            'timestamp' => (int) $mark->timecreated,
+            'status'       => 'conflict',
+            'mark'         => $mark,
+            'userid'       => $userid,
+            'user'         => self::user_label($userid),
+            'by'           => self::user_label((int) $mark->checkedby),
+            'ago'          => self::relative_time((int) $mark->timecreated),
+            'timestamp'    => (int) $mark->timecreated,
+            'matchedvalue' => $matchedvalue,
+            'seatlabel'    => $this->seat_label($userid),
         ];
+    }
+
+    /**
+     * The student's assigned seat label, or an empty string when unseated
+     * or when the seats feature is disabled for the activity.
+     *
+     * The full map is loaded lazily and cached: one query serves every result
+     * built during the request.
+     *
+     * @param int $userid The student user id.
+     * @return string
+     */
+    protected function seat_label(int $userid): string {
+        if (empty($this->examcheck->enableseats)) {
+            return '';
+        }
+        if ($this->seatlabels === null) {
+            $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
+        }
+        return $this->seatlabels[$userid] ?? '';
     }
 
     /**

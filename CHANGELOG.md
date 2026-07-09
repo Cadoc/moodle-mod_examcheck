@@ -5,11 +5,73 @@ All notable changes to **mod_examcheck** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
 
+## [5.1-r2] - 2026-07-09
+
+### Added
+
+- Seat numbers (#14): a per-activity list of free-text seat labels with a 1:1
+  student/seat assignment.
+  - New gradebook-style **Seats** tab (capability `mod/examcheck:manageseats`,
+    editing teachers and managers), its selector grouping every subpage under
+    *Setup* (*Seat assignment*, *Edit seats*) or *More* (*Import*, *Export*).
+  - *Seat assignment* is a sortable table, one row per seat: sort by seat or by
+    the assigned student, and search a student inline. The search field hides
+    once the seat is taken and returns when the student is removed.
+  - **Auto-assign students** seats every remaining student at random, on the
+    remaining seats taken in the authored seat order. A confirmation states how
+    many students go on how many seats, and warns when there are not enough
+    seats for everyone before seating as many as fit. Students already seated
+    are never moved.
+  - *Edit seats*: one label per line; changing the list resets assignments
+    after an explicit acknowledgement.
+  - *Export* downloads either the seat list as one CSV, or the seat list plus
+    the roster as `seats.csv` and `students.csv` in a zip. In `students.csv`
+    an unassigned student has an empty seat: fill it in, re-import, and the
+    cohort is seated in one pass. Identity columns follow the exporting user's
+    identity-field visibility.
+  - *Import* accepts either file. Students are matched by username, email or
+    idnumber; a row with a student and no seat unseats them, and a file with no
+    student column only ever describes the seat list.
+  - Read-only, sortable (natural order: A2 before A10) and hideable **Seat**
+    column on the roster, visible to anyone who can view the activity, plus a
+    seat column in the roster export.
+  - The scanner info/confirm pop-ups show the scanned student's assigned seat.
+  - AJAX web services: `assign_seat`, `unassign_seat`,
+    `search_seat_candidates`, `auto_assign_seats`; events `seat_assigned`,
+    `seat_unassigned`.
+  - Backup & restore (assignments as user data), privacy (GDPR) coverage, and
+    course reset (clears assignments, keeps the seat list).
+  - Per-activity **Enable seat numbers** toggle (site default
+    `defaultenableseats`, enabled by default). Disabling hides the Seats tab
+    and the roster/export seat columns, blocks the seat pages and web
+    services, and keeps all seat data for when it is re-enabled.
+
+### Changed
+
+- The activity form's *Attendance settings* section is now *General settings*
+  and hosts the *Enable scanner* and *Enable seat numbers* toggles; every
+  *Scanning defaults* field (including the scan match field) is hidden while
+  the scanner is disabled.
+- The roster no longer shows a dedicated scan-match-field column. It now
+  shows the identity fields configured for the site — including custom
+  profile fields — respecting each viewer's permission to see them; the scan
+  match field only affects the scanner.
+- The roster export follows the same rule: instead of always emitting an ID
+  number column, it emits the identity fields the exporting user may see. A
+  viewer without `moodle/site:viewuseridentity` no longer gets ID numbers in
+  the downloaded file.
+
+### Fixed
+
+- The seat assignment page no longer prints a fragment of its own template
+  documentation above the seat table.
+
 ## [5.1-r1] - 2026-06-10
 
 First public release for Moodle 5.1.
 
 ### Added
+
 - Checking dashboard: roster grid with one toggle per check step, live
   multi-teacher refresh, client-side search and a "show only not-yet-checked"
   filter, and group selection.

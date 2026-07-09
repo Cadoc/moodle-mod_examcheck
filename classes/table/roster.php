@@ -25,10 +25,12 @@ use core_table\dynamic as dynamic_table;
 use core_table\local\filter\filterset;
 use html_writer;
 use mod_examcheck\local\checker;
-use mod_examcheck\local\scanfield;
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 use moodle_url;
 use stdClass;
+
+defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->libdir . '/tablelib.php');
@@ -61,14 +63,8 @@ class roster extends \table_sql implements dynamic_table {
     /** @var stdClass[] Ordered step records. */
     protected array $steps = [];
 
-    /** @var string[] Identity fields (email, etc.) the current user may see. */
+    /** @var string[] Identity fields (email, idnumber, profile_field_x, etc.) the current user may see. */
     protected array $extrafields = [];
-
-    /** @var string The activity's scan match field key (idnumber, userid or profile_field_x). */
-    protected string $matchfield = 'idnumber';
-
-    /** @var array<int, string> User id => their value for the match field. */
-    protected array $matchvalues = [];
 
     /** @var array<int, string> Step id => display name. */
     protected array $stepnames = [];
@@ -87,6 +83,12 @@ class roster extends \table_sql implements dynamic_table {
 
     /** @var array<int, string[]> User id => group names for the current page, populated when groups exist. */
     protected array $usergroups = [];
+
+    /** @var array<int, string> User id => assigned seat label. */
+    protected array $seatlabels = [];
+
+    /** @var bool Whether the activity has any seats (drives the seat column). */
+    protected bool $hasseats = false;
 
     /**
      * Constructor: derive the course module id from the unique id.
@@ -123,18 +125,18 @@ class roster extends \table_sql implements dynamic_table {
         $this->checker = new checker($this->examcheck, $this->context);
         $this->steps = array_values(steps::get_steps((int) $this->examcheck->id));
         $this->marks = $this->checker->get_marks();
-        // The scan match field (idnumber, userid or a custom profile field) gets its own column.
-        $this->matchfield = (string) ($this->examcheck->scanfield ?: 'idnumber');
-
-        // Identity fields (email, etc.) shown only to viewers with permission to see them.
-        // Drop the match field from here so it is not shown twice.
-        $this->extrafields = array_values(array_filter(
-            \core_user\fields::get_identity_fields($this->context, false),
-            fn($field) => $field !== $this->matchfield
-        ));
+        // Identity fields (email, ID number, custom profile fields, etc.) per the
+        // site's identity-fields config, only for viewers with permission to see them.
+        $this->extrafields = \core_user\fields::get_identity_fields($this->context, true);
         foreach ($this->steps as $step) {
             // Pass the context explicitly: the AJAX endpoint has not set $PAGE->context yet.
             $this->stepnames[(int) $step->id] = format_string($step->name, true, ['context' => $this->context]);
+        }
+
+        // Seat assignments: the column only shows when the feature is enabled and the activity has seats.
+        $this->hasseats = !empty($this->examcheck->enableseats) && seats::count_seats((int) $this->examcheck->id) > 0;
+        if ($this->hasseats) {
+            $this->seatlabels = seats::get_user_seat_labels((int) $this->examcheck->id);
         }
 
         $this->effectivegroup = $this->resolve_group($cm, $filterset);
@@ -163,9 +165,10 @@ class roster extends \table_sql implements dynamic_table {
      *
      * Under separate groups a user without accessallgroups is confined to their own
      * groups: an out-of-reach group selection falls back to one of their groups, and a
-     * user in no group sees no students. This mirrors the dashboard's access control.
+     * user in no group sees no students. The resolution itself is shared with the
+     * web services via {@see checker::resolve_effective_group()}.
      *
-     * @param \cm_info|stdClass $cm The course module.
+     * @param \cm_info|stdClass $cm The course module (unused; kept for signature stability).
      * @param filterset $filterset The request filterset.
      * @return int 0 = all participants, -1 = none, otherwise a group id.
      */
@@ -178,17 +181,7 @@ class roster extends \table_sql implements dynamic_table {
             }
         }
 
-        $separate = groups_get_activity_groupmode($cm) == SEPARATEGROUPS
-            && !has_capability('moodle/site:accessallgroups', $this->context);
-        if (!$separate) {
-            return $requested;
-        }
-
-        $allowed = groups_get_activity_allowed_groups($cm);
-        if ($requested && isset($allowed[$requested])) {
-            return $requested;
-        }
-        return empty($allowed) ? -1 : (int) array_key_first($allowed);
+        return $this->checker->resolve_effective_group($requested);
     }
 
     /**
@@ -205,12 +198,10 @@ class roster extends \table_sql implements dynamic_table {
             'labelclasses' => 'visually-hidden',
             'checked'      => false,
         ]);
-        // The scan match field gets its own sortable, hideable column, labelled per the field.
-        $columns = ['select', 'fullname', 'matchfield'];
-        $headers = [$OUTPUT->render($selectall), get_string('student', 'mod_examcheck'),
-            scanfield::get_label($this->matchfield)];
+        $columns = ['select', 'fullname'];
+        $headers = [$OUTPUT->render($selectall), get_string('student', 'mod_examcheck')];
 
-        // Identity columns (email, etc.) the viewer is permitted to see.
+        // Identity columns (email, ID number, custom profile fields, etc.) the viewer is permitted to see.
         foreach ($this->extrafields as $field) {
             $columns[] = $field;
             $headers[] = \core_user\fields::get_display_name($field);
@@ -219,6 +210,13 @@ class roster extends \table_sql implements dynamic_table {
         if (!empty($this->activitygroups)) {
             $columns[] = 'groups';
             $headers[] = get_string('groups');
+        }
+
+        // The assigned seat, shown to anyone who may view the roster but only
+        // once the activity actually has seats.
+        if ($this->hasseats) {
+            $columns[] = 'seat';
+            $headers[] = get_string('seat', 'mod_examcheck');
         }
 
         foreach ($this->steps as $step) {
@@ -257,8 +255,14 @@ class roster extends \table_sql implements dynamic_table {
             return;
         }
 
-        $users = $this->checker->get_roster($this->effectivegroup, $this->extrafields);
-        $this->matchvalues = $this->load_match_values($users);
+        // Custom profile fields are not user-table columns: keep them out of the
+        // roster query and hydrate their values onto the records afterwards.
+        $userfields = array_values(array_filter(
+            $this->extrafields,
+            fn($field) => !str_starts_with($field, \core_user\fields::PROFILE_FIELD_PREFIX)
+        ));
+        $users = $this->checker->get_roster($this->effectivegroup, $userfields);
+        $this->load_profile_field_values($users);
 
         $keywords = [];
         if ($this->get_filterset()->has_filter('keywords')) {
@@ -270,8 +274,8 @@ class roster extends \table_sql implements dynamic_table {
                 continue;
             }
             foreach ($users as $id => $user) {
-                // Match name, the match field, and the visible identity fields.
-                $parts = [fullname($user), $this->matchvalues[$id] ?? ''];
+                // Match name, the seat and the visible identity fields.
+                $parts = [fullname($user), $this->seatlabels[$id] ?? ''];
                 foreach ($this->extrafields as $field) {
                     $parts[] = (string) ($user->$field ?? '');
                 }
@@ -282,6 +286,7 @@ class roster extends \table_sql implements dynamic_table {
         }
 
         $this->apply_checkstatus_filter($users);
+        $this->apply_userid_filter($users);
 
         if (!empty($this->activitygroups)) {
             $this->usergroups = $this->load_user_groups($users);
@@ -290,11 +295,12 @@ class roster extends \table_sql implements dynamic_table {
         // Single-column sort. The roster is already in memory so we sort the array
         // in place; fullname keeps its DB order or array_reverse.
         $sortcolumns = $this->get_sort_columns();
-        if (isset($sortcolumns['matchfield'])) {
-            $dir = (int) $sortcolumns['matchfield'] === SORT_DESC ? -1 : 1;
+        if (isset($sortcolumns['seat'])) {
+            // Natural order so A2 sorts before A10.
+            $dir = (int) $sortcolumns['seat'] === SORT_DESC ? -1 : 1;
             uasort($users, fn($a, $b) => $dir * strnatcasecmp(
-                $this->matchvalues[$a->id] ?? '',
-                $this->matchvalues[$b->id] ?? ''
+                $this->seatlabels[(int) $a->id] ?? '',
+                $this->seatlabels[(int) $b->id] ?? ''
             ));
         } else {
             foreach ($sortcolumns as $col => $dir) {
@@ -380,50 +386,70 @@ class roster extends \table_sql implements dynamic_table {
     }
 
     /**
-     * Build a map of user id => their value for the configured scan match field.
+     * Restrict $users to the student(s) named by the "userid" filter, if present.
      *
-     * @param stdClass[] $users Roster users keyed by id.
-     * @return array<int, string>
+     * Used to deep-link the roster to a single student (the scanner's "View in
+     * roster" link). Intersecting against the already-loaded roster keeps the
+     * group/enrolment access checks in get_roster() authoritative: an id outside
+     * the viewer's reachable roster simply drops out and yields an empty table.
+     *
+     * @param stdClass[] $users Roster keyed by user id. Modified in place.
      */
-    protected function load_match_values(array $users): array {
+    protected function apply_userid_filter(array &$users): void {
+        $filterset = $this->get_filterset();
+        if (!$filterset->has_filter('userid')) {
+            return;
+        }
+        $values = $filterset->get_filter('userid')->get_filter_values();
+        if (empty($values)) {
+            return;
+        }
+        $ids = array_map('intval', $values);
+        $users = array_intersect_key($users, array_flip($ids));
+    }
+
+    /**
+     * Hydrate custom profile field values onto the user records.
+     *
+     * Custom profile fields are not user-table columns, so get_roster() cannot
+     * select them. Loading the values onto the records here lets every identity
+     * code path (cells, keyword search, sorting) treat them like any other field.
+     *
+     * @param stdClass[] $users Roster users keyed by id. Modified in place.
+     */
+    protected function load_profile_field_values(array $users): void {
         global $DB;
 
-        $map = [];
-        if ($this->matchfield === 'userid') {
-            foreach ($users as $user) {
-                $map[(int) $user->id] = (string) $user->id;
+        $shortnames = [];
+        foreach ($this->extrafields as $field) {
+            if (str_starts_with($field, \core_user\fields::PROFILE_FIELD_PREFIX)) {
+                $shortnames[] = substr($field, strlen(\core_user\fields::PROFILE_FIELD_PREFIX));
             }
-            return $map;
+        }
+        if (empty($shortnames) || empty($users)) {
+            return;
         }
 
-        if (strpos($this->matchfield, scanfield::PROFILE_PREFIX) === 0) {
-            foreach ($users as $user) {
-                $map[(int) $user->id] = '';
-            }
-            $shortname = substr($this->matchfield, strlen(scanfield::PROFILE_PREFIX));
-            $field = $DB->get_record('user_info_field', ['shortname' => $shortname], 'id');
-            if ($field && $users) {
-                [$insql, $params] = $DB->get_in_or_equal(array_keys($map), SQL_PARAMS_NAMED, 'u');
-                $params['fieldid'] = $field->id;
-                $records = $DB->get_records_select(
-                    'user_info_data',
-                    "fieldid = :fieldid AND userid $insql",
-                    $params,
-                    '',
-                    'userid, data'
-                );
-                foreach ($records as $record) {
-                    $map[(int) $record->userid] = (string) $record->data;
-                }
-            }
-            return $map;
-        }
-
-        // Default: a standard user-table field (idnumber) already loaded on the record.
+        // Default every profile column so rendering and sorting never hit an unset property.
         foreach ($users as $user) {
-            $map[(int) $user->id] = (string) ($user->{$this->matchfield} ?? '');
+            foreach ($shortnames as $shortname) {
+                $user->{\core_user\fields::PROFILE_FIELD_PREFIX . $shortname} = '';
+            }
         }
-        return $map;
+
+        [$fieldsql, $fieldparams] = $DB->get_in_or_equal($shortnames, SQL_PARAMS_NAMED, 'f');
+        [$usersql, $userparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'u');
+        $records = $DB->get_records_sql(
+            "SELECT d.id, d.userid, d.data, f.shortname
+               FROM {user_info_data} d
+               JOIN {user_info_field} f ON f.id = d.fieldid
+              WHERE f.shortname $fieldsql AND d.userid $usersql",
+            array_merge($fieldparams, $userparams)
+        );
+        foreach ($records as $record) {
+            $column = \core_user\fields::PROFILE_FIELD_PREFIX . $record->shortname;
+            $users[(int) $record->userid]->{$column} = (string) $record->data;
+        }
     }
 
     /**
@@ -503,16 +529,6 @@ class roster extends \table_sql implements dynamic_table {
     }
 
     /**
-     * The scan match field column (the value matched against scanned codes).
-     *
-     * @param stdClass $row The user record.
-     * @return string
-     */
-    public function col_matchfield($row): string {
-        return s($this->matchvalues[(int) $row->id] ?? '');
-    }
-
-    /**
      * The groups column: comma-separated list of the student's groups.
      *
      * @param stdClass $row The user record.
@@ -521,6 +537,16 @@ class roster extends \table_sql implements dynamic_table {
     public function col_groups($row): string {
         $names = $this->usergroups[(int) $row->id] ?? [];
         return s(implode(', ', $names));
+    }
+
+    /**
+     * The seat column: the student's assigned seat label, if any.
+     *
+     * @param stdClass $row The user record.
+     * @return string
+     */
+    public function col_seat($row): string {
+        return s($this->seatlabels[(int) $row->id] ?? '');
     }
 
     /**

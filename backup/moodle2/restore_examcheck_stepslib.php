@@ -38,8 +38,13 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
 
         $paths[] = new restore_path_element('examcheck', '/activity/examcheck');
         $paths[] = new restore_path_element('examcheck_step', '/activity/examcheck/steps/step');
+        $paths[] = new restore_path_element('examcheck_seat', '/activity/examcheck/seats/seat');
         if ($userinfo) {
             $paths[] = new restore_path_element('examcheck_mark', '/activity/examcheck/marks/mark');
+            $paths[] = new restore_path_element(
+                'examcheck_seatassignment',
+                '/activity/examcheck/seatassignments/seatassignment'
+            );
         }
 
         return $this->prepare_activity_structure($paths);
@@ -74,17 +79,27 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
 
         $data->requirementtype = $data->requirementtype ?? 'none';
         $data->requirementcmid = $data->requirementcmid ?? null;
+        $data->requirementstepid = $data->requirementstepid ?? null;
 
-        if (in_array($data->requirementtype, ['quiz', 'completion'], true) && !empty($data->requirementcmid)) {
-            // Remap the linked cmid to its restored counterpart. Clear the requirement
-            // when the target activity is not part of this restore so we never carry a
-            // dangling cmid.
-            $newcmid = $this->get_mappingid('course_module', (int) $data->requirementcmid);
-            $data->requirementcmid = $newcmid ?: null;
+        if (in_array($data->requirementtype, ['quiz', 'completion'], true)) {
+            if (!empty($data->requirementcmid)) {
+                // Remap the linked cmid to its restored counterpart. Clear the requirement
+                // when the target activity is not part of this restore so we never carry a
+                // dangling cmid.
+                $newcmid = $this->get_mappingid('course_module', (int) $data->requirementcmid);
+                $data->requirementcmid = $newcmid ?: null;
+            }
             if (empty($data->requirementcmid)) {
                 $data->requirementtype = 'none';
             }
-        } else if (!in_array($data->requirementtype, ['quiz', 'completion'], true)) {
+        } else if ($data->requirementtype === 'step') {
+            // The prerequisite step id is remapped in after_execute(): the step it
+            // points at may not have been restored yet at this point (forward
+            // reference), so its mapping is only guaranteed once every step is in.
+            if (empty($data->requirementstepid)) {
+                $data->requirementtype = 'none';
+            }
+        } else {
             $data->requirementtype = 'none';
         }
 
@@ -110,6 +125,47 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
     }
 
     /**
+     * Restore a seat and remember the id mapping for its assignment.
+     *
+     * @param array $data The seat data.
+     */
+    protected function process_examcheck_seat($data) {
+        global $DB;
+
+        $data = (object) $data;
+        $oldid = $data->id;
+        $data->examcheckid = $this->get_new_parentid('examcheck');
+
+        $newitemid = $DB->insert_record('examcheck_seats', $data);
+        $this->set_mapping('examcheck_seat', $oldid, $newitemid);
+    }
+
+    /**
+     * Restore a seat assignment, remapping the seat and users.
+     *
+     * The seat is always restored before its assignment (document order), so no
+     * after_execute pass is needed. Rows whose seat or student cannot be mapped
+     * are skipped; a missing assigner degrades to 0 (anonymised), matching the
+     * privacy handling.
+     *
+     * @param array $data The seat assignment data.
+     */
+    protected function process_examcheck_seatassignment($data) {
+        global $DB;
+
+        $data = (object) $data;
+        $data->examcheckid = $this->get_new_parentid('examcheck');
+        $data->seatid = $this->get_mappingid('examcheck_seat', $data->seatid);
+        $data->userid = $this->get_mappingid('user', $data->userid);
+        if (empty($data->seatid) || empty($data->userid)) {
+            return;
+        }
+        $data->assignedby = (int) $this->get_mappingid('user', $data->assignedby);
+
+        $DB->insert_record('examcheck_seat_users', $data);
+    }
+
+    /**
      * Re-map the single completion step and add related files after restore.
      */
     protected function after_execute() {
@@ -122,6 +178,32 @@ class restore_examcheck_activity_structure_step extends restore_activity_structu
             if ($examcheck && !empty($examcheck->completionstep)) {
                 $newstepid = $this->get_mappingid('examcheck_step', $examcheck->completionstep);
                 $DB->set_field('examcheck', 'completionstep', (int) $newstepid, ['id' => $examcheckid]);
+            }
+
+            // Re-map each "another step checked" prerequisite to its restored step.
+            // Deferred to here (not process_examcheck_step) because a step may depend on
+            // a step restored after it, whose mapping only exists once every step is in.
+            $stepgates = $DB->get_records(
+                'examcheck_steps',
+                ['examcheckid' => $examcheckid, 'requirementtype' => 'step'],
+                '',
+                'id, requirementstepid'
+            );
+            foreach ($stepgates as $gate) {
+                $newstepid = empty($gate->requirementstepid)
+                    ? 0
+                    : (int) $this->get_mappingid('examcheck_step', (int) $gate->requirementstepid);
+                if ($newstepid) {
+                    $DB->set_field('examcheck_steps', 'requirementstepid', $newstepid, ['id' => $gate->id]);
+                } else {
+                    // The prerequisite wasn't part of this restore (e.g. a partial
+                    // restore): drop the gate rather than keep a dangling reference.
+                    $DB->update_record('examcheck_steps', (object) [
+                        'id'                => $gate->id,
+                        'requirementtype'   => 'none',
+                        'requirementstepid' => null,
+                    ]);
+                }
             }
         }
 

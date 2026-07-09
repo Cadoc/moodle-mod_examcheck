@@ -20,6 +20,7 @@ use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\writer;
 use mod_examcheck\local\checker;
+use mod_examcheck\local\seats;
 use mod_examcheck\local\steps;
 
 /**
@@ -61,6 +62,11 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
             $this->context
         );
         $checker->mark_user($stepid, $this->student->id, $this->teacher->id, 'list');
+
+        // And one seat assignment (teacher assigns the student to A1).
+        seats::replace_list($this->examcheck->id, ['A1']);
+        $seatid = (int) array_key_first(seats::get_seats($this->examcheck->id));
+        seats::assign($seatid, (int) $this->student->id, (int) $this->teacher->id);
     }
 
     /**
@@ -95,26 +101,65 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
-     * Deleting all data in a context removes every mark.
+     * The metadata declares both the marks and the seat assignments tables.
+     */
+    public function test_metadata(): void {
+        $collection = new \core_privacy\local\metadata\collection('mod_examcheck');
+        $collection = provider::get_metadata($collection);
+        $tables = array_map(
+            fn($type) => $type->get_name(),
+            $collection->get_collection()
+        );
+        $this->assertContains('examcheck_marks', $tables);
+        $this->assertContains('examcheck_seat_users', $tables);
+    }
+
+    /**
+     * A user whose only footprint is a seat assignment is still discovered,
+     * both by context and within the context's user list.
+     */
+    public function test_seat_only_user_is_discovered(): void {
+        global $DB;
+
+        // Wipe the marks so the student's only data is the seat assignment.
+        $DB->delete_records('examcheck_marks', ['examcheckid' => $this->examcheck->id]);
+
+        $contexts = provider::get_contexts_for_userid($this->student->id)->get_contextids();
+        $this->assertContainsEquals($this->context->id, $contexts);
+
+        $userlist = new \core_privacy\local\request\userlist($this->context, 'mod_examcheck');
+        provider::get_users_in_context($userlist);
+        $ids = $userlist->get_userids();
+        $this->assertContains((int) $this->student->id, $ids);
+        $this->assertContains((int) $this->teacher->id, $ids);
+    }
+
+    /**
+     * Deleting all data in a context removes every mark and seat assignment.
      */
     public function test_delete_for_all_users(): void {
         global $DB;
         provider::delete_data_for_all_users_in_context($this->context);
         $this->assertEquals(0, $DB->count_records('examcheck_marks', ['examcheckid' => $this->examcheck->id]));
+        $this->assertEquals(0, $DB->count_records('examcheck_seat_users', ['examcheckid' => $this->examcheck->id]));
+        // The seat list itself is structure, not personal data.
+        $this->assertEquals(1, $DB->count_records('examcheck_seats', ['examcheckid' => $this->examcheck->id]));
     }
 
     /**
-     * Deleting the student's data removes the mark.
+     * Deleting the student's data removes the mark and the seat assignment.
      */
     public function test_delete_for_student(): void {
         global $DB;
         $contextlist = new approved_contextlist($this->student, 'mod_examcheck', [$this->context->id]);
         provider::delete_data_for_user($contextlist);
         $this->assertEquals(0, $DB->count_records('examcheck_marks', ['examcheckid' => $this->examcheck->id]));
+        $this->assertEquals(0, $DB->count_records('examcheck_seat_users', ['examcheckid' => $this->examcheck->id]));
     }
 
     /**
-     * Deleting the teacher's data anonymises the checker but keeps the record.
+     * Deleting the teacher's data anonymises the checker/assigner but keeps
+     * the student's records intact.
      */
     public function test_delete_for_teacher_anonymises(): void {
         global $DB;
@@ -126,10 +171,16 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $mark = reset($marks);
         $this->assertEquals(0, (int) $mark->checkedby);
         $this->assertEquals($this->student->id, (int) $mark->userid);
+
+        $assignments = $DB->get_records('examcheck_seat_users', ['examcheckid' => $this->examcheck->id]);
+        $this->assertCount(1, $assignments);
+        $assignment = reset($assignments);
+        $this->assertEquals(0, (int) $assignment->assignedby);
+        $this->assertEquals($this->student->id, (int) $assignment->userid);
     }
 
     /**
-     * delete_data_for_users deletes student rows and anonymises checker rows.
+     * delete_data_for_users deletes student rows and anonymises checker/assigner rows.
      */
     public function test_delete_for_users(): void {
         global $DB;
@@ -139,6 +190,21 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
             'examcheck_marks',
             ['examcheckid' => $this->examcheck->id, 'userid' => $this->student->id]
         ));
+        $this->assertEquals(0, $DB->count_records(
+            'examcheck_seat_users',
+            ['examcheckid' => $this->examcheck->id, 'userid' => $this->student->id]
+        ));
+
+        // Targeting the teacher instead anonymises their assigner reference.
+        seats::assign(
+            (int) array_key_first(seats::get_seats($this->examcheck->id)),
+            (int) $this->student->id,
+            (int) $this->teacher->id
+        );
+        $userlist = new approved_userlist($this->context, 'mod_examcheck', [$this->teacher->id]);
+        provider::delete_data_for_users($userlist);
+        $assignment = $DB->get_record('examcheck_seat_users', ['examcheckid' => $this->examcheck->id]);
+        $this->assertEquals(0, (int) $assignment->assignedby);
     }
 
     /**

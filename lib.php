@@ -108,7 +108,7 @@ function examcheck_prepare_completion_fields($data) {
 }
 
 /**
- * Delete an examcheck instance and all of its steps and marks.
+ * Delete an examcheck instance and all of its steps, marks and seats.
  *
  * @param int $id The instance id.
  * @return bool True on success, false if the instance does not exist.
@@ -122,6 +122,8 @@ function examcheck_delete_instance($id) {
 
     $DB->delete_records('examcheck_marks', ['examcheckid' => $id]);
     $DB->delete_records('examcheck_steps', ['examcheckid' => $id]);
+    $DB->delete_records('examcheck_seat_users', ['examcheckid' => $id]);
+    $DB->delete_records('examcheck_seats', ['examcheckid' => $id]);
     $DB->delete_records('examcheck', ['id' => $id]);
 
     return true;
@@ -135,6 +137,11 @@ function examcheck_delete_instance($id) {
 function examcheck_reset_course_form_definition($mform) {
     $mform->addElement('header', 'examcheckheader', get_string('modulenameplural', 'mod_examcheck'));
     $mform->addElement('checkbox', 'reset_examcheck_marks', get_string('resetmarks', 'mod_examcheck'));
+    $mform->addElement(
+        'checkbox',
+        'reset_examcheck_seatassignments',
+        get_string('resetseatassignments', 'mod_examcheck')
+    );
 }
 
 /**
@@ -144,11 +151,14 @@ function examcheck_reset_course_form_definition($mform) {
  * @return array Default settings.
  */
 function examcheck_reset_course_form_defaults($course) {
-    return ['reset_examcheck_marks' => 1];
+    return ['reset_examcheck_marks' => 1, 'reset_examcheck_seatassignments' => 1];
 }
 
 /**
- * Remove recorded checks as part of a course reset.
+ * Remove recorded checks and seat assignments as part of a course reset.
+ *
+ * The seat list itself survives a reset: like the check steps, it is activity
+ * structure rather than user data.
  *
  * @param stdClass $data The course reset data.
  * @return array Status entries for the reset report.
@@ -157,8 +167,9 @@ function examcheck_reset_userdata($data) {
     global $DB;
 
     $status = [];
+    $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
+
     if (!empty($data->reset_examcheck_marks)) {
-        $instances = $DB->get_fieldset_select('examcheck', 'id', 'course = :course', ['course' => $data->courseid]);
         if ($instances) {
             [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
             $DB->delete_records_select('examcheck_marks', "examcheckid $insql", $params);
@@ -169,6 +180,19 @@ function examcheck_reset_userdata($data) {
             'error'     => false,
         ];
     }
+
+    if (!empty($data->reset_examcheck_seatassignments)) {
+        if ($instances) {
+            [$insql, $params] = $DB->get_in_or_equal($instances, SQL_PARAMS_NAMED);
+            $DB->delete_records_select('examcheck_seat_users', "examcheckid $insql", $params);
+        }
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_examcheck'),
+            'item'      => get_string('resetseatassignments', 'mod_examcheck'),
+            'error'     => false,
+        ];
+    }
+
     return $status;
 }
 
@@ -225,9 +249,10 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
     $i = array_search('modedit', $keys, true);
     $beforekey = $i !== false ? $keys[$i] : (array_key_exists(0, $keys) ? $keys[0] : null);
 
+    $instance = $DB->get_record('examcheck', ['id' => $cm->instance], 'id, enablescanner, enableseats');
+
     // Only when the activity has the scanner enabled and the user may check.
-    $scannerenabled = $DB->get_field('examcheck', 'enablescanner', ['id' => $cm->instance]);
-    if ($scannerenabled && has_capability('mod/examcheck:check', $context)) {
+    if ($instance && $instance->enablescanner && has_capability('mod/examcheck:check', $context)) {
         $examchecknode->add_node(navigation_node::create(
             get_string('scanner', 'mod_examcheck'),
             new moodle_url('/mod/examcheck/scan.php', ['id' => $cm->id]),
@@ -244,6 +269,16 @@ function examcheck_extend_settings_navigation(settings_navigation $settingsnav, 
             navigation_node::TYPE_SETTING,
             null,
             'mod_examcheck_managesteps'
+        ), $beforekey);
+    }
+
+    if ($instance && $instance->enableseats && has_capability('mod/examcheck:manageseats', $context)) {
+        $examchecknode->add_node(navigation_node::create(
+            get_string('seats', 'mod_examcheck'),
+            new moodle_url('/mod/examcheck/seats.php', ['id' => $cm->id]),
+            navigation_node::TYPE_SETTING,
+            null,
+            'mod_examcheck_seats'
         ), $beforekey);
     }
 }

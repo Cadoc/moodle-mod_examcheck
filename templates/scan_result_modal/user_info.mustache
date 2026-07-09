@@ -30,19 +30,23 @@
 
     Example context (json):
     {
-        "user_picture": "<img>...</img>",
-        "user_fullname": "Jane Doe",
-        "scan_field_name": "User id (internal)",
-        "scan_value": "6",
-        "roster_link": "https://tbd.example.org"
+        "userPicture": "<img src=\"https://example.org/user.jpg\" alt=\"Jane Doe\" class=\"userpicture\">",
+        "userFullname": "Jane Doe",
+        "scanFieldName": "User id (internal)",
+        "scanValue": "6",
+        "seatLabel": "A12",
+        "rosterLink": "https://tbd.example.org"
     }
 }}
 
 <div class="mb-3 d-flex flex-row align-items-center">
-    <div class="mr-3">{{{ user_picture }}}</div>
+    <div class="mr-3">{{{ userPicture }}}</div>
     <div class="d-flex flex-column">
-        <div class="font-bold">{{ user_fullname }}</div>
-        <small class="text-muted">{{ scan_field_name }}: {{ scan_value }}</small>
-        <a href="{{ roster_link }}"><small class="text-muted link-underline">{{#str}} view_in_roster, mod_examcheck {{/str}}</small></a>
+        <div class="font-bold">{{ userFullname }}</div>
+        <small class="text-muted">{{ scanFieldName }}: {{ scanValue }}</small>
+        {{#seatLabel}}
+            <small class="text-muted">{{#str}} seatcolon, mod_examcheck, {{seatLabel}} {{/str}}</small>
+        {{/seatLabel}}
+        <a href="{{ rosterLink }}"><small class="text-muted link-underline">{{#str}} view_in_roster, mod_examcheck {{/str}}</small></a>
     </div>
 </div>

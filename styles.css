@@ -13,6 +13,37 @@
     white-space: nowrap;
 }
 
+/* Seat assignment: once a seat is taken, its row shows the student plus the
+   autocomplete's remove control, so the search field is redundant. Removing the
+   student drops the class and the field comes back. */
+.examcheck-seat-assign .examcheck-seat-taken [data-region="form_autocomplete-input"] {
+    display: none;
+}
+
+/* Read-only per-step status table shown in the scanner modals: compact, framed and
+   only as wide as it needs to be (centered by the template's w-auto mx-auto). */
+.examcheck-step-statuses th,
+.examcheck-step-statuses td {
+    min-width: 2.5rem;
+    padding: 0.2rem 0.4rem;
+}
+
+.examcheck-step-statuses .examcheck-stepabbr {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* Highlight the step being checked with a light-blue column: a bit stronger in the
+   header, lighter in the status cell. */
+.examcheck-step-statuses th.examcheck-currentstep {
+    background-color: rgba(var(--bs-primary-rgb, 15, 108, 191), 0.22);
+}
+
+.examcheck-step-statuses td.examcheck-currentstep {
+    background-color: rgba(var(--bs-primary-rgb, 15, 108, 191), 0.1);
+}
+
 /* Scanner. */
 .mod_examcheck-scanner .examcheck-video-frame {
     position: relative;

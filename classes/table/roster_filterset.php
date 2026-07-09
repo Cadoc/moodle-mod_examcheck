@@ -54,6 +54,9 @@ class roster_filterset extends filterset {
             // Values like "12:checked" / "12:notchecked" — stepid + status, paired so we can
             // mix them within one filter (e.g. "Attendance: not checked" AND "ID: not checked").
             'checkstatus' => string_filter::class,
+            // A single student id, used to deep-link the roster to one student (e.g. from the
+            // scanner's "View in roster" link). Seeded server-side and surfaced as a chip.
+            'userid'      => integer_filter::class,
         ];
     }
 }

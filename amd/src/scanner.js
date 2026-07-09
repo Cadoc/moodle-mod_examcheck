@@ -28,8 +28,10 @@
  */
 
 import Ajax from 'core/ajax';
-import { add as addToast } from 'core/toast';
-import { getString } from 'core/str';
+import Url from 'core/url';
+import Templates from 'core/templates';
+import {add as addToast} from 'core/toast';
+import {getString} from 'core/str';
 import ZXingWASM from 'mod_examcheck/zxingwasm';
 import ConfirmModal from "./confirm_modal";
 import InfoModal from "./info_modal";
@@ -127,6 +129,7 @@ let allowedFormats = FORMATS_ALL; // Symbologies the decode loop currently looks
  * @property {String} checkedbyname
  * @property {Number} timecreated
  * @property {String} ago
+ * @property {Array<{name: String, checked: Boolean, current: Boolean}>} steps
  */
 
 /**
@@ -236,11 +239,11 @@ const configureDecoder = () => {
  * @param {HTMLVideoElement} video The live video element.
  * @returns {Promise} Resolves once the stream is playing.
  */
-const openStream = async (video) => {
+const openStream = async(video) => {
     const stream = await navigator.mediaDevices.getUserMedia(buildConstraints());
     mediaStream = stream;
     video.srcObject = stream;
-    // play() can reject on some browsers if the tab loses focus mid-start; we
+    // Play() can reject on some browsers if the tab loses focus mid-start; we
     // already gate startCamera behind a user-gesture click so this is rare.
     await video.play();
 };
@@ -267,7 +270,7 @@ const failStart = () => {
 /**
  * Start the camera and the continuous zxing-wasm decode loop, then offer the camera picker.
  */
-const startCamera = async () => {
+const startCamera = async() => {
     if (!zxinglib) {
         return;
     }
@@ -303,7 +306,7 @@ const startCamera = async () => {
  *
  * @param {HTMLVideoElement} video The live video element.
  */
-const populateCameras = async (video) => {
+const populateCameras = async(video) => {
     if (!showCameraSwitcher) {
         return;
     }
@@ -350,7 +353,7 @@ const populateCameras = async (video) => {
  *
  * @param {String} deviceId The chosen camera deviceId.
  */
-const switchCamera = async (deviceId) => {
+const switchCamera = async(deviceId) => {
     if (!deviceId || !zxinglib) {
         return;
     }
@@ -430,7 +433,7 @@ const grabFrame = (video) => {
  */
 const startDecodeLoop = (video) => {
     cancelDecodeLoop();
-    const tick = async () => {
+    const tick = async() => {
         // Camera was stopped: end the loop.
         if (!mediaStream) {
             rafHandle = 0;
@@ -520,24 +523,55 @@ const process = (value) => {
 };
 
 /**
- * @param {Outcome} outcome
- * @param {String} scannedValue
- * @param {Boolean} [isWarning]
+ * Build the "View in roster" link for a scan outcome: the roster (view.php) focused
+ * on the matched student via their userid, so the modal link lands on just this student.
+ *
+ * @param {Outcome} outcome The scan-lookup outcome (carries userid).
+ * @returns {String} A roster URL, filtered to the student when a userid is present.
+ */
+const rosterLinkFor = (outcome) => {
+    const params = {id: config.cmid};
+    if (outcome.userid) {
+        params.userid = outcome.userid;
+    }
+    return Url.relativeUrl('/mod/examcheck/view.php', params);
+};
+
+/**
+ * Show the "already checked" conflict as a warning toast, carrying the server message
+ * (which already includes the scanned value) plus a "View in roster" link. The toast
+ * auto-hides after a longer-than-default delay so the link is clickable for a while.
+ *
+ * @param {Outcome} outcome The scan-lookup outcome.
  * @returns {Promise<void>}
  */
-const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
+const showConflictToast = async(outcome) => {
+    const {html} = await Templates.renderForPromise('mod_examcheck/conflict_toast', {
+        message: outcome.message,
+        rosterlink: rosterLinkFor(outcome),
+    });
+    addToast(html, {type: 'warning', delay: 8000});
+};
+
+/**
+ * Reading mode: show the student's name and a read-only per-step status table.
+ *
+ * @param {Outcome} outcome
+ * @param {String} scannedValue
+ * @returns {Promise<void>}
+ */
+const showInfoModal = async(outcome, scannedValue) => {
     pauseScanning();
 
     const modal = await InfoModal.create({
         templateContext: {
-            step_name: currentStepName(),
-            user_fullname: outcome.userlabel,
-            user_picture: outcome.userpicture,
-            scan_field_name: currentFieldName(),
-            scan_value: scannedValue,
-            roster_link: 'https://youtu.be/dQw4w9WgXcQ',
-            message: outcome.message,
-            message_is_warning: isWarning
+            userFullname: outcome.userlabel,
+            userPicture: outcome.userpicture,
+            scanFieldName: currentFieldName(),
+            scanValue: scannedValue,
+            seatLabel: outcome.seatlabel,
+            rosterLink: rosterLinkFor(outcome),
+            steps: outcome.steps
         },
     });
 
@@ -552,18 +586,20 @@ const showInfoModal = async (outcome, scannedValue, isWarning = false) => {
  * @param {String} scannedValue
  * @returns {Promise<void>}
  */
-const showConfirmationModal = async (outcome, scannedValue) => {
+const showConfirmationModal = async(outcome, scannedValue) => {
     pauseScanning();
 
     /** @var {ConfirmModal} modal */
     const modal = await ConfirmModal.create({
         templateContext: {
-            step_name: currentStepName(),
-            user_fullname: outcome.userlabel,
-            user_picture: outcome.userpicture,
-            scan_field_name: currentFieldName(),
-            scan_value: scannedValue,
-            roster_link: 'https://youtu.be/dQw4w9WgXcQ'
+            stepName: currentStepName(),
+            userFullname: outcome.userlabel,
+            userPicture: outcome.userpicture,
+            scanFieldName: currentFieldName(),
+            scanValue: scannedValue,
+            seatLabel: outcome.seatlabel,
+            rosterLink: rosterLinkFor(outcome),
+            steps: outcome.steps
         },
     });
 
@@ -591,7 +627,7 @@ const showConfirmationModal = async (outcome, scannedValue) => {
             if (outcome.status === 'marked') {
                 addToast(outcome.message, {type: 'success'});
             } else if (outcome.status === 'conflict') {
-                addToast(outcome.message, {type: 'warning'});
+                showConflictToast(outcome);
             } else if (outcome.status === 'requirementnotmet') {
                 // Defensive: scan() fails fast before needsconfirm, so we should never get
                 // here for the gate — but if a step is reconfigured mid-session it could.
@@ -629,7 +665,10 @@ const handleOutcome = (outcome, value) => {
             resumeScanning();
             break;
         case 'conflict':
-            showInfoModal(outcome, value, true);
+            // Already checked: a non-blocking warning toast (with the scanned value and
+            // a roster link), not a modal, so scanning can carry on.
+            showConflictToast(outcome);
+            resumeScanning();
             break;
         case 'notfound':
             // The result_notfound lang string embeds the scanned value so a mis-scan is obvious.

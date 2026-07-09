@@ -16,7 +16,7 @@ The library ships in two pieces. Both are vendored in the plugin:
                             first time the camera is started.
 
 amd/src/zxingwasm.js is the upstream IIFE browser build
-(zxing-wasm@3.1.0/dist/iife/reader/index.js) with two local changes:
+(zxing-wasm@3.1.0/dist/iife/reader/index.js) with three local changes:
 
 1. The leading `var ZXingWASM=` was replaced with `window.ZXingWASM=` so the
    global is reliably attached regardless of the AMD wrapper grunt amd puts
@@ -24,6 +24,8 @@ amd/src/zxingwasm.js is the upstream IIFE browser build
    after wrapping, hiding the API from the sibling scanner module.)
 2. A trailing `export default window.ZXingWASM;` was appended so a sibling AMD
    module can import it (e.g. `import ZXingWASM from 'mod_examcheck/zxingwasm';`).
+3. A leading `/* eslint-disable */` was prepended so grunt's ESLint pass reports
+   nothing for this vendored, minified file (see the thirdpartylibs note below).
 
 wasm/zxing_reader.wasm is vendored verbatim, byte-for-byte, from
 zxing-wasm@3.1.0/dist/reader/zxing_reader.wasm. It is **not** processed by
@@ -34,8 +36,12 @@ The JS module passes the runtime URL of the .wasm file to the decoder via
 `setZXingModuleOverrides({ locateFile })`, where the URL is built from
 `M.cfg.wwwroot`. No PHP plumbing is needed.
 
-Both files are declared in ../../thirdpartylibs.xml so grunt excludes them
-from ESLint; grunt amd still compiles zxingwasm.js to amd/build/zxingwasm.min.js.
+wasm/zxing_reader.wasm is declared in ../../thirdpartylibs.xml. zxingwasm.js is
+deliberately NOT listed there: an entry would add it to grunt's generated
+.eslintignore, and ESLint then emits a "File ignored" warning that fails the
+grunt precheck under --max-lint-warnings 0. Instead the file carries a leading
+`/* eslint-disable */` (change 3 above), so ESLint lints it and reports nothing.
+grunt amd still compiles zxingwasm.js to amd/build/zxingwasm.min.js.
 
 Web-server MIME type
 --------------------
@@ -64,8 +70,8 @@ To upgrade
    https://cdn.jsdelivr.net/npm/zxing-wasm@<version>/dist/iife/reader/index.js
    https://cdn.jsdelivr.net/npm/zxing-wasm@<version>/dist/reader/zxing_reader.wasm
 
-2. Re-apply the two local changes above to the IIFE file.
+2. Re-apply the three local changes above to the IIFE file.
 3. Replace amd/src/zxingwasm.js and wasm/zxing_reader.wasm.
-4. Bump the version here, in ../../thirdpartylibs.xml (both <library> entries)
+4. Bump the version here, in ../../thirdpartylibs.xml (the wasm <library> entry)
    and in ../../version.php / CHANGELOG.md.
 5. Run grunt amd.

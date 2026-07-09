@@ -28,7 +28,8 @@
             {"name": "keywords", "title": "Search", "allowcustom": true, "allowmultiple": true,
              "filtertypeclass": "core/datafilter/filtertypes/keyword", "values": [], "joinlist": "[0,1,2]"}
         ],
-        "rownumber": 1
+        "rownumber": 1,
+        "initialuserid": 0
     }
 }}
 <form method="dialog">
@@ -37,6 +38,6 @@
 
 {{#js}}
     require(['mod_examcheck/roster_filter'], function(RosterFilter) {
-        RosterFilter.init('core-filter-{{uniqid}}');
+        RosterFilter.init('core-filter-{{uniqid}}', {{initialuserid}});
     });
 {{/js}}

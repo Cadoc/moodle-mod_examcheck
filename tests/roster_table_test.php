@@ -16,6 +16,7 @@
 
 namespace mod_examcheck;
 
+use mod_examcheck\local\seats;
 use mod_examcheck\output\dashboard;
 use mod_examcheck\table\roster;
 use mod_examcheck\table\roster_filterset;
@@ -30,6 +31,8 @@ use mod_examcheck\table\roster_filterset;
  * @category   test
  * @covers     \mod_examcheck\table\roster
  * @covers     \mod_examcheck\output\dashboard
+ * @covers     \mod_examcheck\output\roster_filter
+ * @covers     \mod_examcheck\table\roster_filterset
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -41,8 +44,8 @@ final class roster_table_test extends \advanced_testcase {
         global $PAGE, $CFG;
         $this->resetAfterTest();
         $this->setAdminUser();
-        // Configure email as an identity field; admin has moodle/site:viewuseridentity.
-        $CFG->showuseridentity = 'email';
+        // Configure the identity fields; admin has moodle/site:viewuseridentity.
+        $CFG->showuseridentity = 'email,idnumber';
 
         $course = $this->getDataGenerator()->create_course();
         $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
@@ -74,35 +77,44 @@ final class roster_table_test extends \advanced_testcase {
         $this->assertStringContainsString("data-togglegroup=\"examcheck-roster\"", $html);
         // The student name links to their profile.
         $this->assertStringContainsString('/user/view.php', $html);
-        // The match field (default idnumber) shows in its own column, labelled "ID number".
+        // The idnumber identity column shows because it is configured on the site.
         $this->assertStringContainsString('STU-42', $html);
-        $this->assertStringContainsString(get_string('field_idnumber', 'mod_examcheck'), $html);
+        $this->assertStringContainsString(get_string('idnumber'), $html);
     }
 
     /**
-     * The match column follows the activity's configured scan field, not a hardcoded one.
+     * The identity columns follow the site's identity-fields config — including
+     * custom profile fields — and are not driven by the scan match field.
      */
-    public function test_match_column_uses_configured_field(): void {
-        global $PAGE;
+    public function test_identity_columns_follow_site_config(): void {
+        global $PAGE, $CFG;
         $this->resetAfterTest();
         $this->setAdminUser();
 
+        $field = $this->getDataGenerator()->create_custom_profile_field(
+            ['datatype' => 'text', 'shortname' => 'dni', 'name' => 'DNI number']
+        );
+        $CFG->showuseridentity = 'idnumber,profile_field_dni';
+
         $course = $this->getDataGenerator()->create_course();
-        // Match on the internal user id instead of the id number.
+        // The scan match field no longer influences the roster columns.
         $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'scanfield' => 'userid']);
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student', ['idnumber' => 'IGNORED']);
+        $this->getDataGenerator()->create_and_enrol(
+            $course,
+            'student',
+            ['idnumber' => 'STU-9', 'profile_field_dni' => 'X-7700']
+        );
 
         $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
-        $table = new roster("examcheck-roster-{$examcheck->cmid}");
-        $table->set_filterset(new roster_filterset());
+        $html = $this->render_table($examcheck->cmid);
 
-        ob_start();
-        $table->out(1000, false);
-        $html = ob_get_clean();
-
-        // Column is labelled for the userid field and shows the student's id, not the idnumber.
-        $this->assertStringContainsString(get_string('field_userid', 'mod_examcheck'), $html);
-        $this->assertStringContainsString('>' . $student->id . '<', $html);
+        // Both configured identity columns show, with the custom field's own label and value.
+        $this->assertStringContainsString(get_string('idnumber'), $html);
+        $this->assertStringContainsString('STU-9', $html);
+        $this->assertStringContainsString('DNI number', $html);
+        $this->assertStringContainsString('X-7700', $html);
+        // No dedicated match-field column for the configured "userid" scan field.
+        $this->assertStringNotContainsString(get_string('field_userid', 'mod_examcheck'), $html);
     }
 
     /**
@@ -129,5 +141,221 @@ final class roster_table_test extends \advanced_testcase {
         // Admin can check, so per-step mark/unmark options are present.
         $this->assertStringContainsString('mark:', $context['withselected']);
         $this->assertStringContainsString('unmark:', $context['withselected']);
+    }
+
+    /**
+     * A "userid" filter restricts the roster to that single student (the scanner's
+     * "View in roster" deep link), dropping everyone else.
+     */
+    public function test_userid_filter_limits_to_one_student(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $wanted = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+
+        $filterset = new roster_filterset();
+        $filterset->add_filter_from_params('userid', roster_filterset::JOINTYPE_ANY, [(int) $wanted->id]);
+
+        $table = new roster("examcheck-roster-{$examcheck->cmid}");
+        $table->set_filterset($filterset);
+
+        ob_start();
+        $table->out(1000, false);
+        $html = ob_get_clean();
+
+        $this->assertStringContainsString('Ann Wanted', $html);
+        $this->assertStringNotContainsString('Bob Other', $html);
+    }
+
+    /**
+     * When the dashboard is given a focus userid it seeds the table (body limited to that
+     * student) and exposes the student as a chip option in the filter bar.
+     */
+    public function test_dashboard_focus_user_seeds_chip(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $wanted = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $PAGE->set_context(\context_module::instance($examcheck->cmid));
+        $output = $PAGE->get_renderer('core');
+
+        $context = (new dashboard((int) $examcheck->cmid, (int) $wanted->id))->export_for_template($output);
+
+        // The server-rendered body is already limited to the focus student.
+        $this->assertStringContainsString('Ann Wanted', $context['table']);
+        $this->assertStringNotContainsString('Bob Other', $context['table']);
+        // The filter bar exposes the student as an option so the JS can pre-apply the chip.
+        $this->assertStringContainsString('Ann Wanted', $context['filter']);
+    }
+
+    /**
+     * A userid that is not a reachable roster student is ignored: the roster stays
+     * unfiltered and the user's name is never exposed in the filter bar.
+     */
+    public function test_dashboard_ignores_unreachable_userid(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Ann', 'lastname' => 'Wanted']);
+        $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Other']);
+        // A user who is not enrolled in this course must not filter the roster or leak in.
+        $stranger = $this->getDataGenerator()->create_user(['firstname' => 'Eve', 'lastname' => 'Stranger']);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $PAGE->set_context(\context_module::instance($examcheck->cmid));
+        $output = $PAGE->get_renderer('core');
+
+        $context = (new dashboard((int) $examcheck->cmid, (int) $stranger->id))->export_for_template($output);
+
+        // The roster is unfiltered: both enrolled students remain.
+        $this->assertStringContainsString('Ann Wanted', $context['table']);
+        $this->assertStringContainsString('Bob Other', $context['table']);
+        // The out-of-reach user's name is never rendered into the filter bar.
+        $this->assertStringNotContainsString('Eve Stranger', $context['filter']);
+    }
+
+    /**
+     * The seat column only appears once the activity has seats, and then shows
+     * each student's assigned label.
+     */
+    public function test_seat_column_presence(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+
+        // No seats yet: no seat column.
+        $html = $this->render_table($examcheck->cmid);
+        $this->assertStringNotContainsString(get_string('seat', 'mod_examcheck'), $html);
+
+        // With seats: the column shows, carrying the assigned label.
+        seats::replace_list($examcheck->id, ['A7']);
+        $seatid = (int) array_key_first(seats::get_seats($examcheck->id));
+        seats::assign($seatid, (int) $student->id, (int) $teacher->id);
+
+        $html = $this->render_table($examcheck->cmid);
+        $this->assertStringContainsString(get_string('seat', 'mod_examcheck'), $html);
+        $this->assertStringContainsString('A7', $html);
+    }
+
+    /**
+     * With the seats feature disabled, the seat column stays hidden even when
+     * the activity has seats and assignments.
+     */
+    public function test_seat_column_hidden_when_seats_disabled(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id, 'enableseats' => 0]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        seats::replace_list($examcheck->id, ['A7']);
+        $seatid = (int) array_key_first(seats::get_seats($examcheck->id));
+        seats::assign($seatid, (int) $student->id, (int) $teacher->id);
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+
+        $html = $this->render_table($examcheck->cmid);
+        $this->assertStringNotContainsString(get_string('seat', 'mod_examcheck'), $html);
+        $this->assertStringNotContainsString('A7', $html);
+    }
+
+    /**
+     * Sorting by seat uses natural order, so A2 comes before A10.
+     */
+    public function test_seat_column_natural_sort(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        // Alphabetical name order (the default sort) is the reverse of the seat order.
+        $onten = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Aaa', 'lastname' => 'First']);
+        $ontwo = $this->getDataGenerator()->create_and_enrol($course, 'student', ['firstname' => 'Zzz', 'lastname' => 'Last']);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        seats::replace_list($examcheck->id, ['A10', 'A2']);
+        $seatids = array_map('intval', array_keys(seats::get_seats($examcheck->id)));
+        seats::assign($seatids[0], (int) $onten->id, (int) $teacher->id); // Aaa First on A10.
+        seats::assign($seatids[1], (int) $ontwo->id, (int) $teacher->id); // Zzz Last on A2.
+
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+        $table = new roster("examcheck-roster-{$examcheck->cmid}");
+        $table->set_sortdata([['sortby' => 'seat', 'sortorder' => SORT_ASC]]);
+        $table->set_filterset(new roster_filterset());
+
+        ob_start();
+        $table->out(1000, false);
+        $html = ob_get_clean();
+
+        // Natural order: A2 (Zzz Last) must be listed before A10 (Aaa First).
+        $this->assertLessThan(strpos($html, 'Aaa First'), strpos($html, 'Zzz Last'));
+    }
+
+    /**
+     * A viewer with only mod/examcheck:view (no manageseats) still sees the
+     * seat column: it is read-only roster information.
+     */
+    public function test_seat_column_visible_to_view_only_teacher(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $examcheck = $this->getDataGenerator()->create_module('examcheck', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $editing = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        // A non-editing teacher can view but has no manageseats capability.
+        $viewer = $this->getDataGenerator()->create_and_enrol($course, 'teacher');
+
+        seats::replace_list($examcheck->id, ['B4']);
+        $seatid = (int) array_key_first(seats::get_seats($examcheck->id));
+        seats::assign($seatid, (int) $student->id, (int) $editing->id);
+
+        $this->setUser($viewer);
+        $PAGE->set_url('/mod/examcheck/view.php', ['id' => $examcheck->cmid]);
+
+        $html = $this->render_table($examcheck->cmid);
+        $this->assertStringContainsString(get_string('seat', 'mod_examcheck'), $html);
+        $this->assertStringContainsString('B4', $html);
+    }
+
+    /**
+     * Render the roster table for a cmid with an empty filterset.
+     *
+     * @param int $cmid The course module id.
+     * @return string The table HTML.
+     */
+    private function render_table(int $cmid): string {
+        $table = new roster("examcheck-roster-{$cmid}");
+        $table->set_filterset(new roster_filterset());
+
+        ob_start();
+        $table->out(1000, false);
+        return ob_get_clean();
     }
 }
