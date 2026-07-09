@@ -116,11 +116,17 @@ $string['examcheck:view'] = 'View the exam check dashboard';
 $string['export'] = 'Export';
 $string['exportas'] = 'Export as';
 $string['exportfilename'] = 'examcheck';
-$string['exportseats'] = 'Export seats';
+$string['exportscope'] = 'What to export';
+$string['exportscope_help'] = '"Seats only" downloads a single CSV file listing the seats of this activity.
+
+"Seats and students" downloads a ZIP archive holding two CSV files: "seats.csv" with the seat list, and "students.csv" with one row per student on the roster. In "students.csv" the seat of an unassigned student is left empty. Fill it in, upload the file on the Import page, and the students are seated in one go.';
+$string['exportscope_seats'] = 'Seats only';
+$string['exportscope_seatsandstudents'] = 'Seats and students';
 $string['field_idnumber'] = 'ID number';
 $string['field_profile'] = 'Profile field: {$a}';
 $string['field_userid'] = 'User id (internal)';
 $string['generalsettings'] = 'General settings';
+$string['import'] = 'Import';
 $string['importemptyfile'] = 'The uploaded file is empty or could not be parsed.';
 $string['importerror_ambiguousstudent'] = 'The value "{$a}" matches more than one student on the roster.';
 $string['importerror_duplicateseat'] = 'The seat "{$a}" appears more than once in the file.';
@@ -132,10 +138,13 @@ $string['importerror_seatlabeltoolong'] = 'The seat label "{$a}" is longer than 
 $string['importerror_unknownseat'] = 'The seat "{$a}" does not exist in this activity. Tick "Replace the seat list" to create the seats from the file.';
 $string['importerror_unmatchedstudent'] = 'No user account matches "{$a}".';
 $string['importfailed'] = 'Nothing was imported. Fix the following problems and try again:';
+$string['importintro'] = 'Upload a CSV file with a "seat" column, optionally followed by a student column ("username", "email" or "idnumber").
+
+Without a student column the file only describes the seat list. With one, it also describes the assignments: a row with a seat and a student seats that student, a row with a seat but no student empties that seat, and a row with a student but no seat unseats that student.
+
+Both files produced by the Export page can be uploaded here unchanged.';
 $string['importlineerror'] = 'Line {$a->line}: {$a->error}';
 $string['importresult'] = 'Import complete: {$a->seats} seats, {$a->assigned} students assigned, {$a->unassigned} seats left empty.';
-$string['importseats'] = 'Import seats';
-$string['importseatsintro'] = 'Upload a CSV file with a "seat" column and a student column ("username", "email" or "idnumber"). A row with an empty student clears that seat. Files produced by "Export seats" can be imported back directly.';
 $string['invalidrequirementstep'] = 'Choose one of the listed steps of this activity.';
 $string['justnow'] = 'just now';
 $string['managesteps'] = 'Manage check steps';
@@ -161,7 +170,7 @@ $string['opascanner'] = 'Open scanner';
 $string['overrideseats'] = 'Replace the seat list';
 $string['overrideseats_help'] = 'When ticked, the file defines the new seat list for this activity: existing seats and every seat assignment are replaced by the file contents.
 
-When unticked, every seat in the file must already exist in the activity and only the assignments are changed.';
+When unticked, every seat named in the file must already exist in the activity and only the assignments are changed.';
 $string['participant_status'] = 'Participant status';
 $string['pluginadministration'] = 'Exam check administration';
 $string['pluginname'] = 'Exam check';
@@ -261,7 +270,9 @@ $string['seatsearchstudent'] = 'Search for a student';
 $string['seatselectfor'] = 'Student for seat {$a}';
 $string['seatsetup'] = 'Setup';
 $string['seatsfile'] = 'CSV file';
-$string['seatsfile_help'] = 'A CSV file with one row per seat. Required column: "seat". Optional student column, matched in this priority: "username", "email", "idnumber". Any other column is ignored.';
+$string['seatsfile_help'] = 'A CSV file with a required "seat" column and an optional student column, matched in this priority: "username", "email", "idnumber". Any other column is ignored.
+
+A seat may be left empty only when the file has a student column, in which case that student is unseated. Rows that are empty on both sides are skipped.';
 $string['seatsnavigationmenu'] = 'Seats navigation menu';
 $string['seatsnochange'] = 'The seat list is unchanged.';
 $string['seatssaved'] = 'Seat list saved.';

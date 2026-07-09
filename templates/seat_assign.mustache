@@ -17,70 +17,40 @@
 {{!
     @template mod_examcheck/seat_assign
 
-    Seat assignment page: one row per seat with a student selector. Each select
-    server-renders only the currently assigned option; the JS enhances it into
-    an AJAX autocomplete and saves changes instantly.
+    Seat assignment page: the assignment count above the seat dynamic table. Each row of
+    the table server-renders a select holding only the currently assigned student; the JS
+    enhances it into an AJAX autocomplete, saves changes instantly, and re-enhances every
+    row after the table body reloads on sort or paging.
+
+    Never let two closing braces meet inside a comment such as this one. Mustache closes a
+    comment at the first pair it meets, and the rest of the block would then be rendered
+    as literal text. Keep the example context flat, with no nested objects.
 
     Classes required for JS:
     * none
 
     Data attributes required for JS:
     * data-region="examcheck-seat-assign" - the page root, carries data-cmid
-    * data-region="examcheck-seat-cell" - one cell per seat, carries seat/user state
-    * data-region="examcheck-seat-select" - the select the autocomplete enhances
 
     Context variables required for this template:
     * cmid - course module id
-    * seats - array of {seatid, label, user: {id, label}|null}
     * assignedcount - number of assigned seats
     * seatcount - total number of seats
+    * table - the rendered seat_assign dynamic table
 
     Example context (json):
     {
         "cmid": 12,
         "assignedcount": 1,
         "seatcount": 2,
-        "seats": [
-            {"seatid": 3, "label": "A1", "user": {"id": 7, "label": "Jane Doe"}},
-            {"seatid": 4, "label": "A2", "user": null}
-        ]
+        "table": "<table class=\"generaltable\"><tbody><tr><td>A1</td></tr></tbody></table>"
     }
 }}
 <div data-region="examcheck-seat-assign" data-cmid="{{cmid}}">
     <p class="text-muted">
         {{#str}} seatassignedcount, mod_examcheck, { "assigned": {{assignedcount}}, "total": {{seatcount}} } {{/str}}
     </p>
-    <table class="generaltable examcheck-seat-assign align-middle">
-        <thead>
-            <tr>
-                <th scope="col">{{#str}} seat, mod_examcheck {{/str}}</th>
-                <th scope="col" class="w-75">{{#str}} student, mod_examcheck {{/str}}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{#seats}}
-                <tr>
-                    <th scope="row">{{label}}</th>
-                    <td data-region="examcheck-seat-cell"
-                        data-seatid="{{seatid}}"
-                        data-previousid="{{#user}}{{id}}{{/user}}{{^user}}0{{/user}}"
-                        data-previouslabel="{{#user}}{{label}}{{/user}}">
-                        <label class="visually-hidden" for="examcheck-seat-select-{{seatid}}">
-                            {{#str}} seatselectfor, mod_examcheck, {{label}} {{/str}}
-                        </label>
-                        <select id="examcheck-seat-select-{{seatid}}"
-                                data-region="examcheck-seat-select"
-                                data-seatid="{{seatid}}">
-                            <option value=""></option>
-                            {{#user}}
-                                <option value="{{id}}" selected>{{label}}</option>
-                            {{/user}}
-                        </select>
-                    </td>
-                </tr>
-            {{/seats}}
-        </tbody>
-    </table>
+    {{{table}}}
 </div>
 {{#js}}
 require(['mod_examcheck/seat_assign'], function(SeatAssign) {

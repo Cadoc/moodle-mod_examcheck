@@ -18,6 +18,10 @@
  * on change with toast feedback. On a conflict (the student was seated elsewhere
  * by someone else meanwhile) the row is reverted to its previous occupant.
  *
+ * The rows live in a core dynamic table, whose body is replaced wholesale when the
+ * user sorts or pages. That destroys the enhanced autocompletes, so we re-enhance
+ * on the table's tableContentRefreshed event.
+ *
  * Note: core/ajax returns jQuery promises without .finally, so the handlers use
  * async/await with try/finally instead.
  *
@@ -29,14 +33,18 @@
 import Ajax from 'core/ajax';
 import AutoComplete from 'core/form-autocomplete';
 import Notification from 'core/notification';
+import TableEvents from 'core_table/local/dynamic/events';
 import {getString} from 'core/str';
 import {add as addToast} from 'core/toast';
 
 /** @type {Number} Counter to keep rebuilt select ids unique. */
 let rebuildCount = 0;
 
+/** @type {String} Marks a cell whose seat is taken, hiding its search field (see styles.css). */
+const TAKEN_CLASS = 'examcheck-seat-taken';
+
 /**
- * Initialise every seat row on the page.
+ * Initialise every seat row, and every row the dynamic table renders later.
  *
  * @param {Number} cmid Course module id.
  */
@@ -49,7 +57,28 @@ export const init = async(cmid) => {
     const placeholder = await getString('seatsearchstudent', 'mod_examcheck');
     const noSelection = await getString('seatnoassignment', 'mod_examcheck');
 
+    enhanceAll(root, cmid, placeholder, noSelection);
+
+    // Sorting and paging replace the table body, dropping every enhanced autocomplete.
+    // The event bubbles from the table root, which lives inside our root.
+    root.addEventListener(TableEvents.tableContentRefreshed, () => {
+        enhanceAll(root, cmid, placeholder, noSelection);
+    });
+};
+
+/**
+ * Enhance every seat cell below the root that is not enhanced yet.
+ *
+ * @param {HTMLElement} root The page root.
+ * @param {Number} cmid Course module id.
+ * @param {String} placeholder Autocomplete placeholder text.
+ * @param {String} noSelection Text shown when the seat has no assignment.
+ */
+const enhanceAll = (root, cmid, placeholder, noSelection) => {
     root.querySelectorAll('[data-region="examcheck-seat-cell"]').forEach((cell) => {
+        if (cell.dataset.enhanced === '1') {
+            return;
+        }
         enhanceCell(cell, cmid, placeholder, noSelection).catch(Notification.exception);
     });
 };
@@ -64,6 +93,7 @@ export const init = async(cmid) => {
  * @returns {Promise<void>}
  */
 const enhanceCell = async(cell, cmid, placeholder, noSelection) => {
+    cell.dataset.enhanced = '1';
     const select = cell.querySelector('[data-region="examcheck-seat-select"]');
     select.addEventListener('change', () => {
         onChange(cell, select, cmid, placeholder, noSelection).catch(Notification.exception);
@@ -78,6 +108,20 @@ const enhanceCell = async(cell, cmid, placeholder, noSelection) => {
         noSelection,
         true
     );
+    syncCellState(cell);
+};
+
+/**
+ * Show the student search field only while the seat is free.
+ *
+ * A taken seat already shows its occupant plus the autocomplete's remove control, so the
+ * search field is noise; removing the occupant brings it straight back.
+ *
+ * @param {HTMLElement} cell The seat cell.
+ */
+const syncCellState = (cell) => {
+    const taken = parseInt(cell.dataset.previousid || '0', 10) > 0;
+    cell.classList.toggle(TAKEN_CLASS, taken);
 };
 
 /**
@@ -132,6 +176,7 @@ const onChange = async(cell, select, cmid, placeholder, noSelection) => {
         Notification.exception(err);
     } finally {
         cell.dataset.busy = '0';
+        syncCellState(cell);
     }
 };
 

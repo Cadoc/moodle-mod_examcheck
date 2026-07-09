@@ -68,6 +68,6 @@ class seats_import_form extends moodleform {
         $mform->addElement('hidden', 'action');
         $mform->setType('action', PARAM_ALPHA);
 
-        $this->add_action_buttons(true, get_string('importseats', 'mod_examcheck'));
+        $this->add_action_buttons(true, get_string('import', 'mod_examcheck'));
     }
 }

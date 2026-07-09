@@ -27,7 +27,9 @@ require(__DIR__ . '/../../config.php');
 
 use core\output\notification;
 use mod_examcheck\form\seats_edit_form;
+use mod_examcheck\form\seats_export_form;
 use mod_examcheck\local\seats;
+use mod_examcheck\local\seats_exporter;
 use mod_examcheck\output\seats_action_bar;
 
 $id = required_param('id', PARAM_INT);                       // Course module id.
@@ -65,15 +67,32 @@ $PAGE->set_context($context);
 // Keep the Seats tab highlighted on every subpage.
 $PAGE->set_secondary_active_tab('mod_examcheck_seats');
 
-// Export download branch: must run before any output.
-if ($action === 'export' && ($dataformat = optional_param('dataformat', '', PARAM_ALPHA)) !== '') {
-    require_sesskey();
-    [$columns, $rows] = \mod_examcheck\local\seats_exporter::columns_and_rows((int) $examcheck->id, $context);
-    $filename = clean_filename(
-        get_string('exportfilename', 'mod_examcheck') . '_' . format_string($examcheck->name) . '_seats'
-    );
-    \core\dataformat::download_data($filename, $dataformat, $columns, $rows);
-    exit;
+// Export: the download streams headers, so the submitted form must be handled before
+// any output. The form itself is displayed further down, once the header is out.
+$exportform = null;
+if ($action === 'export') {
+    $exportform = new seats_export_form($baseurl);
+
+    if ($exportform->is_cancelled()) {
+        redirect($assignurl);
+    } else if ($data = $exportform->get_data()) {
+        $basename = clean_filename(
+            get_string('exportfilename', 'mod_examcheck') . '_' . format_string($examcheck->name) . '_seats'
+        );
+        if ($data->scope === seats_export_form::SCOPE_SEATS) {
+            [$columns, $rows] = seats_exporter::seat_columns_and_rows((int) $examcheck->id);
+            \core\dataformat::download_data($basename, 'csv', $columns, $rows);
+        } else {
+            // Two CSV files in a zip; send_temp_file() streams it and unlinks it.
+            send_temp_file(
+                seats_exporter::build_zip((int) $examcheck->id, $context, $basename),
+                $basename . '.zip'
+            );
+        }
+        exit;
+    }
+
+    $exportform->set_data(['id' => $cm->id, 'action' => 'export']);
 }
 
 // Render through $OUTPUT->render(): before header() the global $OUTPUT is still the
@@ -148,7 +167,7 @@ if ($action === 'import') {
 
         echo $OUTPUT->header();
         echo $actionbarhtml;
-        echo $OUTPUT->heading(get_string('importseats', 'mod_examcheck'));
+        echo $OUTPUT->heading(get_string('import', 'mod_examcheck'));
 
         if ($errors) {
             echo $OUTPUT->notification(get_string('importfailed', 'mod_examcheck'), notification::NOTIFY_ERROR);
@@ -180,27 +199,22 @@ if ($action === 'import') {
 
     echo $OUTPUT->header();
     echo $actionbarhtml;
-    echo $OUTPUT->heading(get_string('importseats', 'mod_examcheck'));
-    echo html_writer::tag('p', get_string('importseatsintro', 'mod_examcheck'), ['class' => 'text-muted']);
+    echo $OUTPUT->heading(get_string('import', 'mod_examcheck'));
+    echo html_writer::tag('p', get_string('importintro', 'mod_examcheck'), ['class' => 'text-muted']);
     $mform->display();
     echo $OUTPUT->footer();
     exit;
 }
 
 if ($action === 'export') {
-    // Landing page: pick a download format (the download branch above streams it).
+    // Landing page: pick a scope (the branch above streams the download).
     echo $OUTPUT->header();
     echo $actionbarhtml;
-    echo $OUTPUT->heading(get_string('exportseats', 'mod_examcheck'));
+    echo $OUTPUT->heading(get_string('export', 'mod_examcheck'));
     if (!seats::count_seats((int) $examcheck->id)) {
         echo $OUTPUT->notification(get_string('noseatsyet', 'mod_examcheck'), notification::NOTIFY_INFO);
     } else {
-        echo $OUTPUT->download_dataformat_selector(
-            get_string('exportas', 'mod_examcheck'),
-            $baseurl->out_omit_querystring(true),
-            'dataformat',
-            ['id' => $cm->id, 'action' => 'export', 'sesskey' => sesskey()]
-        );
+        $exportform->display();
     }
     echo $OUTPUT->footer();
     exit;

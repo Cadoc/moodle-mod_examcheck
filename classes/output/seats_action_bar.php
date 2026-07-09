@@ -64,15 +64,16 @@ class seats_action_bar implements renderable, templatable {
             ['id' => $this->cmid, 'action' => $action]
         ))->out(false);
 
-        // Top-level entry plus two groups, matching the gradebook selector layout.
+        // Two groups, matching the gradebook selector layout. Every entry belongs to a
+        // group: a bare top-level option would render above the optgroups, ungrouped.
         $menu = [];
-        $menu[$url('assign')] = get_string('seatassignment', 'mod_examcheck');
         $menu[][get_string('seatsetup', 'mod_examcheck')] = [
+            $url('assign') => get_string('seatassignment', 'mod_examcheck'),
             $url('edit') => get_string('editseats', 'mod_examcheck'),
         ];
         $menu[][get_string('moremenu')] = [
-            $url('import') => get_string('importseats', 'mod_examcheck'),
-            $url('export') => get_string('exportseats', 'mod_examcheck'),
+            $url('import') => get_string('import', 'mod_examcheck'),
+            $url('export') => get_string('export', 'mod_examcheck'),
         ];
 
         $selectmenu = new select_menu('examcheckseatsactionselect', $menu, $url($this->action), true);

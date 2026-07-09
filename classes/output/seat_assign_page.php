@@ -19,22 +19,24 @@ namespace mod_examcheck\output;
 use core\output\renderable;
 use core\output\renderer_base;
 use core\output\templatable;
-use core_user;
 use mod_examcheck\local\seats;
+use mod_examcheck\table\seat_assign;
+use mod_examcheck\table\seat_assign_filterset;
 
 /**
- * Renderable for the seat assignment page: one row per seat, each with a
- * light-DOM select that the JS enhances into a student autocomplete.
+ * Renderable for the seat assignment page: the assignment count and the seat table.
  *
- * Only the currently assigned option is server-rendered per select; the
- * autocomplete loads candidates over AJAX, so a large roster never bloats the
- * initial page.
+ * The table itself is the {@see seat_assign} dynamic table, captured here the same way
+ * {@see dashboard} captures the roster, so its body reloads over AJAX on sort and paging.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class seat_assign_page implements renderable, templatable {
+    /** @var int Rows per page. */
+    const PAGE_SIZE = 50;
+
     /** @var int Course module id. */
     protected int $cmid;
 
@@ -53,37 +55,23 @@ class seat_assign_page implements renderable, templatable {
     }
 
     /**
-     * Export the seat rows for the mustache template.
+     * Export the seat table for the mustache template.
      *
      * @param renderer_base $output The renderer.
      * @return array Template context.
      */
     public function export_for_template(renderer_base $output): array {
-        $assignments = seats::get_assignments($this->examcheckid);
-
-        $rows = [];
-        foreach (seats::get_seats($this->examcheckid) as $seat) {
-            $assignment = $assignments[(int) $seat->id] ?? null;
-            $user = null;
-            if ($assignment) {
-                $record = core_user::get_user((int) $assignment->userid, '*', IGNORE_MISSING);
-                $user = [
-                    'id'    => (int) $assignment->userid,
-                    'label' => $record ? fullname($record) : (string) $assignment->userid,
-                ];
-            }
-            $rows[] = [
-                'seatid' => (int) $seat->id,
-                'label'  => $seat->label,
-                'user'   => $user,
-            ];
-        }
+        $table = new seat_assign("examcheck-seatassign-{$this->cmid}");
+        $table->set_filterset(new seat_assign_filterset());
+        ob_start();
+        $table->out(self::PAGE_SIZE, false);
+        $tablehtml = ob_get_clean();
 
         return [
             'cmid'          => $this->cmid,
-            'seats'         => $rows,
-            'assignedcount' => count($assignments),
-            'seatcount'     => count($rows),
+            'assignedcount' => seats::count_assignments($this->examcheckid),
+            'seatcount'     => seats::count_seats($this->examcheckid),
+            'table'         => $tablehtml,
         ];
     }
 }

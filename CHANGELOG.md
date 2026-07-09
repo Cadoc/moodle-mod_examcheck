@@ -12,12 +12,21 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
 - Seat numbers (#14): a per-activity list of free-text seat labels with a 1:1
   student/seat assignment.
   - New gradebook-style **Seats** tab (capability `mod/examcheck:manageseats`,
-    editing teachers and managers) with subpages: *Seat assignment* (instant
-    per-row student autocomplete with conflict handling), *Edit seats* (one
-    label per line; changing the list resets assignments after an explicit
-    acknowledgement), *Import* and *Export* (CSV round trip; students matched
-    by username, email or idnumber; identity columns follow the exporting
-    user's identity-field visibility).
+    editing teachers and managers), its selector grouping every subpage under
+    *Setup* (*Seat assignment*, *Edit seats*) or *More* (*Import*, *Export*).
+  - *Seat assignment* is a sortable table, one row per seat: sort by seat or by
+    the assigned student, and search a student inline. The search field hides
+    once the seat is taken and returns when the student is removed.
+  - *Edit seats*: one label per line; changing the list resets assignments
+    after an explicit acknowledgement.
+  - *Export* downloads either the seat list as one CSV, or the seat list plus
+    the roster as `seats.csv` and `students.csv` in a zip. In `students.csv`
+    an unassigned student has an empty seat: fill it in, re-import, and the
+    cohort is seated in one pass. Identity columns follow the exporting user's
+    identity-field visibility.
+  - *Import* accepts either file. Students are matched by username, email or
+    idnumber; a row with a student and no seat unseats them, and a file with no
+    student column only ever describes the seat list.
   - Read-only, sortable (natural order: A2 before A10) and hideable **Seat**
     column on the roster, visible to anyone who can view the activity, plus a
     seat column in the roster export.
@@ -41,6 +50,15 @@ Releases are versioned against the supported Moodle branch as `<branch>-r<n>`.
   shows the identity fields configured for the site — including custom
   profile fields — respecting each viewer's permission to see them; the scan
   match field only affects the scanner.
+- The roster export follows the same rule: instead of always emitting an ID
+  number column, it emits the identity fields the exporting user may see. A
+  viewer without `moodle/site:viewuseridentity` no longer gets ID numbers in
+  the downloaded file.
+
+### Fixed
+
+- The seat assignment page no longer prints a fragment of its own template
+  documentation above the seat table.
 
 ## [5.1-r1] - 2026-06-10
 

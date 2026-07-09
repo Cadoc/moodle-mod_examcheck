@@ -17,14 +17,16 @@
 namespace mod_examcheck;
 
 use mod_examcheck\form\seats_edit_form;
+use mod_examcheck\form\seats_export_form;
 
 /**
- * Tests for the edit-seats form validation, in particular the explicit
- * "assignments will be reset" acknowledgement.
+ * Tests for the seats form validation: the edit form's explicit "assignments will be
+ * reset" acknowledgement, and the export form's scope.
  *
  * @package    mod_examcheck
  * @category   test
  * @covers     \mod_examcheck\form\seats_edit_form
+ * @covers     \mod_examcheck\form\seats_export_form
  * @copyright  2026 André Camacho
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -73,6 +75,20 @@ final class seats_form_test extends \advanced_testcase {
 
         $errors = $form->validation(['seatlist' => "B1\nB2"], []);
         $this->assertSame([], $errors);
+    }
+
+    /**
+     * The export form accepts only the two scopes seats.php knows how to stream.
+     */
+    public function test_export_form_validates_the_scope(): void {
+        $this->resetAfterTest();
+        $form = new seats_export_form(new \moodle_url('/mod/examcheck/seats.php'));
+
+        $this->assertSame([], $form->validation(['scope' => seats_export_form::SCOPE_SEATS], []));
+        $this->assertSame([], $form->validation(['scope' => seats_export_form::SCOPE_SEATS_AND_STUDENTS], []));
+
+        $this->assertArrayHasKey('scopegroup', $form->validation(['scope' => 'everything'], []));
+        $this->assertArrayHasKey('scopegroup', $form->validation([], []));
     }
 
     /**

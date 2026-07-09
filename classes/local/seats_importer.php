@@ -35,10 +35,21 @@ require_once($CFG->libdir . '/csvlib.class.php');
  * every line is clean; applying runs in one transaction through the
  * {@see seats} API so events and validation stay consistent.
  *
+ * Both files produced by {@see seats_exporter} import back unchanged, which is
+ * what the row shapes are cut for:
+ * - seat, no student: empty that seat (seats.csv rows read this way too, but see
+ *   below — without a student column nothing is ever emptied).
+ * - seat and student: seat that student.
+ * - student, no seat: unseat that student (a students.csv row left unfilled).
+ * - neither: skip the row.
+ *
+ * A file with no student column at all describes only the seat list, so it never
+ * touches the assignments: importing a bare seats.csv is not destructive.
+ *
  * Two modes:
  * - override: the file defines the new seat list (existing seats and
  *   assignments are replaced).
- * - normal: every seat in the file must already exist; only assignments change.
+ * - normal: every seat named in the file must already exist; only assignments change.
  *
  * @package    mod_examcheck
  * @copyright  2026 André Camacho
@@ -59,6 +70,9 @@ class seats_importer {
 
     /** @var array<int, array{label: string, userid: int}>|null Parsed rows, populated by validate(). */
     protected ?array $rows = null;
+
+    /** @var bool Whether the validated file carried a student column. */
+    protected bool $hasmatchcolumn = false;
 
     /**
      * Constructor.
@@ -82,6 +96,7 @@ class seats_importer {
     public function validate(csv_import_reader $cir): array {
         $errors = [];
         $this->rows = null;
+        $this->hasmatchcolumn = false;
 
         // Header: locate the seat column and the highest-priority match column.
         $header = array_map(
@@ -101,6 +116,7 @@ class seats_importer {
                 break;
             }
         }
+        $this->hasmatchcolumn = $matchfield !== null;
 
         // Existing seats (for the non-override mode) keyed by lowercased label.
         $existingseats = [];
@@ -120,8 +136,16 @@ class seats_importer {
             $lineerrors = [];
 
             $label = trim((string) ($record[$seatindex] ?? ''));
+            $value = $matchindex !== false ? trim((string) ($record[$matchindex] ?? '')) : '';
+
             if ($label === '') {
-                $lineerrors[] = get_string('importerror_missingseat', 'mod_examcheck');
+                // A blank seat is legal only as "this student sits nowhere", so it needs a
+                // student column. With one, a row blank on both sides asks for nothing.
+                if (!$this->hasmatchcolumn) {
+                    $lineerrors[] = get_string('importerror_missingseat', 'mod_examcheck');
+                } else if ($value === '') {
+                    continue;
+                }
             } else if (\core_text::strlen($label) > seats::LABEL_MAX_LENGTH) {
                 $lineerrors[] = get_string('importerror_seatlabeltoolong', 'mod_examcheck', $label);
             } else {
@@ -136,7 +160,6 @@ class seats_importer {
             }
 
             $userid = 0;
-            $value = $matchindex !== false ? trim((string) ($record[$matchindex] ?? '')) : '';
             if ($value !== '') {
                 $valuekey = \core_text::strtolower($value);
                 if (isset($rostermaps['ambiguous'][$valuekey])) {
@@ -168,7 +191,7 @@ class seats_importer {
 
     /**
      * Apply a previously validated file: replace the list in override mode,
-     * then align every listed seat's assignment with the file, all in one
+     * then align every named seat's assignment with the file, all in one
      * transaction (events fired inside are dispatched only on commit).
      *
      * @return array{seats: int, assigned: int, unassigned: int} Result counts.
@@ -185,7 +208,9 @@ class seats_importer {
         $transaction = $DB->start_delegated_transaction();
 
         if ($this->override) {
-            seats::replace_list($this->examcheckid, array_map(fn($row) => $row['label'], $this->rows));
+            // Rows carrying no seat contribute no seat to the new list.
+            $labels = array_values(array_filter(array_map(fn($row) => $row['label'], $this->rows)));
+            seats::replace_list($this->examcheckid, $labels);
         }
 
         // Seat ids keyed by lowercased label (fresh list in override mode).
@@ -194,23 +219,38 @@ class seats_importer {
             $seatids[\core_text::strtolower($seat->label)] = (int) $seat->id;
         }
 
-        // First pass: free every student the file reseats elsewhere, so swaps
-        // (A1<->A2) never trip the one-seat-per-student conflict.
+        // Where each student sits right now. Read after replace_list(), which wipes the lot.
         $currentbyuser = [];
         foreach (seats::get_assignments($this->examcheckid) as $assignment) {
             $currentbyuser[(int) $assignment->userid] = (int) $assignment->seatid;
         }
+
+        $assigned = 0;
+        $unassigned = 0;
+
+        // First pass: free every student the file moves, so a swap (A1<->A2) never trips
+        // the one-seat-per-student conflict, and every student the file leaves seatless.
         foreach ($this->rows as $row) {
-            $seatid = $seatids[\core_text::strtolower($row['label'])];
-            if ($row['userid'] && isset($currentbyuser[$row['userid']]) && $currentbyuser[$row['userid']] !== $seatid) {
-                seats::unassign($currentbyuser[$row['userid']]);
+            if (!$row['userid'] || !isset($currentbyuser[$row['userid']])) {
+                continue;
+            }
+            $target = $row['label'] === '' ? 0 : $seatids[\core_text::strtolower($row['label'])];
+            if ($currentbyuser[$row['userid']] === $target) {
+                continue;
+            }
+            seats::unassign($currentbyuser[$row['userid']]);
+            if ($target === 0) {
+                // Not a move: the file asks for this student to sit nowhere.
+                $unassigned++;
             }
         }
 
-        // Second pass: align each listed seat with the file.
-        $assigned = 0;
-        $unassigned = 0;
+        // Second pass: align each named seat with the file. A file with no student column
+        // says nothing about the assignments, so it must never empty a seat.
         foreach ($this->rows as $row) {
+            if ($row['label'] === '') {
+                continue;
+            }
             $seatid = $seatids[\core_text::strtolower($row['label'])];
             if ($row['userid']) {
                 $result = seats::assign($seatid, $row['userid'], (int) $USER->id);
@@ -219,7 +259,7 @@ class seats_importer {
                     throw new moodle_exception('error_usernotonroster', 'mod_examcheck');
                 }
                 $assigned++;
-            } else if (seats::unassign($seatid)['status'] === 'unassigned') {
+            } else if ($this->hasmatchcolumn && seats::unassign($seatid)['status'] === 'unassigned') {
                 $unassigned++;
             }
         }

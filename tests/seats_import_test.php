@@ -152,8 +152,7 @@ final class seats_import_test extends \advanced_testcase {
             "A1,nosuchuser\n" .          // Line 2: unmatched student.
             "A1,outsider\n" .            // Line 3: duplicate seat + not on roster.
             "Z9,ann\n" .                 // Line 4: unknown seat (non-override).
-            ",bob\n" .                   // Line 5: missing seat label.
-            str_repeat('x', 101) . ",\n" // Line 6: label too long.
+            str_repeat('x', 101) . ",\n" // Line 5: label too long.
         );
 
         $errors = $importer->validate($cir);
@@ -165,12 +164,73 @@ final class seats_import_test extends \advanced_testcase {
         $this->assertArrayHasKey(4, $errors);
         $this->assertStringContainsString('Z9', $errors[4][0]);
         $this->assertArrayHasKey(5, $errors);
-        $this->assertArrayHasKey(6, $errors);
 
         // Nothing was applied and apply() refuses to run.
         $this->assertSame(0, seats::count_assignments($this->examcheck->id));
         $this->expectException(\coding_exception::class);
         $importer->apply();
+    }
+
+    /**
+     * A row with a student but no seat unseats that student; a row empty on both
+     * sides is skipped rather than rejected.
+     */
+    public function test_blank_seat_unseats_the_student(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2']);
+        $seatids = array_map('intval', array_keys(seats::get_seats($this->examcheck->id)));
+        seats::assign($seatids[0], (int) $this->ann->id, (int) $this->teacher->id);
+        seats::assign($seatids[1], (int) $this->bob->id, (int) $this->teacher->id);
+
+        // Ann keeps A1, Bob is unseated, and the trailing blank row is ignored.
+        $importer = $this->importer(false);
+        $cir = $this->reader("seat,username\nA1,ann\n,bob\n,\n");
+
+        $this->assertSame([], $importer->validate($cir));
+        $counts = $importer->apply();
+
+        $this->assertSame(1, $counts['assigned']);
+        $this->assertSame(1, $counts['unassigned']);
+        $labels = seats::get_user_seat_labels($this->examcheck->id);
+        $this->assertSame('A1', $labels[(int) $this->ann->id]);
+        $this->assertArrayNotHasKey((int) $this->bob->id, $labels);
+        // A2 is now free, but still a seat.
+        $this->assertSame(2, seats::count_seats($this->examcheck->id));
+    }
+
+    /**
+     * A blank seat is only meaningful next to a student: without a student column
+     * it is a malformed row.
+     */
+    public function test_blank_seat_without_student_column_is_rejected(): void {
+        seats::replace_list($this->examcheck->id, ['A1']);
+
+        $importer = $this->importer(false);
+        $cir = $this->reader("seat,room\nA1,101\n,102\n");
+
+        $errors = $importer->validate($cir);
+
+        $this->assertArrayNotHasKey(2, $errors);
+        $this->assertArrayHasKey(3, $errors);
+        $this->assertSame([get_string('importerror_missingseat', 'mod_examcheck')], $errors[3]);
+    }
+
+    /**
+     * A file with no student column describes only the seat list, so importing it
+     * never clears an assignment.
+     */
+    public function test_seat_only_file_keeps_assignments(): void {
+        seats::replace_list($this->examcheck->id, ['A1', 'A2']);
+        $seatids = array_map('intval', array_keys(seats::get_seats($this->examcheck->id)));
+        seats::assign($seatids[0], (int) $this->ann->id, (int) $this->teacher->id);
+
+        $importer = $this->importer(false);
+        $cir = $this->reader("seat\nA1\nA2\n");
+
+        $this->assertSame([], $importer->validate($cir));
+        $counts = $importer->apply();
+
+        $this->assertSame(['seats' => 2, 'assigned' => 0, 'unassigned' => 0], $counts);
+        $this->assertSame('A1', seats::get_user_seat_labels($this->examcheck->id)[(int) $this->ann->id]);
     }
 
     /**
@@ -203,10 +263,22 @@ final class seats_import_test extends \advanced_testcase {
     }
 
     /**
-     * The export lists every seat in order with username and identity columns,
-     * leaving unassigned seats empty; headers are stable machine names.
+     * The seat export is the bare seat list, in the authored order.
      */
-    public function test_export_columns_and_rows(): void {
+    public function test_seat_export_columns_and_rows(): void {
+        seats::replace_list($this->examcheck->id, ['B1', 'A1']);
+
+        [$columns, $rows] = seats_exporter::seat_columns_and_rows((int) $this->examcheck->id);
+
+        $this->assertSame(['seat'], $columns);
+        $this->assertSame([['B1'], ['A1']], $rows);
+    }
+
+    /**
+     * The student export lists every roster student, with an empty seat for the
+     * unassigned ones so the file can be filled in and imported back.
+     */
+    public function test_student_export_columns_and_rows(): void {
         global $CFG;
         $CFG->showuseridentity = 'email,idnumber';
 
@@ -214,11 +286,16 @@ final class seats_import_test extends \advanced_testcase {
         $seatids = array_map('intval', array_keys(seats::get_seats($this->examcheck->id)));
         seats::assign($seatids[0], (int) $this->ann->id, (int) $this->teacher->id);
 
-        [$columns, $rows] = seats_exporter::columns_and_rows((int) $this->examcheck->id, $this->context);
+        [$columns, $rows] = seats_exporter::student_columns_and_rows((int) $this->examcheck->id, $this->context);
 
         $this->assertSame(['seat', 'username', 'email', 'idnumber', 'fullname'], $columns);
-        $this->assertSame(['A1', 'ann', 'ann@example.com', 'ID-ANN', fullname($this->ann)], $rows[0]);
-        $this->assertSame(['A2', '', '', '', ''], $rows[1]);
+
+        $byusername = $this->rows_by_username($rows);
+        $this->assertSame(['A1', 'ann', 'ann@example.com', 'ID-ANN', fullname($this->ann)], $byusername['ann']);
+        // Bob is on the roster but sits nowhere: his seat cell is empty, not missing.
+        $this->assertSame(['', 'bob', 'bob@example.com', 'ID-BOB', fullname($this->bob)], $byusername['bob']);
+        // The teacher is a checker, not a roster student.
+        $this->assertCount(2, $rows);
     }
 
     /**
@@ -240,22 +317,49 @@ final class seats_import_test extends \advanced_testcase {
         $restricted = $this->getDataGenerator()->create_and_enrol($this->course, 'restrictedteacher');
         $this->setUser($restricted);
 
-        [$columns, $rows] = seats_exporter::columns_and_rows((int) $this->examcheck->id, $this->context);
+        [$columns, $rows] = seats_exporter::student_columns_and_rows((int) $this->examcheck->id, $this->context);
 
         $this->assertSame(['seat', 'username', 'fullname'], $columns);
-        $this->assertSame(['A1', 'ann', fullname($this->ann)], $rows[0]);
+        $byusername = $this->rows_by_username($rows);
+        $this->assertSame(['A1', 'ann', fullname($this->ann)], $byusername['ann']);
     }
 
     /**
-     * A full export/import round-trip restores the exact seat list and
-     * assignments, including custom profile fields in the identity columns.
+     * The zip carries both CSV files under their documented names.
+     */
+    public function test_build_zip_holds_both_files(): void {
+        seats::replace_list($this->examcheck->id, ['A1']);
+        $seatid = (int) array_key_first(seats::get_seats($this->examcheck->id));
+        seats::assign($seatid, (int) $this->ann->id, (int) $this->teacher->id);
+
+        $zippath = seats_exporter::build_zip((int) $this->examcheck->id, $this->context, 'examcheck_seats');
+        $this->assertFileExists($zippath);
+
+        $target = make_request_directory();
+        get_file_packer('application/zip')->extract_to_pathname($zippath, $target);
+
+        $seatscsv = file_get_contents($target . '/' . seats_exporter::SEATS_FILENAME);
+        $studentscsv = file_get_contents($target . '/' . seats_exporter::STUDENTS_FILENAME);
+
+        $this->assertStringContainsString('seat', $seatscsv);
+        $this->assertStringContainsString('A1', $seatscsv);
+        // The roster file names both students; only Ann carries a seat.
+        $this->assertStringContainsString('ann', $studentscsv);
+        $this->assertStringContainsString('bob', $studentscsv);
+        $this->assertStringContainsString('A1', $studentscsv);
+    }
+
+    /**
+     * A full export/import round-trip restores the exact seat list and assignments:
+     * seats.csv rebuilds the list, students.csv reseats everyone. Custom profile
+     * fields ride along in the identity columns.
      */
     public function test_export_import_round_trip(): void {
         global $CFG;
 
         // Identity includes a custom profile field (exporter passes true to
         // include them, unlike the roster table).
-        $field = $this->getDataGenerator()->create_custom_profile_field([
+        $this->getDataGenerator()->create_custom_profile_field([
             'shortname' => 'faculty', 'name' => 'Faculty', 'datatype' => 'text',
         ]);
         profile_save_data((object) ['id' => $this->ann->id, 'profile_field_faculty' => 'Science']);
@@ -266,26 +370,63 @@ final class seats_import_test extends \advanced_testcase {
         seats::assign($seatids[0], (int) $this->ann->id, (int) $this->teacher->id);
         seats::assign($seatids[2], (int) $this->bob->id, (int) $this->teacher->id);
 
-        [$columns, $rows] = seats_exporter::columns_and_rows((int) $this->examcheck->id, $this->context);
-        $this->assertContains('profile_field_faculty', $columns);
-        $csv = implode(',', $columns) . "\n";
-        foreach ($rows as $row) {
-            $csv .= implode(',', $row) . "\n";
-        }
+        [$seatcolumns, $seatrows] = seats_exporter::seat_columns_and_rows((int) $this->examcheck->id);
+        [$studentcolumns, $studentrows] = seats_exporter::student_columns_and_rows(
+            (int) $this->examcheck->id,
+            $this->context
+        );
+        $this->assertContains('profile_field_faculty', $studentcolumns);
+        $seatcsv = $this->to_csv($seatcolumns, $seatrows);
+        $studentcsv = $this->to_csv($studentcolumns, $studentrows);
 
-        // Wipe everything, then import the export back in override mode.
+        // Wipe everything, then import both files back: the seat list in override mode,
+        // the assignments on top of it.
         seats::replace_list($this->examcheck->id, ['Z9']);
+
         $importer = $this->importer(true);
-        $cir = $this->reader($csv);
-        $this->assertSame([], $importer->validate($cir));
+        $this->assertSame([], $importer->validate($this->reader($seatcsv)));
+        $this->assertSame(['seats' => 3, 'assigned' => 0, 'unassigned' => 0], $importer->apply());
+
+        $importer = $this->importer(false);
+        $this->assertSame([], $importer->validate($this->reader($studentcsv)));
         $counts = $importer->apply();
 
-        $this->assertSame(['seats' => 3, 'assigned' => 2, 'unassigned' => 0], $counts);
+        $this->assertSame(3, $counts['seats']);
+        $this->assertSame(2, $counts['assigned']);
         $labels = array_map(fn($seat) => $seat->label, array_values(seats::get_seats($this->examcheck->id)));
         $this->assertSame(['A1', 'A2', 'B1'], $labels);
         $userlabels = seats::get_user_seat_labels($this->examcheck->id);
         $this->assertSame('A1', $userlabels[(int) $this->ann->id]);
         $this->assertSame('B1', $userlabels[(int) $this->bob->id]);
+    }
+
+    /**
+     * Index student export rows by their username column.
+     *
+     * @param string[][] $rows The export rows.
+     * @return array<string, string[]>
+     */
+    private function rows_by_username(array $rows): array {
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[$row[1]] = $row;
+        }
+        return $indexed;
+    }
+
+    /**
+     * Render columns and rows as CSV text.
+     *
+     * @param string[] $columns The header.
+     * @param string[][] $rows The rows.
+     * @return string
+     */
+    private function to_csv(array $columns, array $rows): string {
+        $csv = implode(',', $columns) . "\n";
+        foreach ($rows as $row) {
+            $csv .= implode(',', $row) . "\n";
+        }
+        return $csv;
     }
 
     /**

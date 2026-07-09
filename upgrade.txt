@@ -36,6 +36,31 @@ Information provided here is intended especially for developers.
   shows the site's configured identity fields (core_user\fields, now including
   custom profile fields) per the viewer's permissions. scanfield now only
   affects the scanner lookup.
+* New dynamic table \mod_examcheck\table\seat_assign (unique id
+  "examcheck-seatassign-{cmid}") with its mandatory seat_assign_filterset,
+  replacing the hand-rolled seat assignment markup. Sortable by seat (the
+  authored sortorder, reversed on descending) and by assigned student.
+* New output class \mod_examcheck\local\roster_exporter::columns_and_rows()
+  builds the roster export. export.php no longer emits a hardcoded idnumber
+  column: it emits the identity fields the exporting user may see, matching
+  the roster table. Sites whose showuseridentity omits idnumber will no longer
+  find it in the downloaded file.
+* \mod_examcheck\local\seats_exporter::columns_and_rows() was replaced by
+  seat_columns_and_rows(), student_columns_and_rows() and build_zip(). The
+  export now offers two scopes: the seat list as one CSV, or the seat list
+  plus the roster as seats.csv + students.csv in a zip. students.csv holds one
+  row per roster student, with an empty seat when unassigned.
+* \mod_examcheck\local\seats_importer accepts the new row shapes: a student
+  with no seat is unseated, a row blank on both sides is skipped, and a file
+  with no student column (username/email/idnumber) only describes the seat
+  list and never clears an assignment. Previously such a file emptied every
+  seat it named.
+* New form \mod_examcheck\form\seats_export_form (the export scope picker).
+  The seats export no longer uses download_dataformat_selector, so it no
+  longer honours the dataformat request parameter.
+* Lang strings importseats, exportseats and importseatsintro were removed in
+  favour of import, export and importintro; exportscope, exportscope_seats,
+  exportscope_seatsandstudents and exportscope_help were added.
 
 === 5.1-r1 ===
 
